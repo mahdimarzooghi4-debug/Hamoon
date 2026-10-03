@@ -1,6 +1,15 @@
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
+from hamoon.domains.assessment.ports.repositories import AssessmentRepository
+from hamoon.domains.intervention.ports.repositories import InterventionRepository
+from hamoon.domains.pgor.ports.repositories import (
+    PGORDefinitionRepository,
+    PGORSnapshotRepository,
+)
+from hamoon.domains.prescription.ports.repositories import PrescriptionRepository
+from hamoon.domains.provider_result.ports.repositories import ProviderResultRepository
+from hamoon.domains.referral.ports.repositories import ReferralRepository
 from hamoon.domains.operations.domain.entities import (
     ReassessmentPlan,
     ReassessmentPlanStatus,
@@ -224,13 +233,13 @@ class StartPlannedReassessmentHandler:
         *,
         plans: ReassessmentPlanRepository,
         work_items: WorkItemRepository,
-        assessments,
-        definitions,
-        interventions,
-        provider_results,
-        referrals,
-        prescriptions,
-        snapshots,
+        assessments: AssessmentRepository,
+        definitions: PGORDefinitionRepository,
+        interventions: InterventionRepository,
+        provider_results: ProviderResultRepository,
+        referrals: ReferralRepository,
+        prescriptions: PrescriptionRepository,
+        snapshots: PGORSnapshotRepository,
         events: DomainEventRecorder,
         audits: AuditRecorder,
     ) -> None:
