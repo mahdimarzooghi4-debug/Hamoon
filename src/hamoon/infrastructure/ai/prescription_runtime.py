@@ -1,3 +1,4 @@
+from typing import cast
 from uuid import UUID
 
 from pydantic import JsonValue
@@ -36,7 +37,7 @@ INTERVENTION_TYPES = [
     "STABILIZATION",
 ]
 
-PRESCRIPTION_V1_SCHEMA: dict[str, JsonValue] = {
+PRESCRIPTION_V1_SCHEMA: dict[str, JsonValue] = cast(dict[str, JsonValue], {
     "type": "object",
     "additionalProperties": False,
     "required": [
@@ -128,7 +129,7 @@ PRESCRIPTION_V1_SCHEMA: dict[str, JsonValue] = {
             "uniqueItems": True,
         },
     },
-}
+})
 
 
 class GatewayPrescriptionAIClient(PrescriptionAIClient):
