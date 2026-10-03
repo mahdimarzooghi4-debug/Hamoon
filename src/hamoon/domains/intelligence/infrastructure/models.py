@@ -4,6 +4,14 @@ from uuid import UUID, uuid4
 from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
+from hamoon.domains.intelligence.domain.decisions import (
+    AIDecisionStatus,
+    AIDecisionType,
+    DiagnosisStatus,
+    HumanDecisionAction,
+    LearningSignalQuality,
+    LearningSignalType,
+)
 from hamoon.domains.intelligence.domain.entities import (
     FeaturePackageType,
     SensitivityClass,
@@ -76,3 +84,196 @@ class FeatureValueModel(Base):
         nullable=False,
     )
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+
+class AIDecisionModel(Base):
+    __tablename__ = "ai_decision"
+    __table_args__ = (
+        UniqueConstraint("trace_id", name="uq_ai_decision_trace_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    household_id: Mapped[UUID] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    assessment_id: Mapped[UUID] = mapped_column(
+        ForeignKey("assessment.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    feature_package_id: Mapped[UUID] = mapped_column(
+        ForeignKey("feature_package.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    pgor_snapshot_id: Mapped[UUID] = mapped_column(
+        ForeignKey("pgor_snapshot.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    decision_type: Mapped[AIDecisionType] = mapped_column(
+        Enum(AIDecisionType, name="ai_decision_type"),
+        nullable=False,
+    )
+    status: Mapped[AIDecisionStatus] = mapped_column(
+        Enum(AIDecisionStatus, name="ai_decision_status"),
+        nullable=False,
+    )
+    provider_code: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_id: Mapped[str] = mapped_column(String(250), nullable=False)
+    model_alias: Mapped[str] = mapped_column(String(150), nullable=False)
+    routing_policy_id: Mapped[UUID] = mapped_column(nullable=False)
+    routing_policy_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    prompt_policy_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    output_schema_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    structured_output: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    trace_id: Mapped[UUID] = mapped_column(nullable=False)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DiagnosisModel(Base):
+    __tablename__ = "diagnosis"
+    __table_args__ = (
+        UniqueConstraint("ai_decision_id", name="uq_diagnosis_ai_decision"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    household_id: Mapped[UUID] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    ai_decision_id: Mapped[UUID] = mapped_column(
+        ForeignKey("ai_decision.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    status: Mapped[DiagnosisStatus] = mapped_column(
+        Enum(DiagnosisStatus, name="diagnosis_status"),
+        nullable=False,
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    accepted_payload: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    latest_human_decision_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("human_decision.id", ondelete="SET NULL", use_alter=True),
+        nullable=True,
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    reviewed_by: Mapped[UUID | None] = mapped_column(
+        ForeignKey("actor.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+
+
+class HumanDecisionModel(Base):
+    __tablename__ = "human_decision"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    household_id: Mapped[UUID] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    ai_decision_id: Mapped[UUID] = mapped_column(
+        ForeignKey("ai_decision.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    diagnosis_id: Mapped[UUID] = mapped_column(
+        ForeignKey("diagnosis.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    actor_id: Mapped[UUID] = mapped_column(
+        ForeignKey("actor.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    action: Mapped[HumanDecisionAction] = mapped_column(
+        Enum(HumanDecisionAction, name="human_decision_action"),
+        nullable=False,
+    )
+    reason_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    reason_text: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    accepted_payload: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    modified_payload: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DecisionTraceModel(Base):
+    __tablename__ = "decision_trace"
+    __table_args__ = (
+        UniqueConstraint("ai_decision_id", name="uq_decision_trace_ai_decision"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    household_id: Mapped[UUID] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    trace_type: Mapped[AIDecisionType] = mapped_column(
+        Enum(AIDecisionType, name="ai_decision_type"),
+        nullable=False,
+    )
+    state_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    pgor_snapshot_id: Mapped[UUID] = mapped_column(
+        ForeignKey("pgor_snapshot.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    feature_package_id: Mapped[UUID] = mapped_column(
+        ForeignKey("feature_package.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    ai_decision_id: Mapped[UUID] = mapped_column(
+        ForeignKey("ai_decision.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    human_decision_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("human_decision.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    closed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
+class LearningSignalModel(Base):
+    __tablename__ = "learning_signal"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    household_id: Mapped[UUID] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    signal_type: Mapped[LearningSignalType] = mapped_column(
+        Enum(LearningSignalType, name="learning_signal_type"),
+        nullable=False,
+    )
+    ai_decision_id: Mapped[UUID] = mapped_column(
+        ForeignKey("ai_decision.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    human_decision_id: Mapped[UUID] = mapped_column(
+        ForeignKey("human_decision.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    diagnosis_id: Mapped[UUID] = mapped_column(
+        ForeignKey("diagnosis.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    signal_label: Mapped[str] = mapped_column(String(100), nullable=False)
+    quality_status: Mapped[LearningSignalQuality] = mapped_column(
+        Enum(LearningSignalQuality, name="learning_signal_quality"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_by: Mapped[UUID] = mapped_column(
+        ForeignKey("actor.id", ondelete="RESTRICT"),
+        nullable=False,
+    )

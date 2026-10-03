@@ -3,14 +3,26 @@ from uuid import UUID, uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from hamoon.domains.intelligence.domain.decisions import (
+    AIDecision,
+    DecisionTrace,
+    Diagnosis,
+    HumanDecision,
+    LearningSignal,
+)
 from hamoon.domains.intelligence.domain.entities import (
     FeaturePackage,
     FeatureValue,
     SensitivityClass,
 )
 from hamoon.domains.intelligence.infrastructure.models import (
+    AIDecisionModel,
+    DecisionTraceModel,
+    DiagnosisModel,
     FeaturePackageModel,
     FeatureValueModel,
+    HumanDecisionModel,
+    LearningSignalModel,
 )
 
 
@@ -93,3 +105,235 @@ class SqlAlchemyFeaturePackageRepository:
         )
         model = result.scalar_one_or_none()
         return None if model is None else await self._hydrate(model)
+
+
+
+def _ai_decision(model: AIDecisionModel) -> AIDecision:
+    return AIDecision(
+        id=model.id,
+        household_id=model.household_id,
+        assessment_id=model.assessment_id,
+        feature_package_id=model.feature_package_id,
+        pgor_snapshot_id=model.pgor_snapshot_id,
+        decision_type=model.decision_type,
+        status=model.status,
+        provider_code=model.provider_code,
+        model_id=model.model_id,
+        model_alias=model.model_alias,
+        routing_policy_id=model.routing_policy_id,
+        routing_policy_version=model.routing_policy_version,
+        prompt_policy_version=model.prompt_policy_version,
+        output_schema_version=model.output_schema_version,
+        structured_output=model.structured_output,
+        trace_id=model.trace_id,
+        generated_at=model.generated_at,
+    )
+
+
+def _diagnosis(model: DiagnosisModel) -> Diagnosis:
+    return Diagnosis(
+        id=model.id,
+        household_id=model.household_id,
+        ai_decision_id=model.ai_decision_id,
+        status=model.status,
+        version=model.version,
+        accepted_payload=model.accepted_payload,
+        created_at=model.created_at,
+        latest_human_decision_id=model.latest_human_decision_id,
+        reviewed_at=model.reviewed_at,
+        reviewed_by=model.reviewed_by,
+    )
+
+
+def _trace(model: DecisionTraceModel) -> DecisionTrace:
+    return DecisionTrace(
+        id=model.id,
+        household_id=model.household_id,
+        trace_type=model.trace_type,
+        state_fingerprint=model.state_fingerprint,
+        pgor_snapshot_id=model.pgor_snapshot_id,
+        feature_package_id=model.feature_package_id,
+        ai_decision_id=model.ai_decision_id,
+        human_decision_id=model.human_decision_id,
+        opened_at=model.opened_at,
+        closed_at=model.closed_at,
+    )
+
+
+class SqlAlchemyAIDecisionRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def add(self, decision: AIDecision) -> None:
+        self._session.add(
+            AIDecisionModel(
+                id=decision.id,
+                household_id=decision.household_id,
+                assessment_id=decision.assessment_id,
+                feature_package_id=decision.feature_package_id,
+                pgor_snapshot_id=decision.pgor_snapshot_id,
+                decision_type=decision.decision_type,
+                status=decision.status,
+                provider_code=decision.provider_code,
+                model_id=decision.model_id,
+                model_alias=decision.model_alias,
+                routing_policy_id=decision.routing_policy_id,
+                routing_policy_version=decision.routing_policy_version,
+                prompt_policy_version=decision.prompt_policy_version,
+                output_schema_version=decision.output_schema_version,
+                structured_output=decision.structured_output,
+                trace_id=decision.trace_id,
+                generated_at=decision.generated_at,
+            )
+        )
+
+    async def get(self, decision_id: UUID) -> AIDecision | None:
+        model = await self._session.get(AIDecisionModel, decision_id)
+        return None if model is None else _ai_decision(model)
+
+
+class SqlAlchemyDiagnosisRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def add(self, diagnosis: Diagnosis) -> None:
+        self._session.add(
+            DiagnosisModel(
+                id=diagnosis.id,
+                household_id=diagnosis.household_id,
+                ai_decision_id=diagnosis.ai_decision_id,
+                status=diagnosis.status,
+                version=diagnosis.version,
+                accepted_payload=diagnosis.accepted_payload,
+                created_at=diagnosis.created_at,
+                latest_human_decision_id=diagnosis.latest_human_decision_id,
+                reviewed_at=diagnosis.reviewed_at,
+                reviewed_by=diagnosis.reviewed_by,
+            )
+        )
+
+    async def get(self, diagnosis_id: UUID) -> Diagnosis | None:
+        model = await self._session.get(DiagnosisModel, diagnosis_id)
+        return None if model is None else _diagnosis(model)
+
+    async def update(
+        self,
+        diagnosis: Diagnosis,
+        *,
+        expected_version: int,
+    ) -> None:
+        result = await self._session.execute(
+            select(DiagnosisModel)
+            .where(DiagnosisModel.id == diagnosis.id)
+            .with_for_update()
+        )
+        model = result.scalar_one_or_none()
+        if model is None:
+            raise RuntimeError("Diagnosis disappeared during update.")
+        if model.version != expected_version:
+            from hamoon.domains.intelligence.domain.errors import (
+                DiagnosisVersionConflictError,
+            )
+
+            raise DiagnosisVersionConflictError("Diagnosis version changed.")
+
+        model.status = diagnosis.status
+        model.version = diagnosis.version
+        model.accepted_payload = diagnosis.accepted_payload
+        model.latest_human_decision_id = diagnosis.latest_human_decision_id
+        model.reviewed_at = diagnosis.reviewed_at
+        model.reviewed_by = diagnosis.reviewed_by
+
+
+class SqlAlchemyHumanDecisionRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def add(self, decision: HumanDecision) -> None:
+        self._session.add(
+            HumanDecisionModel(
+                id=decision.id,
+                household_id=decision.household_id,
+                ai_decision_id=decision.ai_decision_id,
+                diagnosis_id=decision.diagnosis_id,
+                actor_id=decision.actor_id,
+                action=decision.action,
+                reason_code=decision.reason_code,
+                reason_text=decision.reason_text,
+                accepted_payload=decision.accepted_payload,
+                modified_payload=decision.modified_payload,
+                decided_at=decision.decided_at,
+            )
+        )
+
+
+class SqlAlchemyDecisionTraceRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def add(self, trace: DecisionTrace) -> None:
+        self._session.add(
+            DecisionTraceModel(
+                id=trace.id,
+                household_id=trace.household_id,
+                trace_type=trace.trace_type,
+                state_fingerprint=trace.state_fingerprint,
+                pgor_snapshot_id=trace.pgor_snapshot_id,
+                feature_package_id=trace.feature_package_id,
+                ai_decision_id=trace.ai_decision_id,
+                human_decision_id=trace.human_decision_id,
+                opened_at=trace.opened_at,
+                closed_at=trace.closed_at,
+            )
+        )
+
+    async def get_by_ai_decision(
+        self,
+        ai_decision_id: UUID,
+    ) -> DecisionTrace | None:
+        result = await self._session.execute(
+            select(DecisionTraceModel).where(
+                DecisionTraceModel.ai_decision_id == ai_decision_id
+            )
+        )
+        model = result.scalar_one_or_none()
+        return None if model is None else _trace(model)
+
+    async def attach_human_decision(
+        self,
+        *,
+        ai_decision_id: UUID,
+        human_decision_id: UUID,
+        closed_at,
+    ) -> None:
+        result = await self._session.execute(
+            select(DecisionTraceModel)
+            .where(DecisionTraceModel.ai_decision_id == ai_decision_id)
+            .with_for_update()
+        )
+        model = result.scalar_one_or_none()
+        if model is None:
+            raise RuntimeError("Decision trace is missing.")
+        model.human_decision_id = human_decision_id
+        model.closed_at = closed_at
+
+
+class SqlAlchemyLearningSignalRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def add(self, signal: LearningSignal) -> None:
+        self._session.add(
+            LearningSignalModel(
+                id=signal.id,
+                household_id=signal.household_id,
+                signal_type=signal.signal_type,
+                ai_decision_id=signal.ai_decision_id,
+                human_decision_id=signal.human_decision_id,
+                diagnosis_id=signal.diagnosis_id,
+                signal_label=signal.signal_label,
+                quality_status=signal.quality_status,
+                created_at=signal.created_at,
+                created_by=signal.created_by,
+            )
+        )
