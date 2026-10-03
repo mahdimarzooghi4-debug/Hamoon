@@ -404,6 +404,8 @@ async def create_ai_evaluation(
             model_version_id=evaluation.model_version_id,
             prompt_policy_version_id=evaluation.prompt_policy_version_id,
             dataset_version_id=evaluation.dataset_version_id,
+            dataset_manifest_digest=evaluation.dataset_manifest_digest,
+            report_digest=evaluation.report_digest,
             evaluation_policy_version=evaluation.evaluation_policy_version,
             status=evaluation.status.value,
             passed=evaluation.passed,
