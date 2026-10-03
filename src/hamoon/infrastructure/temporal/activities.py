@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
