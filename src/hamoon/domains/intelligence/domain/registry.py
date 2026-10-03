@@ -69,3 +69,16 @@ class RoutingPromotionResult:
     model_status: AIModelVersionStatus
     routing_status: RoutingPolicyStatus
     activated_at: datetime
+
+
+
+@dataclass(frozen=True, slots=True)
+class RoutingPolicyDraft:
+    id: UUID
+    task_class: AITaskClass
+    version: str
+    model_alias: str
+    model_version_id: UUID
+    prompt_policy_version_id: UUID
+    evaluation_run_id: UUID
+    status: RoutingPolicyStatus

@@ -16,8 +16,11 @@ from hamoon.domains.intelligence.api.schemas import (
     AIDecisionResponse,
     AIEvaluationRunData,
     AIEvaluationRunResponse,
+    AIRoutingPolicyDraftData,
+    AIRoutingPolicyDraftResponse,
     AIRoutingPromotionData,
     AIRoutingPromotionResponse,
+    CreateAIRoutingPolicyRequest,
     CompleteAIEvaluationRequest,
     ConfirmDiagnosisRequest,
     DecisionTraceData,
@@ -608,6 +611,77 @@ async def complete_ai_evaluation(
             summary_metrics=evaluation.summary_metrics,
             started_at=evaluation.started_at,
             completed_at=evaluation.completed_at,
+        )
+    )
+
+
+@router.post(
+    "/api/v1/admin/ai/routing-policies",
+    response_model=AIRoutingPolicyDraftResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_ai_routing_policy(
+    body: CreateAIRoutingPolicyRequest,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.ADMIN)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> AIRoutingPolicyDraftResponse:
+    repository = SqlAlchemyAIRuntimeRegistryRepository(session)
+    now = datetime.now(UTC)
+    try:
+        async with session.begin():
+            routing = await repository.create_routing_policy(
+                task_class=body.task_class,
+                version=body.version,
+                model_alias=body.model_alias,
+                model_version_id=body.model_version_id,
+                prompt_policy_version_id=body.prompt_policy_version_id,
+                evaluation_run_id=body.evaluation_run_id,
+            )
+            await SqlAlchemyAuditRecorder(session).record(
+                AuditRecord(
+                    id=uuid4(),
+                    actor_id=context.actor_id,
+                    action="ai.routing.create",
+                    resource_type="MODEL_ROUTING_POLICY",
+                    resource_id=routing.id,
+                    request_id=current_request_id() or "unknown",
+                    correlation_id=current_correlation_id()
+                    or current_request_id()
+                    or "unknown",
+                    created_at=now,
+                    purpose="AI_MODEL_GOVERNANCE",
+                    metadata={
+                        "task_class": routing.task_class.value,
+                        "evaluation_run_id": str(routing.evaluation_run_id),
+                        "model_version_id": str(routing.model_version_id),
+                        "routing_version": routing.version,
+                    },
+                )
+            )
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": str(exc)},
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": str(exc)},
+        ) from exc
+
+    return AIRoutingPolicyDraftResponse(
+        data=AIRoutingPolicyDraftData(
+            routing_policy_id=routing.id,
+            task_class=routing.task_class,
+            version=routing.version,
+            model_alias=routing.model_alias,
+            model_version_id=routing.model_version_id,
+            prompt_policy_version_id=routing.prompt_policy_version_id,
+            evaluation_run_id=routing.evaluation_run_id,
+            status=routing.status.value,
         )
     )
 

@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, JsonValue
 
+from hamoon.infrastructure.ai.contracts import AITaskClass
+
 from hamoon.domains.intelligence.domain.decisions import (
     AIDecisionStatus,
     AIDecisionType,
@@ -127,3 +129,28 @@ class AIRoutingPromotionData(BaseModel):
 
 class AIRoutingPromotionResponse(BaseModel):
     data: AIRoutingPromotionData
+
+
+
+class CreateAIRoutingPolicyRequest(BaseModel):
+    task_class: AITaskClass
+    version: str = Field(min_length=1, max_length=100)
+    model_alias: str = Field(min_length=1, max_length=150)
+    model_version_id: UUID
+    prompt_policy_version_id: UUID
+    evaluation_run_id: UUID
+
+
+class AIRoutingPolicyDraftData(BaseModel):
+    routing_policy_id: UUID
+    task_class: AITaskClass
+    version: str
+    model_alias: str
+    model_version_id: UUID
+    prompt_policy_version_id: UUID
+    evaluation_run_id: UUID
+    status: str
+
+
+class AIRoutingPolicyDraftResponse(BaseModel):
+    data: AIRoutingPolicyDraftData

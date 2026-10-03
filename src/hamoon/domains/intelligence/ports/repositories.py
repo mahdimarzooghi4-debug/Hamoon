@@ -15,6 +15,7 @@ from hamoon.domains.intelligence.domain.entities import FeaturePackage
 from hamoon.domains.intelligence.domain.registry import (
     EvaluationRunState,
     ResolvedAIRoute,
+    RoutingPolicyDraft,
     RoutingPromotionResult,
 )
 from hamoon.infrastructure.ai.contracts import AITaskClass
@@ -134,6 +135,17 @@ class AIRuntimeRegistryRepository(Protocol):
         summary_metrics: dict[str, JsonValue],
         completed_at: datetime,
     ) -> EvaluationRunState: ...
+
+    async def create_routing_policy(
+        self,
+        *,
+        task_class: AITaskClass,
+        version: str,
+        model_alias: str,
+        model_version_id: UUID,
+        prompt_policy_version_id: UUID,
+        evaluation_run_id: UUID,
+    ) -> RoutingPolicyDraft: ...
 
     async def promote_routing_policy(
         self,

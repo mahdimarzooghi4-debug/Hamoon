@@ -24,6 +24,7 @@ from hamoon.domains.intelligence.domain.registry import (
     EvaluationRunState,
     PromptPolicyVersionStatus,
     ResolvedAIRoute,
+    RoutingPolicyDraft,
     RoutingPolicyStatus,
     RoutingPromotionResult,
 )
@@ -642,6 +643,88 @@ class SqlAlchemyAIRuntimeRegistryRepository:
                     )
                 )
         return _evaluation_run_state(model)
+
+    async def create_routing_policy(
+        self,
+        *,
+        task_class: AITaskClass,
+        version: str,
+        model_alias: str,
+        model_version_id: UUID,
+        prompt_policy_version_id: UUID,
+        evaluation_run_id: UUID,
+    ) -> RoutingPolicyDraft:
+        evaluation = await self._session.get(EvaluationRunModel, evaluation_run_id)
+        if evaluation is None:
+            raise LookupError("EVALUATION_RUN_NOT_FOUND")
+        if (
+            evaluation.status != EvaluationStatus.PASSED
+            or not evaluation.passed
+            or evaluation.completed_at is None
+        ):
+            raise ValueError("EVALUATION_NOT_PASSED")
+        if evaluation.dataset_version_id is None:
+            raise ValueError("EVALUATION_DATASET_REQUIRED")
+        if evaluation.task_class is not task_class:
+            raise ValueError("EVALUATION_TASK_CLASS_MISMATCH")
+        if evaluation.model_version_id != model_version_id:
+            raise ValueError("EVALUATION_MODEL_VERSION_MISMATCH")
+        if evaluation.prompt_policy_version_id != prompt_policy_version_id:
+            raise ValueError("EVALUATION_PROMPT_VERSION_MISMATCH")
+
+        model_version = await self._session.get(AIModelVersionModel, model_version_id)
+        if model_version is None:
+            raise LookupError("AI_MODEL_VERSION_NOT_FOUND")
+        prompt_version = await self._session.get(
+            PromptPolicyVersionModel,
+            prompt_policy_version_id,
+        )
+        if prompt_version is None:
+            raise LookupError("PROMPT_POLICY_VERSION_NOT_FOUND")
+        if model_version.status not in {
+            AIModelVersionStatus.CANDIDATE,
+            AIModelVersionStatus.APPROVED,
+        }:
+            raise ValueError("MODEL_VERSION_NOT_PROMOTABLE")
+        if prompt_version.status is not PromptPolicyVersionStatus.ACTIVE:
+            raise ValueError("PROMPT_POLICY_NOT_ACTIVE")
+
+        clean_version = version.strip()
+        clean_alias = model_alias.strip()
+        if not clean_version or not clean_alias:
+            raise ValueError("ROUTING_POLICY_METADATA_REQUIRED")
+        duplicate = await self._session.execute(
+            select(ModelRoutingPolicyModel.id).where(
+                ModelRoutingPolicyModel.task_class == task_class,
+                ModelRoutingPolicyModel.version == clean_version,
+            )
+        )
+        if duplicate.scalar_one_or_none() is not None:
+            raise ValueError("ROUTING_POLICY_VERSION_EXISTS")
+
+        routing = ModelRoutingPolicyModel(
+            id=uuid4(),
+            task_class=task_class,
+            version=clean_version,
+            model_alias=clean_alias,
+            model_version_id=model_version_id,
+            prompt_policy_version_id=prompt_policy_version_id,
+            evaluation_run_id=evaluation_run_id,
+            structured_output_required=True,
+            status=RoutingPolicyStatus.DRAFT,
+            approved_at=None,
+        )
+        self._session.add(routing)
+        return RoutingPolicyDraft(
+            id=routing.id,
+            task_class=routing.task_class,
+            version=routing.version,
+            model_alias=routing.model_alias,
+            model_version_id=routing.model_version_id,
+            prompt_policy_version_id=routing.prompt_policy_version_id,
+            evaluation_run_id=routing.evaluation_run_id,
+            status=routing.status,
+        )
 
     async def promote_routing_policy(
         self,
