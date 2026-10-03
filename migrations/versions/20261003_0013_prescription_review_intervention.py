@@ -32,14 +32,14 @@ def upgrade() -> None:
         "DIAGNOSIS",
         "PRESCRIPTION",
         name="human_decision_context",
-        create_type=False,
+        create_type=True,
     )
     item_status = postgresql.ENUM(
         "ACCEPTED",
         "ACTIVATED",
         "SUPERSEDED",
         name="prescription_item_status",
-        create_type=False,
+        create_type=True,
     )
     intervention_type = postgresql.ENUM(
         "COUNSELING",
@@ -58,7 +58,7 @@ def upgrade() -> None:
         "RISK_REDUCTION",
         "STABILIZATION",
         name="intervention_type",
-        create_type=False,
+        create_type=True,
     )
     intervention_status = postgresql.ENUM(
         "PLANNED",
@@ -68,7 +68,7 @@ def upgrade() -> None:
         "COMPLETED",
         "CANCELLED",
         name="intervention_status",
-        create_type=False,
+        create_type=True,
     )
 
     for enum_type in (
