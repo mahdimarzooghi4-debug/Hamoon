@@ -1,7 +1,6 @@
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
-
-from datetime import datetime
 
 from hamoon.domains.intelligence.domain.decisions import (
     AIDecision,
@@ -24,7 +23,6 @@ class FeaturePackageRepository(Protocol):
         snapshot_id: UUID,
         schema_version: str,
     ) -> FeaturePackage | None: ...
-
 
 
 class AIDecisionRepository(Protocol):
