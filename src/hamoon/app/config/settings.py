@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     openai_base_url: str = "https://api.openai.com/v1"
     openai_timeout_seconds: float = 60.0
 
+    temporal_address: str = "localhost:7233"
+    temporal_namespace: str = "default"
+    temporal_core_task_queue: str = "hamoon-core"
+
 
 @lru_cache
 def get_settings() -> Settings:
