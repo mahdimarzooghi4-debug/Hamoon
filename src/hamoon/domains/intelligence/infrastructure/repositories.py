@@ -1,9 +1,8 @@
+from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from hamoon.infrastructure.ai.contracts import AIRoutingPolicy, AITaskClass
 
 from hamoon.domains.intelligence.domain.decisions import (
     AIDecision,
@@ -42,7 +41,7 @@ from hamoon.domains.intelligence.infrastructure.models import (
     ModelRoutingPolicyModel,
     PromptPolicyVersionModel,
 )
-
+from hamoon.infrastructure.ai.contracts import AIRoutingPolicy, AITaskClass
 
 class SqlAlchemyFeaturePackageRepository:
     def __init__(self, session: AsyncSession) -> None:
@@ -124,8 +123,6 @@ class SqlAlchemyFeaturePackageRepository:
         model = result.scalar_one_or_none()
         return None if model is None else await self._hydrate(model)
 
-
-
 def _ai_decision(model: AIDecisionModel) -> AIDecision:
     return AIDecision(
         id=model.id,
@@ -147,7 +144,6 @@ def _ai_decision(model: AIDecisionModel) -> AIDecision:
         generated_at=model.generated_at,
     )
 
-
 def _diagnosis(model: DiagnosisModel) -> Diagnosis:
     return Diagnosis(
         id=model.id,
@@ -161,7 +157,6 @@ def _diagnosis(model: DiagnosisModel) -> Diagnosis:
         reviewed_at=model.reviewed_at,
         reviewed_by=model.reviewed_by,
     )
-
 
 def _human_decision(model: HumanDecisionModel) -> HumanDecision:
     return HumanDecision(
@@ -178,7 +173,6 @@ def _human_decision(model: HumanDecisionModel) -> HumanDecision:
         decided_at=model.decided_at,
     )
 
-
 def _trace(model: DecisionTraceModel) -> DecisionTrace:
     return DecisionTrace(
         id=model.id,
@@ -192,7 +186,6 @@ def _trace(model: DecisionTraceModel) -> DecisionTrace:
         opened_at=model.opened_at,
         closed_at=model.closed_at,
     )
-
 
 class SqlAlchemyAIDecisionRepository:
     def __init__(self, session: AsyncSession) -> None:
@@ -224,7 +217,6 @@ class SqlAlchemyAIDecisionRepository:
     async def get(self, decision_id: UUID) -> AIDecision | None:
         model = await self._session.get(AIDecisionModel, decision_id)
         return None if model is None else _ai_decision(model)
-
 
 class SqlAlchemyDiagnosisRepository:
     def __init__(self, session: AsyncSession) -> None:
@@ -278,7 +270,6 @@ class SqlAlchemyDiagnosisRepository:
         model.reviewed_at = diagnosis.reviewed_at
         model.reviewed_by = diagnosis.reviewed_by
 
-
 class SqlAlchemyHumanDecisionRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -303,7 +294,6 @@ class SqlAlchemyHumanDecisionRepository:
     async def get(self, decision_id: UUID) -> HumanDecision | None:
         model = await self._session.get(HumanDecisionModel, decision_id)
         return None if model is None else _human_decision(model)
-
 
 class SqlAlchemyDecisionTraceRepository:
     def __init__(self, session: AsyncSession) -> None:
@@ -355,7 +345,6 @@ class SqlAlchemyDecisionTraceRepository:
         model.human_decision_id = human_decision_id
         model.closed_at = closed_at
 
-
 class SqlAlchemyLearningSignalRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -375,7 +364,6 @@ class SqlAlchemyLearningSignalRepository:
                 created_by=signal.created_by,
             )
         )
-
 
 class SqlAlchemyAIRuntimeRegistryRepository:
     def __init__(self, session: AsyncSession) -> None:
@@ -468,7 +456,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         evaluation_run_id: UUID,
         passed: bool,
         summary_metrics: dict[str, object],
-        completed_at,
+        completed_at: datetime,
     ) -> EvaluationRunState:
         result = await self._session.execute(
             select(EvaluationRunModel)
@@ -497,7 +485,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         self,
         *,
         routing_policy_id: UUID,
-        activated_at,
+        activated_at: datetime,
     ) -> RoutingPromotionResult:
         result = await self._session.execute(
             select(
@@ -583,8 +571,6 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             routing_status=routing.status,
             activated_at=activated_at,
         )
-
-
 
 def _evaluation_run_state(model: EvaluationRunModel) -> EvaluationRunState:
     return EvaluationRunState(
