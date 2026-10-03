@@ -35,6 +35,8 @@ class ClaimedOutboxMessage:
     aggregate_version: int
     correlation_id: str
     causation_id: str | None
+    traceparent: str | None
+    tracestate: str | None
     payload: dict[str, object]
     created_at: datetime
     attempt_count: int
@@ -132,6 +134,8 @@ class SqlAlchemyOutboxStore:
                             aggregate_version=model.aggregate_version,
                             correlation_id=model.correlation_id,
                             causation_id=model.causation_id,
+                            traceparent=model.traceparent,
+                            tracestate=model.tracestate,
                             payload=model.payload,
                             created_at=model.created_at,
                             attempt_count=model.attempt_count,
@@ -191,6 +195,8 @@ def event_envelope(message: ClaimedOutboxMessage) -> dict[str, object]:
         "aggregate_version": message.aggregate_version,
         "correlation_id": message.correlation_id,
         "causation_id": message.causation_id,
+        "traceparent": message.traceparent,
+        "tracestate": message.tracestate,
         "occurred_at": message.created_at.isoformat(),
         "payload": message.payload,
     }
@@ -234,15 +240,20 @@ class NatsJetStreamEventPublisher:
             separators=(",", ":"),
             sort_keys=True,
         ).encode("utf-8")
+        headers = {
+            "Nats-Msg-Id": str(message.event_id),
+            "X-Correlation-Id": message.correlation_id,
+            "X-Event-Type": message.event_type,
+            "X-Event-Version": str(message.event_version),
+        }
+        if message.traceparent is not None:
+            headers["traceparent"] = message.traceparent
+        if message.tracestate is not None:
+            headers["tracestate"] = message.tracestate
         await self._jetstream.publish(
             event_subject(message),
             encoded,
-            headers={
-                "Nats-Msg-Id": str(message.event_id),
-                "X-Correlation-Id": message.correlation_id,
-                "X-Event-Type": message.event_type,
-                "X-Event-Version": str(message.event_version),
-            },
+            headers=headers,
         )
 
     async def close(self) -> None:
