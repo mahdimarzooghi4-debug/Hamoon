@@ -155,19 +155,19 @@ async def start_work_item_reassessment(
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
     repository = SqlAlchemyWorkItemRepository(session)
-    item = await repository.get(work_item_id)
-    if item is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "RESOURCE_NOT_FOUND"},
-        )
-    await require_household_assignment(
-        session=session,
-        context=context,
-        household_id=item.household_id,
-    )
     try:
         async with session.begin():
+            item = await repository.get(work_item_id)
+            if item is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"code": "RESOURCE_NOT_FOUND"},
+                )
+            await require_household_assignment(
+                session=session,
+                context=context,
+                household_id=item.household_id,
+            )
             assessment, updated_item, plan = await StartPlannedReassessmentHandler(
                 plans=SqlAlchemyReassessmentPlanRepository(session),
                 work_items=repository,
