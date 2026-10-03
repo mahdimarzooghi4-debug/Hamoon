@@ -4,15 +4,23 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from hamoon.app.config.settings import get_settings
 from hamoon.app.observability.request_context import current_correlation_id, current_request_id
 from hamoon.app.security.context import AuthorizationContext, Role
 from hamoon.app.security.dependencies import require_roles
 from hamoon.app.security.resource_scope import require_household_assignment
+from hamoon.domains.assessment.domain.entities import AssessmentType
 from hamoon.domains.assessment.infrastructure.repositories import (
     SqlAlchemyAcceptedObservationRepository,
     SqlAlchemyAssessmentRepository,
     SqlAlchemyIndicatorObservationRepository,
     SqlAlchemyObservationValidationRepository,
+)
+from hamoon.domains.operations.application.handlers import MarkPostPGORReadyHandler
+from hamoon.domains.operations.domain.entities import ReassessmentPlan
+from hamoon.domains.operations.infrastructure.repositories import (
+    SqlAlchemyReassessmentPlanRepository,
+    SqlAlchemyWorkItemRepository,
 )
 from hamoon.domains.pgor.api.schemas import (
     CalculatePGORRequest,
@@ -43,6 +51,9 @@ from hamoon.domains.pgor.infrastructure.repositories import (
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
+from hamoon.infrastructure.temporal.reassessment_starter import (
+    signal_post_pgor_best_effort,
+)
 
 router = APIRouter(tags=["pgor"])
 
@@ -168,34 +179,36 @@ async def calculate_official_pgor(
     ],
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> PGORSnapshotResponse:
-    assessment = await SqlAlchemyAssessmentRepository(session).get(assessment_id)
-    if assessment is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "RESOURCE_NOT_FOUND"},
-        )
-    await require_household_assignment(
-        session=session,
-        context=context,
-        household_id=assessment.household_id,
-    )
-
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
-    handler = CalculateOfficialPGORHandler(
-        assessments=SqlAlchemyAssessmentRepository(session),
-        definitions=SqlAlchemyPGORDefinitionRepository(session),
-        accepted_observations=SqlAlchemyAcceptedObservationRepository(session),
-        observations=SqlAlchemyIndicatorObservationRepository(session),
-        validations=SqlAlchemyObservationValidationRepository(session),
-        formulas=SqlAlchemyPGORFormulaRepository(session),
-        snapshots=SqlAlchemyPGORSnapshotRepository(session),
-        events=SqlAlchemyDomainEventRecorder(session),
-        audits=SqlAlchemyAuditRecorder(session),
-    )
+    plan: ReassessmentPlan | None = None
+
     try:
         async with session.begin():
-            snapshot = await handler.handle(
+            assessments = SqlAlchemyAssessmentRepository(session)
+            assessment = await assessments.get(assessment_id)
+            if assessment is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"code": "RESOURCE_NOT_FOUND"},
+                )
+            await require_household_assignment(
+                session=session,
+                context=context,
+                household_id=assessment.household_id,
+            )
+
+            snapshot = await CalculateOfficialPGORHandler(
+                assessments=assessments,
+                definitions=SqlAlchemyPGORDefinitionRepository(session),
+                accepted_observations=SqlAlchemyAcceptedObservationRepository(session),
+                observations=SqlAlchemyIndicatorObservationRepository(session),
+                validations=SqlAlchemyObservationValidationRepository(session),
+                formulas=SqlAlchemyPGORFormulaRepository(session),
+                snapshots=SqlAlchemyPGORSnapshotRepository(session),
+                events=SqlAlchemyDomainEventRecorder(session),
+                audits=SqlAlchemyAuditRecorder(session),
+            ).handle(
                 CalculateOfficialPGORCommand(
                     assessment_id=assessment_id,
                     formula_version_id=body.formula_version_id,
@@ -204,6 +217,24 @@ async def calculate_official_pgor(
                     correlation_id=correlation_id,
                 )
             )
+
+            if (
+                assessment.assessment_type is AssessmentType.OUTCOME_REASSESSMENT
+                and assessment.provider_result_id is not None
+            ):
+                plan = await MarkPostPGORReadyHandler(
+                    plans=SqlAlchemyReassessmentPlanRepository(session),
+                    work_items=SqlAlchemyWorkItemRepository(session),
+                    events=SqlAlchemyDomainEventRecorder(session),
+                    audits=SqlAlchemyAuditRecorder(session),
+                ).handle(
+                    provider_result_id=assessment.provider_result_id,
+                    assessment_id=assessment.id,
+                    snapshot_id=snapshot.id,
+                    actor_id=context.actor_id,
+                    request_id=request_id,
+                    correlation_id=correlation_id,
+                )
     except FormulaVersionNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -214,6 +245,17 @@ async def calculate_official_pgor(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"code": "PGOR_CALCULATION_BLOCKED", "reason": str(exc)},
         ) from exc
+    except (LookupError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": str(exc)},
+        ) from exc
+
+    if plan is not None:
+        await signal_post_pgor_best_effort(
+            plan=plan,
+            settings=get_settings(),
+        )
 
     return PGORSnapshotResponse(data=_snapshot_data(snapshot))
 
