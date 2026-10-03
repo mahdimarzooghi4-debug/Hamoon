@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
+from hamoon.domains.assessment.domain.entities import Assessment
 from hamoon.domains.assessment.ports.repositories import AssessmentRepository
 from hamoon.domains.intervention.ports.repositories import InterventionRepository
 from hamoon.domains.pgor.ports.repositories import (
@@ -263,7 +264,7 @@ class StartPlannedReassessmentHandler:
         actor_id: UUID,
         request_id: str,
         correlation_id: str,
-    ):
+    ) -> tuple[Assessment, WorkItem, ReassessmentPlan]:
         from hamoon.domains.assessment.application.reassessment import (
             StartReassessmentHandler,
         )
