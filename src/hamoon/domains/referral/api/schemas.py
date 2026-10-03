@@ -16,7 +16,7 @@ class CreateReferralRequest(BaseModel):
     provider_service_id: UUID
     priority: str = Field(min_length=1, max_length=50)
     response_due_at: datetime | None = None
-    shared_data_items: list[SharedDataItemRequest] = Field(default_factory=list)
+    shared_data_items: list[SharedDataItemRequest]
 
 
 class ReferralDataItemData(BaseModel):
