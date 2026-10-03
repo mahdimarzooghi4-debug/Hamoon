@@ -48,3 +48,20 @@ class TimelineItemData(BaseModel):
 
 class HouseholdTimelineResponse(BaseModel):
     data: list[TimelineItemData]
+
+
+
+class StartWorkItemReassessmentRequest(BaseModel):
+    expected_version: int = Field(ge=1)
+
+
+class StartWorkItemReassessmentData(BaseModel):
+    work_item: WorkItemData
+    assessment_id: UUID
+    reassessment_plan_id: UUID
+    definition_version_id: UUID
+    parent_assessment_id: UUID | None
+
+
+class StartWorkItemReassessmentResponse(BaseModel):
+    data: StartWorkItemReassessmentData

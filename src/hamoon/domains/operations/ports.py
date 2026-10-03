@@ -20,6 +20,11 @@ class ReassessmentPlanRepository(Protocol):
         provider_result_id: UUID,
     ) -> ReassessmentPlan | None: ...
 
+    async def get_by_outcome(
+        self,
+        outcome_id: UUID,
+    ) -> ReassessmentPlan | None: ...
+
     async def update(
         self,
         plan: ReassessmentPlan,

@@ -6,21 +6,50 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from hamoon.app.observability.request_context import current_correlation_id, current_request_id
 from hamoon.app.security.context import AuthorizationContext, Role
 from hamoon.app.security.dependencies import require_roles
 from hamoon.app.security.resource_scope import require_household_assignment
 from hamoon.domains.operations.api.schemas import (
     ClaimWorkItemRequest,
+    StartWorkItemReassessmentData,
+    StartWorkItemReassessmentRequest,
+    StartWorkItemReassessmentResponse,
     HouseholdTimelineResponse,
     TimelineItemData,
     WorkItemData,
     WorkItemResponse,
     WorkQueueResponse,
 )
+from hamoon.domains.operations.application.handlers import (
+    StartPlannedReassessmentHandler,
+)
 from hamoon.domains.operations.domain.entities import WorkItem, WorkItemStatus
+from hamoon.domains.assessment.infrastructure.repositories import (
+    SqlAlchemyAssessmentRepository,
+)
+from hamoon.domains.intervention.infrastructure.repositories import (
+    SqlAlchemyInterventionRepository,
+)
 from hamoon.domains.operations.infrastructure.repositories import (
+    SqlAlchemyReassessmentPlanRepository,
     SqlAlchemyWorkItemRepository,
 )
+from hamoon.domains.pgor.infrastructure.repositories import (
+    SqlAlchemyPGORDefinitionRepository,
+    SqlAlchemyPGORSnapshotRepository,
+)
+from hamoon.domains.prescription.infrastructure.repositories import (
+    SqlAlchemyPrescriptionRepository,
+)
+from hamoon.domains.provider_result.infrastructure.repositories import (
+    SqlAlchemyProviderResultRepository,
+)
+from hamoon.domains.referral.infrastructure.repositories import (
+    SqlAlchemyReferralRepository,
+)
+from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
+from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.models import DomainEventModel
 
@@ -107,6 +136,83 @@ async def claim_work_item(
             detail={"code": str(exc)},
         ) from exc
     return WorkItemResponse(data=_work_item_data(updated))
+
+
+@router.post(
+    "/api/v1/work-queue/{work_item_id}/reassessment/start",
+    response_model=StartWorkItemReassessmentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def start_work_item_reassessment(
+    work_item_id: UUID,
+    body: StartWorkItemReassessmentRequest,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> StartWorkItemReassessmentResponse:
+    request_id = current_request_id() or "unknown"
+    correlation_id = current_correlation_id() or request_id
+    repository = SqlAlchemyWorkItemRepository(session)
+    item = await repository.get(work_item_id)
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RESOURCE_NOT_FOUND"},
+        )
+    await require_household_assignment(
+        session=session,
+        context=context,
+        household_id=item.household_id,
+    )
+    try:
+        async with session.begin():
+            assessment, updated_item, plan = await StartPlannedReassessmentHandler(
+                plans=SqlAlchemyReassessmentPlanRepository(session),
+                work_items=repository,
+                assessments=SqlAlchemyAssessmentRepository(session),
+                definitions=SqlAlchemyPGORDefinitionRepository(session),
+                interventions=SqlAlchemyInterventionRepository(session),
+                provider_results=SqlAlchemyProviderResultRepository(session),
+                referrals=SqlAlchemyReferralRepository(session),
+                prescriptions=SqlAlchemyPrescriptionRepository(session),
+                snapshots=SqlAlchemyPGORSnapshotRepository(session),
+                events=SqlAlchemyDomainEventRecorder(session),
+                audits=SqlAlchemyAuditRecorder(session),
+            ).handle(
+                work_item_id=work_item_id,
+                expected_version=body.expected_version,
+                actor_id=context.actor_id,
+                request_id=request_id,
+                correlation_id=correlation_id,
+            )
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": str(exc)},
+        ) from exc
+    except ValueError as exc:
+        code = str(exc)
+        http_status = (
+            status.HTTP_409_CONFLICT
+            if code == "WORK_ITEM_VERSION_CONFLICT"
+            else status.HTTP_422_UNPROCESSABLE_ENTITY
+        )
+        raise HTTPException(
+            status_code=http_status,
+            detail={"code": code},
+        ) from exc
+
+    return StartWorkItemReassessmentResponse(
+        data=StartWorkItemReassessmentData(
+            work_item=_work_item_data(updated_item),
+            assessment_id=assessment.id,
+            reassessment_plan_id=plan.id,
+            definition_version_id=assessment.definition_version_id,
+            parent_assessment_id=assessment.parent_assessment_id,
+        )
+    )
 
 
 @router.get(

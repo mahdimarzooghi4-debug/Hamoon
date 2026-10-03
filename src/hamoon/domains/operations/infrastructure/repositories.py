@@ -111,6 +111,18 @@ class SqlAlchemyReassessmentPlanRepository:
         model = result.scalar_one_or_none()
         return None if model is None else _plan(model)
 
+    async def get_by_outcome(
+        self,
+        outcome_id: UUID,
+    ) -> ReassessmentPlan | None:
+        result = await self._session.execute(
+            select(ReassessmentPlanModel).where(
+                ReassessmentPlanModel.outcome_id == outcome_id
+            )
+        )
+        model = result.scalar_one_or_none()
+        return None if model is None else _plan(model)
+
     async def update(
         self,
         plan: ReassessmentPlan,
