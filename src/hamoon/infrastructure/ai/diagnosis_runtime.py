@@ -4,13 +4,18 @@ from pydantic import JsonValue
 
 from hamoon.domains.intelligence.domain.decisions import AIExecutionResult
 from hamoon.domains.intelligence.domain.entities import FeaturePackage
+from hamoon.domains.intelligence.domain.errors import DiagnosisGenerationError
 from hamoon.domains.intelligence.ports.ai import DiagnosisAIClient
 from hamoon.infrastructure.ai.contracts import (
     AIRoutingPolicy,
     AITaskClass,
     StructuredAIRequest,
 )
-from hamoon.infrastructure.ai.gateway import ProviderAIGateway
+from hamoon.infrastructure.ai.gateway import (
+    AIOutputSchemaError,
+    AIRoutingError,
+    ProviderAIGateway,
+)
 
 
 DIAGNOSIS_V1_SCHEMA: dict[str, JsonValue] = {
@@ -81,17 +86,22 @@ class GatewayDiagnosisAIClient(DiagnosisAIClient):
         feature_package: FeaturePackage,
         correlation_id: str,
     ) -> AIExecutionResult:
-        result = await self._gateway.generate_structured(
-            request=StructuredAIRequest(
-                task_class=AITaskClass.DIAGNOSIS,
-                feature_package_id=feature_package.id,
-                feature_schema_version=feature_package.schema_version,
-                features=feature_package.provider_payload(),
-                correlation_id=correlation_id,
-            ),
-            routing_policy=self._routing_policy,
-            output_schema=DIAGNOSIS_V1_SCHEMA,
-        )
+        try:
+            result = await self._gateway.generate_structured(
+                request=StructuredAIRequest(
+                    task_class=AITaskClass.DIAGNOSIS,
+                    feature_package_id=feature_package.id,
+                    feature_schema_version=feature_package.schema_version,
+                    features=feature_package.provider_payload(),
+                    correlation_id=correlation_id,
+                ),
+                routing_policy=self._routing_policy,
+                output_schema=DIAGNOSIS_V1_SCHEMA,
+            )
+        except AIOutputSchemaError as exc:
+            raise DiagnosisGenerationError("AI_OUTPUT_SCHEMA_INVALID") from exc
+        except AIRoutingError as exc:
+            raise DiagnosisGenerationError("AI_ROUTING_FAILED") from exc
         return AIExecutionResult(
             provider_code=result.provider_code,
             model_id=result.model_id,
