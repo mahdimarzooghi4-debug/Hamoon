@@ -2,10 +2,14 @@ import asyncio
 import logging
 
 from temporalio.client import Client
+from temporalio.exceptions import WorkflowAlreadyStartedError
 from temporalio.worker import Worker
 
 from hamoon.app.config.settings import get_settings
-from hamoon.domains.operations.domain.entities import ReassessmentPlanStatus
+from hamoon.domains.operations.domain.entities import (
+    ReassessmentPlan,
+    ReassessmentPlanStatus,
+)
 from hamoon.domains.operations.infrastructure.repositories import (
     SqlAlchemyReassessmentPlanRepository,
 )
@@ -24,6 +28,29 @@ from hamoon.infrastructure.temporal.reassessment_workflow import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def _reconcile_active_plan(
+    starter: TemporalReassessmentStarter,
+    plan: ReassessmentPlan,
+) -> None:
+    await starter.start(plan)
+    if plan.post_pgor_snapshot_id is not None:
+        await starter.signal_post_pgor(plan)
+
+
+async def _reconcile_completed_plan(
+    starter: TemporalReassessmentStarter,
+    plan: ReassessmentPlan,
+) -> None:
+    try:
+        await starter.start(plan)
+    except WorkflowAlreadyStartedError:
+        # A successfully closed workflow must never be duplicated.
+        return
+    if plan.post_pgor_snapshot_id is not None:
+        await starter.signal_post_pgor(plan)
+    await starter.signal_outcome_reviewed(plan)
 
 
 async def _reconcile(client: Client, task_queue: str) -> None:
@@ -54,9 +81,7 @@ async def _reconcile(client: Client, task_queue: str) -> None:
 
         for plan in active:
             try:
-                await starter.start(plan)
-                if plan.post_pgor_snapshot_id is not None:
-                    await starter.signal_post_pgor(plan)
+                await _reconcile_active_plan(starter, plan)
             except Exception:
                 logger.exception(
                     "Temporal reassessment reconciliation failed",
@@ -65,10 +90,10 @@ async def _reconcile(client: Client, task_queue: str) -> None:
 
         for plan in completed:
             try:
-                await starter.signal_outcome_reviewed(plan)
+                await _reconcile_completed_plan(starter, plan)
             except Exception:
                 logger.debug(
-                    "Completed reassessment workflow not signalable",
+                    "Completed reassessment workflow not recoverable yet",
                     extra={"workflow_id": plan.workflow_id},
                     exc_info=True,
                 )

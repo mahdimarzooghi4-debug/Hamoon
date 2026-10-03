@@ -1,7 +1,7 @@
 import logging
 
 from temporalio.client import Client
-from temporalio.common import WorkflowIDConflictPolicy
+from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
 
 from hamoon.app.config.settings import Settings
 from hamoon.domains.operations.domain.entities import ReassessmentPlan
@@ -36,6 +36,7 @@ class TemporalReassessmentStarter:
             ),
             id=plan.workflow_id,
             task_queue=self._task_queue,
+            id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE_FAILED_ONLY,
             id_conflict_policy=WorkflowIDConflictPolicy.USE_EXISTING,
         )
 
