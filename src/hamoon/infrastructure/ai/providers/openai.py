@@ -46,9 +46,11 @@ class OpenAIProvider:
                         {
                             "type": "input_text",
                             "text": (
-                                "Return only a JSON diagnosis proposal grounded in the "
-                                "provided Hamoon feature package. Do not invent missing "
-                                "facts. Feature package:\n"
+                                "Return only a structured JSON proposal for the Hamoon "
+                                f"task {request.task_class.value}, grounded in the provided "
+                                "versioned feature package. Do not invent missing facts, "
+                                "do not change authoritative PGOR values, and preserve "
+                                "human-review boundaries. Feature package:\n"
                                 + json.dumps(
                                     request.features,
                                     ensure_ascii=False,

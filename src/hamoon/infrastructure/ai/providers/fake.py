@@ -25,6 +25,8 @@ class FakeAIProvider:
             output = self._diagnosis(request)
         elif request.task_class is AITaskClass.PRESCRIPTION:
             output = self._prescription(request)
+        elif request.task_class is AITaskClass.OUTCOME_INTERPRETATION:
+            output = self._outcome(request)
         else:
             raise ValueError("Fake provider does not support this task class.")
 
@@ -110,5 +112,31 @@ class FakeAIProvider:
             "summary": "Test-only source-matrix prescription proposal.",
             "intensity_score": intensity,
             "items": items,
+            "review_flags": ["FAKE_PROVIDER", "HUMAN_REVIEW_REQUIRED"],
+        }
+
+
+    @staticmethod
+    def _outcome(request: ProviderStructuredRequest) -> dict[str, JsonValue]:
+        refs = [
+            key
+            for key in (
+                "pgor.delta.E",
+                "pgor.pre.E",
+                "pgor.post.E",
+                "intervention.type",
+            )
+            if key in request.features
+        ]
+        if not refs:
+            refs = ["policy.causal_claim_allowed"]
+        return {
+            "schema_version": "outcome-interpretation-v1",
+            "classification": "NO_SIGNIFICANT_CHANGE",
+            "observed_change_summary": (
+                "Test-only outcome interpretation proposal from FakeAIProvider."
+            ),
+            "causal_claim": False,
+            "supporting_feature_refs": refs,
             "review_flags": ["FAKE_PROVIDER", "HUMAN_REVIEW_REQUIRED"],
         }
