@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 from decimal import Decimal
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import pytest
 
@@ -26,6 +26,7 @@ from hamoon.domains.assessment.domain.entities import (
 from hamoon.domains.assessment.domain.errors import ObservationNotValidatedError
 from hamoon.domains.family_data.domain.entities import DataSource, SourceType
 from hamoon.domains.pgor.domain.definitions import (
+    PGORDefinitionBundle,
     PGORDefinitionStatus,
     PGORDefinitionVersion,
     PGORIndicatorDefinition,
@@ -63,10 +64,13 @@ class FakeAssessmentRepository:
 
 
 class FakeDefinitionRepository:
-    async def get_active_bundle(self):
+    async def get_active_bundle(self) -> PGORDefinitionBundle | None:
         return None
 
-    async def get_version(self, definition_version_id: UUID):
+    async def get_version(
+        self,
+        definition_version_id: UUID,
+    ) -> PGORDefinitionVersion | None:
         if definition_version_id != DEFINITION_ID:
             return None
         return PGORDefinitionVersion(
@@ -78,18 +82,22 @@ class FakeDefinitionRepository:
             source_reference="source",
         )
 
-    async def list_indicators(self, definition_version_id: UUID):
-        return [await self.get_indicator(
+    async def list_indicators(
+        self,
+        definition_version_id: UUID,
+    ) -> list[PGORIndicatorDefinition]:
+        indicator = await self.get_indicator(
             definition_version_id=definition_version_id,
             indicator_id=INDICATOR_ID,
-        )]
+        )
+        return [] if indicator is None else [indicator]
 
     async def get_indicator(
         self,
         *,
         definition_version_id: UUID,
         indicator_id: UUID,
-    ):
+    ) -> PGORIndicatorDefinition | None:
         if definition_version_id != DEFINITION_ID or indicator_id != INDICATOR_ID:
             return None
         return PGORIndicatorDefinition(
@@ -106,7 +114,7 @@ class FakeDefinitionRepository:
 
 
 class FakeSourceRepository:
-    async def get(self, source_id: UUID):
+    async def get(self, source_id: UUID) -> DataSource | None:
         if source_id != SOURCE_ID:
             return None
         return DataSource(
@@ -117,7 +125,7 @@ class FakeSourceRepository:
             active=True,
         )
 
-    async def list_active(self):
+    async def list_active(self) -> list[DataSource]:
         source = await self.get(SOURCE_ID)
         return [] if source is None else [source]
 
@@ -129,12 +137,24 @@ class FakeObservationRepository:
     async def add(self, observation: IndicatorObservation) -> None:
         self.items[observation.id] = observation
 
-    async def get_for_assessment(self, *, assessment_id: UUID, observation_id: UUID):
+    async def get_for_assessment(
+        self,
+        *,
+        assessment_id: UUID,
+        observation_id: UUID,
+    ) -> IndicatorObservation | None:
         item = self.items.get(observation_id)
         return item if item and item.assessment_id == assessment_id else None
 
-    async def list_for_assessment(self, assessment_id: UUID):
-        return [item for item in self.items.values() if item.assessment_id == assessment_id]
+    async def list_for_assessment(
+        self,
+        assessment_id: UUID,
+    ) -> list[IndicatorObservation]:
+        return [
+            item
+            for item in self.items.values()
+            if item.assessment_id == assessment_id
+        ]
 
 
 class FakeValidationRepository:
@@ -144,13 +164,23 @@ class FakeValidationRepository:
     async def create_initial(self, state: ObservationValidationState) -> None:
         self.items[state.observation_id] = state
 
-    async def get_state(self, observation_id: UUID):
+    async def get_state(
+        self,
+        observation_id: UUID,
+    ) -> ObservationValidationState | None:
         return self.items.get(observation_id)
 
-    async def transition(self, *, previous, current) -> None:
+    async def transition(
+        self,
+        *,
+        previous: ObservationValidationState,
+        current: ObservationValidationState,
+    ) -> None:
+        assert self.items[previous.observation_id].version == previous.version
         self.items[current.observation_id] = current
 
     async def count_unresolved_for_assessment(self, assessment_id: UUID) -> int:
+        del assessment_id
         return sum(
             1
             for state in self.items.values()
@@ -166,10 +196,18 @@ class FakeAcceptedRepository:
     def __init__(self) -> None:
         self.items: dict[tuple[UUID, UUID], AcceptedIndicatorObservation] = {}
 
-    async def get(self, *, assessment_id: UUID, indicator_definition_id: UUID):
+    async def get(
+        self,
+        *,
+        assessment_id: UUID,
+        indicator_definition_id: UUID,
+    ) -> AcceptedIndicatorObservation | None:
         return self.items.get((assessment_id, indicator_definition_id))
 
-    async def list_for_assessment(self, assessment_id: UUID):
+    async def list_for_assessment(
+        self,
+        assessment_id: UUID,
+    ) -> list[AcceptedIndicatorObservation]:
         return [
             item
             for (aid, _), item in self.items.items()
@@ -179,12 +217,13 @@ class FakeAcceptedRepository:
     async def set_current(
         self,
         *,
-        accepted,
-        previous_observation_id,
-        reason_code,
-        reason_text,
-        event_id,
+        accepted: AcceptedIndicatorObservation,
+        previous_observation_id: UUID | None,
+        reason_code: str,
+        reason_text: str | None,
+        event_id: UUID,
     ) -> None:
+        del previous_observation_id, reason_code, reason_text, event_id
         self.items[
             (accepted.assessment_id, accepted.indicator_definition_id)
         ] = accepted

@@ -11,8 +11,10 @@ from hamoon.domains.assessment.domain.entities import (
     AssessmentReadinessStatus,
     AssessmentStatus,
     AssessmentType,
+    ObservationValidationState,
 )
 from hamoon.domains.pgor.domain.definitions import (
+    PGORDefinitionBundle,
     PGORDefinitionStatus,
     PGORDefinitionVersion,
     PGORIndicatorDefinition,
@@ -32,9 +34,9 @@ OBS_B = UUID("77777777-7777-7777-7777-777777777772")
 
 class AssessmentRepo:
     async def add(self, assessment: Assessment) -> None:
-        pass
+        del assessment
 
-    async def get(self, assessment_id: UUID):
+    async def get(self, assessment_id: UUID) -> Assessment | None:
         if assessment_id != ASSESSMENT_ID:
             return None
         return Assessment(
@@ -53,10 +55,13 @@ class DefinitionRepo:
     def __init__(self, policy_status: RequirementPolicyStatus) -> None:
         self.policy_status = policy_status
 
-    async def get_active_bundle(self):
+    async def get_active_bundle(self) -> PGORDefinitionBundle | None:
         return None
 
-    async def get_version(self, definition_version_id: UUID):
+    async def get_version(
+        self,
+        definition_version_id: UUID,
+    ) -> PGORDefinitionVersion | None:
         if definition_version_id != DEFINITION_ID:
             return None
         return PGORDefinitionVersion(
@@ -68,7 +73,12 @@ class DefinitionRepo:
             source_reference="source",
         )
 
-    async def list_indicators(self, definition_version_id: UUID):
+    async def list_indicators(
+        self,
+        definition_version_id: UUID,
+    ) -> list[PGORIndicatorDefinition]:
+        if definition_version_id != DEFINITION_ID:
+            return []
         return [
             PGORIndicatorDefinition(
                 id=INDICATOR_A,
@@ -94,7 +104,12 @@ class DefinitionRepo:
             ),
         ]
 
-    async def get_indicator(self, *, definition_version_id: UUID, indicator_id: UUID):
+    async def get_indicator(
+        self,
+        *,
+        definition_version_id: UUID,
+        indicator_id: UUID,
+    ) -> PGORIndicatorDefinition | None:
         for indicator in await self.list_indicators(definition_version_id):
             if indicator.id == indicator_id:
                 return indicator
@@ -105,7 +120,12 @@ class AcceptedRepo:
     def __init__(self, items: list[AcceptedIndicatorObservation]) -> None:
         self.items = items
 
-    async def get(self, *, assessment_id: UUID, indicator_definition_id: UUID):
+    async def get(
+        self,
+        *,
+        assessment_id: UUID,
+        indicator_definition_id: UUID,
+    ) -> AcceptedIndicatorObservation | None:
         return next(
             (
                 item
@@ -116,24 +136,45 @@ class AcceptedRepo:
             None,
         )
 
-    async def list_for_assessment(self, assessment_id: UUID):
+    async def list_for_assessment(
+        self,
+        assessment_id: UUID,
+    ) -> list[AcceptedIndicatorObservation]:
         return [item for item in self.items if item.assessment_id == assessment_id]
 
-    async def set_current(self, **kwargs) -> None:
-        pass
+    async def set_current(
+        self,
+        *,
+        accepted: AcceptedIndicatorObservation,
+        previous_observation_id: UUID | None,
+        reason_code: str,
+        reason_text: str | None,
+        event_id: UUID,
+    ) -> None:
+        del accepted, previous_observation_id, reason_code, reason_text, event_id
 
 
 class ValidationRepo:
-    async def create_initial(self, state) -> None:
-        pass
+    async def create_initial(self, state: ObservationValidationState) -> None:
+        del state
 
-    async def get_state(self, observation_id: UUID):
+    async def get_state(
+        self,
+        observation_id: UUID,
+    ) -> ObservationValidationState | None:
+        del observation_id
         return None
 
-    async def transition(self, *, previous, current) -> None:
-        pass
+    async def transition(
+        self,
+        *,
+        previous: ObservationValidationState,
+        current: ObservationValidationState,
+    ) -> None:
+        del previous, current
 
     async def count_unresolved_for_assessment(self, assessment_id: UUID) -> int:
+        del assessment_id
         return 0
 
 

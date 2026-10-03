@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,10 @@ from hamoon.domains.pgor.api.schemas import (
     PGORDefinitionData,
     PGORDefinitionResponse,
     VariableDefinitionData,
+)
+from hamoon.domains.pgor.domain.definitions import (
+    PGORDimensionDefinition,
+    PGORIndicatorDefinition,
 )
 from hamoon.domains.pgor.infrastructure.repositories import (
     SqlAlchemyPGORDefinitionRepository,
@@ -38,8 +43,8 @@ async def get_active_definition(
             detail={"code": "PGOR_DEFINITION_NOT_FOUND"},
         )
 
-    dimensions_by_variable: dict[object, list[object]] = {}
-    indicators_by_dimension: dict[object, list[object]] = {}
+    dimensions_by_variable: dict[UUID, list[PGORDimensionDefinition]] = {}
+    indicators_by_dimension: dict[UUID, list[PGORIndicatorDefinition]] = {}
 
     for dimension in bundle.dimensions:
         dimensions_by_variable.setdefault(dimension.variable_definition_id, []).append(
@@ -51,9 +56,9 @@ async def get_active_definition(
             [],
         ).append(indicator)
 
-    variables = []
+    variables: list[VariableDefinitionData] = []
     for variable in bundle.variables:
-        dimensions = []
+        dimensions: list[DimensionDefinitionData] = []
         for dimension in dimensions_by_variable.get(variable.id, []):
             dimensions.append(
                 DimensionDefinitionData(

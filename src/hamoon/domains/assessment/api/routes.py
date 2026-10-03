@@ -37,6 +37,7 @@ from hamoon.domains.assessment.application.handlers import (
     ResolveAcceptedObservationHandler,
     StartAssessmentHandler,
 )
+from hamoon.domains.assessment.domain.entities import Assessment
 from hamoon.domains.assessment.domain.errors import (
     AcceptedObservationVersionConflictError,
     AssessmentNotFoundError,
@@ -72,7 +73,7 @@ async def _assessment_with_scope(
     assessment_id: UUID,
     session: AsyncSession,
     context: AuthorizationContext,
-):
+) -> Assessment:
     assessment = await SqlAlchemyAssessmentRepository(session).get(assessment_id)
     if assessment is None:
         raise HTTPException(

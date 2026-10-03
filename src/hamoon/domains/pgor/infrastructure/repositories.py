@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.domains.pgor.domain.definitions import (
     PGORDefinitionBundle,
+    PGORDefinitionStatus,
     PGORDefinitionVersion,
     PGORDimensionDefinition,
     PGORIndicatorDefinition,
@@ -70,7 +71,7 @@ class SqlAlchemyPGORDefinitionRepository:
     async def get_active_bundle(self) -> PGORDefinitionBundle | None:
         result = await self._session.execute(
             select(PGORDefinitionVersionModel)
-            .where(PGORDefinitionVersionModel.status == "ACTIVE")
+            .where(PGORDefinitionVersionModel.status == PGORDefinitionStatus.ACTIVE)
             .order_by(PGORDefinitionVersionModel.created_at.desc())
             .limit(1)
         )

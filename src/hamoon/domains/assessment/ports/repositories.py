@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -7,7 +6,6 @@ from hamoon.domains.assessment.domain.entities import (
     Assessment,
     IndicatorObservation,
     ObservationValidationState,
-    ObservationValidationStatus,
 )
 
 

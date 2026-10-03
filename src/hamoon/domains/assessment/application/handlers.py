@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from hamoon.domains.assessment.application.commands import (
     ChangeObservationValidationCommand,
@@ -451,12 +451,7 @@ class EvaluateAssessmentReadinessHandler:
         self._accepted_observations = accepted_observations
         self._validations = validations
 
-    async def handle(self, assessment_id: object) -> AssessmentReadiness:
-        from uuid import UUID
-
-        if not isinstance(assessment_id, UUID):
-            raise AssessmentNotFoundError(str(assessment_id))
-
+    async def handle(self, assessment_id: UUID) -> AssessmentReadiness:
         assessment = await self._assessments.get(assessment_id)
         if assessment is None:
             raise AssessmentNotFoundError(str(assessment_id))
@@ -499,6 +494,26 @@ class EvaluateAssessmentReadinessHandler:
                 missing_required_indicator_ids=(),
                 unresolved_validation_count=unresolved_count,
                 blocking_reasons=("REQUIREMENT_POLICY_UNRESOLVED",),
+                accepted_observation_ids=accepted_observation_ids,
+            )
+
+        unresolved_requirement_flags = [
+            indicator.id
+            for indicator in indicators
+            if indicator.required_for_complete_assessment is None
+        ]
+        if unresolved_requirement_flags:
+            return AssessmentReadiness(
+                assessment_id=assessment.id,
+                status=AssessmentReadinessStatus.REQUIREMENT_POLICY_UNRESOLVED,
+                total_indicator_count=total_count,
+                accepted_indicator_count=accepted_count,
+                required_indicator_count=None,
+                accepted_required_indicator_count=None,
+                completeness_ratio=None,
+                missing_required_indicator_ids=(),
+                unresolved_validation_count=unresolved_count,
+                blocking_reasons=("REQUIREMENT_POLICY_INCOMPLETE",),
                 accepted_observation_ids=accepted_observation_ids,
             )
 
