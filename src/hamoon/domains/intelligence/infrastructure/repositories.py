@@ -193,6 +193,9 @@ def _trace(model: DecisionTraceModel) -> DecisionTrace:
         closed_at=model.closed_at,
         prescription_id=model.prescription_id,
         intervention_id=model.intervention_id,
+        referral_id=model.referral_id,
+        provider_result_id=model.provider_result_id,
+        outcome_id=model.outcome_id,
     )
 
 class SqlAlchemyAIDecisionRepository:
@@ -324,6 +327,9 @@ class SqlAlchemyDecisionTraceRepository:
                 human_decision_id=trace.human_decision_id,
                 prescription_id=trace.prescription_id,
                 intervention_id=trace.intervention_id,
+                referral_id=trace.referral_id,
+                provider_result_id=trace.provider_result_id,
+                outcome_id=trace.outcome_id,
                 opened_at=trace.opened_at,
                 closed_at=trace.closed_at,
             )

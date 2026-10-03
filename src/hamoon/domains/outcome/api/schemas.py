@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
 
 from hamoon.domains.outcome.domain.entities import (
     OutcomeClassification,
@@ -58,3 +58,33 @@ class OutcomeData(BaseModel):
 
 class OutcomeResponse(BaseModel):
     data: OutcomeData
+
+
+
+class GenerateOutcomeInterpretationData(BaseModel):
+    proposal_id: UUID
+    outcome_id: UUID
+    ai_decision_id: UUID
+    trace_id: UUID
+
+
+class GenerateOutcomeInterpretationResponse(BaseModel):
+    data: GenerateOutcomeInterpretationData
+
+
+class OutcomeInterpretationData(BaseModel):
+    proposal_id: UUID
+    outcome_id: UUID
+    ai_decision_id: UUID
+    feature_package_id: UUID
+    trace_id: UUID
+    model_alias: str
+    routing_policy_version: str
+    prompt_policy_version: str
+    output_schema_version: str
+    machine_proposal: dict[str, JsonValue]
+    created_at: datetime
+
+
+class OutcomeInterpretationResponse(BaseModel):
+    data: OutcomeInterpretationData

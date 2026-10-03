@@ -266,6 +266,18 @@ class DecisionTraceModel(Base):
         ForeignKey("intervention.id", ondelete="SET NULL"),
         nullable=True,
     )
+    referral_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("referral.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    provider_result_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("provider_result.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    outcome_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("hamoon_outcome.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     closed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
