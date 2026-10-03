@@ -1,0 +1,1 @@
+"""Assessment bounded context."""

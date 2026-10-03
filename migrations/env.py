@@ -10,9 +10,11 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from hamoon.app.config.settings import get_settings
 from hamoon.infrastructure.db.base import Base
 
+from hamoon.domains.assessment.infrastructure import models as assessment_models  # noqa: F401
 from hamoon.domains.family_data.infrastructure import models as family_data_models  # noqa: F401
 from hamoon.domains.household.infrastructure import models as household_models  # noqa: F401
 from hamoon.domains.identity.infrastructure import models as identity_models  # noqa: F401
+from hamoon.domains.pgor.infrastructure import models as pgor_models  # noqa: F401
 from hamoon.infrastructure.audit import models as audit_models  # noqa: F401
 from hamoon.infrastructure.events import models as event_models  # noqa: F401
 
