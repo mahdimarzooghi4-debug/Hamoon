@@ -165,11 +165,13 @@ def _fingerprint(
     inputs: tuple[NormalizedIndicatorInput, ...],
     definition_version_id: UUID,
     formula_version_id: UUID,
+    scoring_version: str,
     engine_version: str,
 ) -> str:
     canonical = {
         "definition_version_id": str(definition_version_id),
         "formula_version_id": str(formula_version_id),
+        "scoring_version": scoring_version,
         "engine_version": engine_version,
         "inputs": [
             {
@@ -204,6 +206,7 @@ def calculate_pgor(
     accepted_inputs: tuple[AcceptedIndicatorInput, ...],
     definition_version_id: UUID,
     formula: FormulaVersion,
+    scoring_version: str,
     engine_version: str,
 ) -> PGORCalculationResult:
     if not accepted_inputs:
@@ -302,6 +305,7 @@ def calculate_pgor(
             inputs=normalized,
             definition_version_id=definition_version_id,
             formula_version_id=formula.id,
+            scoring_version=scoring_version,
             engine_version=engine_version,
         ),
     )

@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import JsonValue
 from uuid import UUID
 
+
+from pydantic import JsonValue
 
 class AITaskClass(StrEnum):
     DIAGNOSIS = "DIAGNOSIS"

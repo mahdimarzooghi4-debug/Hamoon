@@ -34,6 +34,7 @@ from hamoon.shared.contracts.records import AuditRecord, DomainEventRecord
 from hamoon.shared.ports.recorders import AuditRecorder, DomainEventRecorder
 
 ENGINE_VERSION = "1.0.0"
+SCORING_VERSION = "raw-0-100-v1"
 
 
 class CalculateOfficialPGORHandler:
@@ -129,15 +130,24 @@ class CalculateOfficialPGORHandler:
                 )
             )
 
+        expected_dimension_ids = {item.id for item in bundle.dimensions}
+        observed_dimension_ids = {
+            item.dimension_definition_id for item in engine_inputs
+        }
+        missing_dimension_ids = expected_dimension_ids - observed_dimension_ids
+        if missing_dimension_ids:
+            raise PGORCalculationBlockedError("MISSING_PGOR_DIMENSION_DATA")
+
         result = calculate_pgor(
             accepted_inputs=tuple(engine_inputs),
             definition_version_id=assessment.definition_version_id,
             formula=formula,
+            scoring_version=SCORING_VERSION,
             engine_version=ENGINE_VERSION,
         )
 
         data_quality_flags = (
-            ("HAS_DISPUTE",)
+            ("HAS_UNRESOLVED_OBSERVATION",)
             if readiness.unresolved_validation_count > 0
             else ()
         )
@@ -147,6 +157,7 @@ class CalculateOfficialPGORHandler:
             definition_version_id=assessment.definition_version_id,
             formula_version_id=formula.id,
             engine_version=ENGINE_VERSION,
+            scoring_version=SCORING_VERSION,
             status=PGORSnapshotStatus.OFFICIAL,
             result=result,
             completeness_ratio=readiness.completeness_ratio,
@@ -184,6 +195,7 @@ class CalculateOfficialPGORHandler:
                     "formula_version_id": str(snapshot.formula_version_id),
                     "definition_version_id": str(snapshot.definition_version_id),
                     "engine_version": snapshot.engine_version,
+                    "scoring_version": snapshot.scoring_version,
                     "calculated_at": snapshot.calculated_at.isoformat(),
                 },
             )
@@ -205,6 +217,7 @@ class CalculateOfficialPGORHandler:
                     "input_fingerprint": snapshot.input_fingerprint,
                     "formula_version_id": str(formula.id),
                     "engine_version": ENGINE_VERSION,
+                    "scoring_version": SCORING_VERSION,
                 },
             )
         )

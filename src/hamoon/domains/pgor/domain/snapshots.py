@@ -15,6 +15,7 @@ class PGORSnapshot:
     definition_version_id: UUID
     formula_version_id: UUID
     engine_version: str
+    scoring_version: str
     status: PGORSnapshotStatus
     p: Decimal
     g: Decimal

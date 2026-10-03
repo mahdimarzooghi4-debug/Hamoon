@@ -55,6 +55,7 @@ def _snapshot_data(snapshot: PGORSnapshot) -> PGORSnapshotData:
         definition_version_id=snapshot.definition_version_id,
         formula_version_id=snapshot.formula_version_id,
         engine_version=snapshot.engine_version,
+        scoring_version=snapshot.scoring_version,
         status=snapshot.status,
         p=snapshot.p,
         g=snapshot.g,

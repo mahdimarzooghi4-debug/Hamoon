@@ -56,6 +56,7 @@ class SnapshotRepo:
             definition_version_id=DEFINITION_ID,
             formula_version_id=FORMULA_ID,
             engine_version="1.0.0",
+            scoring_version="raw-0-100-v1",
             status=PGORSnapshotStatus.OFFICIAL,
             p=Decimal("0.4"),
             g=Decimal("0.5"),

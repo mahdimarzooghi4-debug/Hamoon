@@ -1,7 +1,8 @@
 from collections.abc import Mapping
-from typing import JsonValue
 
 from jsonschema import ValidationError, validate
+
+from pydantic import JsonValue
 
 from hamoon.infrastructure.ai.contracts import (
     AIRoutingPolicy,

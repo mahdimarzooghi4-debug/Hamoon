@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import JsonValue
 from uuid import UUID
 
+
+from pydantic import JsonValue
 
 class FeaturePackageType(StrEnum):
     DIAGNOSIS = "DIAGNOSIS"

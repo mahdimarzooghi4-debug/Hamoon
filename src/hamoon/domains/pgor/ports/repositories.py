@@ -55,6 +55,7 @@ class PGORSnapshotRepository(Protocol):
         definition_version_id: UUID,
         formula_version_id: UUID,
         engine_version: str,
+        scoring_version: str,
         status: PGORSnapshotStatus,
         result: PGORCalculationResult,
         completeness_ratio: Decimal | None,

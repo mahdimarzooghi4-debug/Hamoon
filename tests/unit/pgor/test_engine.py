@@ -93,6 +93,7 @@ def test_calculation_matches_source_formula() -> None:
         accepted_inputs=inputs,
         definition_version_id=DEFINITION_ID,
         formula=fixture_formula(),
+        scoring_version="raw-0-100-v1",
         engine_version="1.0.0",
     )
 
@@ -118,6 +119,7 @@ def test_missing_variable_is_rejected() -> None:
             accepted_inputs=inputs,
             definition_version_id=DEFINITION_ID,
             formula=fixture_formula(),
+            scoring_version="raw-0-100-v1",
             engine_version="1.0.0",
         )
 
@@ -134,12 +136,14 @@ def test_fingerprint_is_deterministic() -> None:
         accepted_inputs=inputs,
         definition_version_id=DEFINITION_ID,
         formula=fixture_formula(),
+        scoring_version="raw-0-100-v1",
         engine_version="1.0.0",
     )
     second = calculate_pgor(
         accepted_inputs=tuple(reversed(inputs)),
         definition_version_id=DEFINITION_ID,
         formula=fixture_formula(),
+        scoring_version="raw-0-100-v1",
         engine_version="1.0.0",
     )
 

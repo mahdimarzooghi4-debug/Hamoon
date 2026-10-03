@@ -174,6 +174,7 @@ class PGORSnapshotModel(Base):
         nullable=False,
     )
     engine_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    scoring_version: Mapped[str] = mapped_column(String(100), nullable=False)
     status: Mapped[PGORSnapshotStatus] = mapped_column(
         Enum(PGORSnapshotStatus, name="pgor_snapshot_status"),
         nullable=False,
