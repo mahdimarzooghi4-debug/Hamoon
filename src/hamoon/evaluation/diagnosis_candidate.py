@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
-from pydantic import BaseModel, JsonValue
+from pydantic import BaseModel
 
 from hamoon.evaluation.diagnosis import (
     DiagnosisEvaluationCase,
