@@ -8,40 +8,9 @@ from typing import cast
 from jsonschema import ValidationError, validate
 from pydantic import BaseModel, Field, JsonValue
 
-OUTCOME_INTERPRETATION_V1_SCHEMA: dict[str, object] = {
-    "type": "object",
-    "additionalProperties": False,
-    "required": [
-        "schema_version",
-        "classification",
-        "observed_change_summary",
-        "causal_claim",
-        "review_flags",
-    ],
-    "properties": {
-        "schema_version": {"const": "outcome-interpretation-v1"},
-        "classification": {
-            "type": "string",
-            "enum": [
-                "GOAL_ACHIEVED",
-                "PROGRESS",
-                "NO_SIGNIFICANT_CHANGE",
-                "REGRESSION",
-                "NEEDS_MORE_TIME",
-                "NEEDS_MORE_DATA",
-            ],
-        },
-        "observed_change_summary": {"type": "string", "minLength": 1},
-        "causal_claim": {"type": "boolean"},
-        "review_flags": {
-            "type": "array",
-            "items": {"type": "string"},
-            "minItems": 1,
-        },
-    },
-}
-
-
+from hamoon.infrastructure.ai.outcome_runtime import (
+    OUTCOME_INTERPRETATION_V1_SCHEMA,
+)
 class OutcomeEvaluationCase(BaseModel):
     case_id: str = Field(min_length=1, max_length=150)
     input: dict[str, JsonValue]

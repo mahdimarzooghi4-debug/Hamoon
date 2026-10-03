@@ -14,6 +14,7 @@ def _case() -> OutcomeEvaluationCase:
             "pre_pgor": {"e": "0.46"},
             "post_pgor": {"e": "0.53"},
             "delta": {"e": "0.07"},
+            "delta.e": "0.07",
             "causal_claim_allowed": False,
         },
         expert_classification="PROGRESS",
@@ -39,6 +40,7 @@ def _output(*, causal_claim: bool = False) -> OutcomeEvaluationOutput:
             "classification": "PROGRESS",
             "observed_change_summary": "Observed E increased between snapshots.",
             "causal_claim": causal_claim,
+            "supporting_feature_refs": ["delta.e"],
             "review_flags": ["HUMAN_REVIEW_REQUIRED"],
         },
     )

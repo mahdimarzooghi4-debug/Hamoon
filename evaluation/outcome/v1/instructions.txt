@@ -1,0 +1,5 @@
+Interpret the supplied Hamoon outcome feature package as a proposal for human review.
+Use only supplied values and supporting feature keys.
+Never claim that the intervention caused the observed PGOR change.
+Do not infer missing facts or alter authoritative PGOR values.
+Return the approved structured schema and always require human review.
