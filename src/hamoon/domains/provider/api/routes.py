@@ -28,7 +28,7 @@ from hamoon.domains.provider.api.schemas import (
 )
 from hamoon.domains.provider.application.commands import MatchProvidersCommand
 from hamoon.domains.provider.application.matching import MatchProvidersHandler
-from hamoon.domains.provider.domain.entities import ProviderService
+from hamoon.domains.provider.domain.entities import CapacityStatus, Provider, ProviderService
 from hamoon.domains.provider.domain.errors import ProviderMatchError
 from hamoon.domains.provider.infrastructure.repositories import (
     SqlAlchemyProviderMatchRepository,
@@ -41,7 +41,7 @@ from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
 router = APIRouter(tags=["provider"])
 
 
-def _provider_data(item) -> ProviderData:
+def _provider_data(item: Provider) -> ProviderData:
     return ProviderData(
         id=item.id,
         code=item.code,
@@ -59,8 +59,6 @@ async def _service_data(
     registry: SqlAlchemyProviderRegistryRepository,
 ) -> ProviderServiceData:
     capacity = await registry.latest_capacity(service.id)
-    from hamoon.domains.provider.domain.entities import CapacityStatus
-
     return ProviderServiceData(
         id=service.id,
         provider_id=service.provider_id,
