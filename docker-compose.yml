@@ -97,7 +97,8 @@ services:
       HAMOON_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hamoon}:${POSTGRES_PASSWORD:-hamoon}@postgres:5432/${POSTGRES_DB:-hamoon}
       HAMOON_NATS_URL: nats://nats:4222
       HAMOON_TEMPORAL_ADDRESS: temporal:7233
-      HAMOON_OIDC_ISSUER_URL: http://keycloak:8080/realms/hamoon-local
+      HAMOON_OIDC_ISSUER_URL: http://localhost:8081/realms/hamoon-local
+      HAMOON_OIDC_JWKS_URL: http://keycloak:8080/realms/hamoon-local/protocol/openid-connect/certs
       HAMOON_EVIDENCE_LOCAL_ROOT: /data/evidence
       HAMOON_OTEL_ENABLED: "false"
     depends_on:
