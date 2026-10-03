@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from hamoon.app.config.settings import get_settings
 from hamoon.app.observability.request_context import current_correlation_id, current_request_id
 from hamoon.app.security.context import AuthorizationContext, Role
 from hamoon.app.security.dependencies import require_roles
@@ -20,6 +21,12 @@ from hamoon.domains.intelligence.infrastructure.repositories import (
 )
 from hamoon.domains.intervention.infrastructure.repositories import (
     SqlAlchemyInterventionRepository,
+)
+from hamoon.domains.operations.application.handlers import FinalizeOutcomeReviewHandler
+from hamoon.domains.operations.domain.entities import ReassessmentPlan
+from hamoon.domains.operations.infrastructure.repositories import (
+    SqlAlchemyReassessmentPlanRepository,
+    SqlAlchemyWorkItemRepository,
 )
 from hamoon.domains.outcome.api.schemas import (
     DeferOutcomeRequest,
@@ -62,6 +69,9 @@ from hamoon.domains.referral.infrastructure.repositories import (
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
+from hamoon.infrastructure.temporal.reassessment_starter import (
+    signal_outcome_reviewed_best_effort,
+)
 
 router = APIRouter(tags=["outcome"])
 
@@ -172,6 +182,7 @@ async def _review(
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
     repository = SqlAlchemyOutcomeRepository(session)
+    completed_plan: ReassessmentPlan | None = None
     try:
         async with session.begin():
             current = await repository.get(outcome_id)
@@ -209,6 +220,21 @@ async def _review(
                 action=action,
                 target_status=target_status,
             )
+            if target_status in {
+                OutcomeStatus.CONFIRMED,
+                OutcomeStatus.MODIFIED,
+            }:
+                completed_plan = await FinalizeOutcomeReviewHandler(
+                    plans=SqlAlchemyReassessmentPlanRepository(session),
+                    work_items=SqlAlchemyWorkItemRepository(session),
+                    events=SqlAlchemyDomainEventRecorder(session),
+                    audits=SqlAlchemyAuditRecorder(session),
+                ).handle(
+                    outcome_id=outcome_id,
+                    actor_id=context.actor_id,
+                    request_id=request_id,
+                    correlation_id=correlation_id,
+                )
     except OutcomeVersionConflictError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -219,6 +245,18 @@ async def _review(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"code": str(exc)},
         ) from exc
+    except (LookupError, ValueError, RuntimeError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": str(exc)},
+        ) from exc
+
+    if completed_plan is not None:
+        await signal_outcome_reviewed_best_effort(
+            plan=completed_plan,
+            settings=get_settings(),
+        )
+
     return OutcomeResponse(data=_data(updated, learning_signal_id=signal.id))
 
 
