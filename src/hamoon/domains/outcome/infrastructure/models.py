@@ -41,6 +41,7 @@ class HamoonOutcomeModel(Base):
     post_assessment_id: Mapped[UUID] = mapped_column(
         ForeignKey("assessment.id", ondelete="RESTRICT"),
         nullable=False,
+        unique=True,
     )
     pre_pgor_snapshot_id: Mapped[UUID] = mapped_column(
         ForeignKey("pgor_snapshot.id", ondelete="RESTRICT"),

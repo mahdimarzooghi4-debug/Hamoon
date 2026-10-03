@@ -83,6 +83,18 @@ class SqlAlchemyOutcomeRepository:
         model = await self._session.get(HamoonOutcomeModel, outcome_id)
         return None if model is None else _outcome(model)
 
+    async def get_by_post_assessment(
+        self,
+        post_assessment_id: UUID,
+    ) -> HamoonOutcome | None:
+        result = await self._session.execute(
+            select(HamoonOutcomeModel).where(
+                HamoonOutcomeModel.post_assessment_id == post_assessment_id
+            )
+        )
+        model = result.scalar_one_or_none()
+        return None if model is None else _outcome(model)
+
     async def update(
         self,
         outcome: HamoonOutcome,

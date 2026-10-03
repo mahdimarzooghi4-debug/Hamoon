@@ -83,6 +83,20 @@ class PrepareOutcomeHandler:
         self._audits = audits
 
     async def handle(self, command: PrepareOutcomeCommand) -> HamoonOutcome:
+        existing = await self._outcomes.get_by_post_assessment(
+            command.post_assessment_id
+        )
+        if existing is not None:
+            if (
+                existing.intervention_id != command.intervention_id
+                or existing.provider_result_id != command.provider_result_id
+                or existing.pre_assessment_id != command.pre_assessment_id
+            ):
+                raise OutcomePreparationError(
+                    "POST_ASSESSMENT_ALREADY_USED_BY_DIFFERENT_OUTCOME"
+                )
+            return existing
+
         intervention = await self._interventions.get(command.intervention_id)
         if intervention is None:
             raise OutcomePreparationError("INTERVENTION_NOT_FOUND")

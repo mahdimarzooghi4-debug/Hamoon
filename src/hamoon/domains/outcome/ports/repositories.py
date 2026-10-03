@@ -12,6 +12,11 @@ class OutcomeRepository(Protocol):
 
     async def get(self, outcome_id: UUID) -> HamoonOutcome | None: ...
 
+    async def get_by_post_assessment(
+        self,
+        post_assessment_id: UUID,
+    ) -> HamoonOutcome | None: ...
+
     async def update(
         self,
         outcome: HamoonOutcome,
