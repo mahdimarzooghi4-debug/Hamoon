@@ -20,6 +20,10 @@ class AIRoutingError(ValueError):
     """Routing policy cannot be satisfied by configured providers."""
 
 
+class AIProviderExecutionError(RuntimeError):
+    """Configured provider failed before a valid structured result was returned."""
+
+
 class ProviderAIGateway:
     def __init__(
         self,
@@ -45,8 +49,9 @@ class ProviderAIGateway:
         if provider is None:
             raise AIRoutingError("Configured provider adapter is unavailable.")
 
-        response = await provider.generate_structured(
-            ProviderStructuredRequest(
+        try:
+            response = await provider.generate_structured(
+                ProviderStructuredRequest(
                 task_class=request.task_class,
                 model_id=routing_policy.concrete_model_id,
                 model_alias=routing_policy.model_alias,
@@ -56,9 +61,12 @@ class ProviderAIGateway:
                 instructions=instructions,
                 output_schema=output_schema,
                 features=request.features,
-                correlation_id=request.correlation_id,
+                    correlation_id=request.correlation_id,
+                )
             )
-        )
+        except Exception as exc:
+            raise AIProviderExecutionError("AI_PROVIDER_EXECUTION_FAILED") from exc
+
         try:
             validate(instance=response.output, schema=output_schema)
         except ValidationError as exc:

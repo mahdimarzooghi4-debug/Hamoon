@@ -34,6 +34,7 @@ from hamoon.domains.intelligence.application.diagnosis_handlers import (
     ReviewDiagnosisHandler,
 )
 from hamoon.domains.intelligence.domain.decisions import HumanDecisionAction
+from hamoon.domains.intelligence.domain.registry import ResolvedAIRoute
 from hamoon.domains.intelligence.domain.errors import (
     DiagnosisGenerationError,
     DiagnosisNotFoundError,
@@ -47,11 +48,13 @@ from hamoon.domains.intelligence.infrastructure.repositories import (
     SqlAlchemyFeaturePackageRepository,
     SqlAlchemyHumanDecisionRepository,
     SqlAlchemyLearningSignalRepository,
+    SqlAlchemyAIRuntimeRegistryRepository,
 )
 from hamoon.domains.pgor.infrastructure.repositories import (
     SqlAlchemyPGORDefinitionRepository,
     SqlAlchemyPGORSnapshotRepository,
 )
+from hamoon.infrastructure.ai.contracts import AITaskClass
 from hamoon.infrastructure.ai.diagnosis_runtime import (
     DIAGNOSIS_V1_SCHEMA,
     GatewayDiagnosisAIClient,
@@ -59,6 +62,7 @@ from hamoon.infrastructure.ai.diagnosis_runtime import (
 )
 from hamoon.infrastructure.ai.gateway import ProviderAIGateway
 from hamoon.infrastructure.ai.providers.fake import FakeAIProvider
+from hamoon.infrastructure.ai.providers.openai import OpenAIProvider
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
@@ -78,6 +82,52 @@ def _local_ai_client(settings: Settings) -> GatewayDiagnosisAIClient:
     )
 
 
+def _production_ai_client(
+    *,
+    settings: Settings,
+    route: ResolvedAIRoute,
+) -> GatewayDiagnosisAIClient:
+    if route.routing_policy.provider_code != "OPENAI":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "AI_PROVIDER_UNAVAILABLE"},
+        )
+    if not settings.openai_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "AI_PROVIDER_CREDENTIAL_MISSING"},
+        )
+    provider = OpenAIProvider(
+        api_key=settings.openai_api_key,
+        base_url=settings.openai_base_url,
+        timeout_seconds=settings.openai_timeout_seconds,
+    )
+    return GatewayDiagnosisAIClient(
+        gateway=ProviderAIGateway(providers={"OPENAI": provider}),
+        routing_policy=route.routing_policy,
+        instructions=route.instructions,
+    )
+
+
+async def _resolve_diagnosis_ai_client(
+    *,
+    session: AsyncSession,
+    settings: Settings,
+) -> GatewayDiagnosisAIClient:
+    if settings.environment.lower() in {"local", "test", "development"}:
+        return _local_ai_client(settings)
+
+    route = await SqlAlchemyAIRuntimeRegistryRepository(session).resolve_active_route(
+        AITaskClass.DIAGNOSIS
+    )
+    if route is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "AI_ROUTING_POLICY_NOT_FOUND"},
+        )
+    return _production_ai_client(settings=settings, route=route)
+
+
 @router.post(
     "/api/v1/households/{household_id}/diagnoses/generate",
     response_model=GenerateDiagnosisResponse,
@@ -95,19 +145,14 @@ async def generate_diagnosis(
 ) -> GenerateDiagnosisResponse:
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
-    ai_client = _local_ai_client(settings)
-
-    handler = GenerateDiagnosisHandler(
-        snapshots=SqlAlchemyPGORSnapshotRepository(session),
-        definitions=SqlAlchemyPGORDefinitionRepository(session),
-        feature_packages=SqlAlchemyFeaturePackageRepository(session),
-        ai_decisions=SqlAlchemyAIDecisionRepository(session),
-        diagnoses=SqlAlchemyDiagnosisRepository(session),
-        traces=SqlAlchemyDecisionTraceRepository(session),
-        ai_client=ai_client,
-        events=SqlAlchemyDomainEventRecorder(session),
-        audits=SqlAlchemyAuditRecorder(session),
+    command = GenerateDiagnosisCommand(
+        household_id=household_id,
+        pgor_snapshot_id=body.pgor_snapshot_id,
+        actor_id=context.actor_id,
+        request_id=request_id,
+        correlation_id=correlation_id,
     )
+
     try:
         async with session.begin():
             await require_household_assignment(
@@ -115,14 +160,33 @@ async def generate_diagnosis(
                 context=context,
                 household_id=household_id,
             )
-            diagnosis, ai_decision = await handler.handle(
-                GenerateDiagnosisCommand(
-                    household_id=household_id,
-                    pgor_snapshot_id=body.pgor_snapshot_id,
-                    actor_id=context.actor_id,
-                    request_id=request_id,
-                    correlation_id=correlation_id,
-                )
+            ai_client = await _resolve_diagnosis_ai_client(
+                session=session,
+                settings=settings,
+            )
+            handler = GenerateDiagnosisHandler(
+                snapshots=SqlAlchemyPGORSnapshotRepository(session),
+                definitions=SqlAlchemyPGORDefinitionRepository(session),
+                feature_packages=SqlAlchemyFeaturePackageRepository(session),
+                ai_decisions=SqlAlchemyAIDecisionRepository(session),
+                diagnoses=SqlAlchemyDiagnosisRepository(session),
+                traces=SqlAlchemyDecisionTraceRepository(session),
+                ai_client=ai_client,
+                events=SqlAlchemyDomainEventRecorder(session),
+                audits=SqlAlchemyAuditRecorder(session),
+            )
+            prepared = await handler.prepare(command)
+
+        result = await handler.infer(
+            prepared=prepared,
+            correlation_id=correlation_id,
+        )
+
+        async with session.begin():
+            diagnosis, ai_decision = await handler.persist(
+                command=command,
+                prepared=prepared,
+                result=result,
             )
     except DiagnosisGenerationError as exc:
         raise HTTPException(

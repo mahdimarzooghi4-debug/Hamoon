@@ -13,6 +13,7 @@ from hamoon.infrastructure.ai.contracts import (
 )
 from hamoon.infrastructure.ai.gateway import (
     AIOutputSchemaError,
+    AIProviderExecutionError,
     AIRoutingError,
     ProviderAIGateway,
 )
@@ -105,6 +106,8 @@ class GatewayDiagnosisAIClient(DiagnosisAIClient):
             raise DiagnosisGenerationError("AI_OUTPUT_SCHEMA_INVALID") from exc
         except AIRoutingError as exc:
             raise DiagnosisGenerationError("AI_ROUTING_FAILED") from exc
+        except AIProviderExecutionError as exc:
+            raise DiagnosisGenerationError("AI_PROVIDER_UNAVAILABLE") from exc
         return AIExecutionResult(
             provider_code=result.provider_code,
             model_id=result.model_id,

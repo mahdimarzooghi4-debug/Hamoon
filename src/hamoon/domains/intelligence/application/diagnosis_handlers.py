@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -16,6 +17,7 @@ from hamoon.domains.intelligence.application.handlers import (
 )
 from hamoon.domains.intelligence.domain.decisions import (
     AIDecision,
+    AIExecutionResult,
     AIDecisionStatus,
     AIDecisionType,
     DecisionTrace,
@@ -34,6 +36,7 @@ from hamoon.domains.intelligence.domain.errors import (
     DiagnosisVersionConflictError,
     InvalidDiagnosisReviewError,
 )
+from hamoon.domains.intelligence.domain.entities import FeaturePackage
 from hamoon.domains.intelligence.ports.ai import DiagnosisAIClient
 from hamoon.domains.intelligence.ports.repositories import (
     AIDecisionRepository,
@@ -44,6 +47,7 @@ from hamoon.domains.intelligence.ports.repositories import (
     LearningSignalRepository,
 )
 from hamoon.domains.pgor.domain.engine import PGORSnapshotStatus
+from hamoon.domains.pgor.domain.snapshots import PGORSnapshot
 from hamoon.domains.pgor.ports.repositories import (
     PGORDefinitionRepository,
     PGORSnapshotRepository,
@@ -70,6 +74,12 @@ def _validate_grounding(
         for ref in refs:
             if not isinstance(ref, str) or ref not in available_feature_keys:
                 raise DiagnosisGenerationError("AI_OUTPUT_GROUNDING_FAILED")
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedDiagnosisGeneration:
+    snapshot: PGORSnapshot
+    feature_package: FeaturePackage
 
 
 def _learning_signal_type(action: HumanDecisionAction) -> LearningSignalType:
@@ -106,10 +116,10 @@ class GenerateDiagnosisHandler:
         self._events = events
         self._audits = audits
 
-    async def handle(
+    async def prepare(
         self,
         command: GenerateDiagnosisCommand,
-    ) -> tuple[Diagnosis, AIDecision]:
+    ) -> PreparedDiagnosisGeneration:
         snapshot = await self._snapshots.get(command.pgor_snapshot_id)
         if snapshot is None:
             raise DiagnosisGenerationError("PGOR_SNAPSHOT_NOT_FOUND")
@@ -132,17 +142,38 @@ class GenerateDiagnosisHandler:
                 correlation_id=command.correlation_id,
             )
         )
-
-        result = await self._ai_client.generate_diagnosis(
+        return PreparedDiagnosisGeneration(
+            snapshot=snapshot,
             feature_package=package,
-            correlation_id=command.correlation_id,
         )
-        available_feature_keys = set(package.provider_payload().keys())
+
+    async def infer(
+        self,
+        *,
+        prepared: PreparedDiagnosisGeneration,
+        correlation_id: str,
+    ) -> AIExecutionResult:
+        result = await self._ai_client.generate_diagnosis(
+            feature_package=prepared.feature_package,
+            correlation_id=correlation_id,
+        )
         _validate_grounding(
             output=result.output,
-            available_feature_keys=available_feature_keys,
+            available_feature_keys=set(
+                prepared.feature_package.provider_payload().keys()
+            ),
         )
+        return result
 
+    async def persist(
+        self,
+        *,
+        command: GenerateDiagnosisCommand,
+        prepared: PreparedDiagnosisGeneration,
+        result: AIExecutionResult,
+    ) -> tuple[Diagnosis, AIDecision]:
+        snapshot = prepared.snapshot
+        package = prepared.feature_package
         now = datetime.now(UTC)
         trace_id = uuid4()
         ai_decision = AIDecision(
@@ -238,6 +269,21 @@ class GenerateDiagnosisHandler:
             )
         )
         return diagnosis, ai_decision
+
+    async def handle(
+        self,
+        command: GenerateDiagnosisCommand,
+    ) -> tuple[Diagnosis, AIDecision]:
+        prepared = await self.prepare(command)
+        result = await self.infer(
+            prepared=prepared,
+            correlation_id=command.correlation_id,
+        )
+        return await self.persist(
+            command=command,
+            prepared=prepared,
+            result=result,
+        )
 
 
 class ReviewDiagnosisHandler:
