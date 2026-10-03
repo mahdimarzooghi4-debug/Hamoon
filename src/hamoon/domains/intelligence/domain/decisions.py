@@ -173,8 +173,6 @@ class DecisionTrace:
     closed_at: datetime | None = None
     prescription_id: UUID | None = None
     intervention_id: UUID | None = None
-    provider_match_id: UUID | None = None
-    provider_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,3 +189,5 @@ class LearningSignal:
     created_by: UUID
     prescription_id: UUID | None = None
     intervention_id: UUID | None = None
+    provider_match_id: UUID | None = None
+    provider_id: UUID | None = None
