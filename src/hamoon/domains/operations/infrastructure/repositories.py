@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.domains.operations.domain.entities import (
     ReassessmentPlan,
+    ReassessmentPlanStatus,
     WorkItem,
     WorkItemStatus,
 )
@@ -122,6 +123,18 @@ class SqlAlchemyReassessmentPlanRepository:
         model.version = plan.version
         model.work_item_id = plan.work_item_id
         model.task_created_at = plan.task_created_at
+
+    async def list_scheduled(self, *, limit: int) -> list[ReassessmentPlan]:
+        result = await self._session.execute(
+            select(ReassessmentPlanModel)
+            .where(
+                ReassessmentPlanModel.status
+                == ReassessmentPlanStatus.SCHEDULED
+            )
+            .order_by(ReassessmentPlanModel.due_at)
+            .limit(limit)
+        )
+        return [_plan(model) for model in result.scalars().all()]
 
 
 class SqlAlchemyWorkItemRepository:
