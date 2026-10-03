@@ -42,6 +42,9 @@ from hamoon.domains.intelligence.application.diagnosis_handlers import (
     GenerateDiagnosisHandler,
     ReviewDiagnosisHandler,
 )
+from hamoon.domains.intelligence.application.evaluation_governance import (
+    attest_evaluation_report,
+)
 from hamoon.domains.intelligence.domain.decisions import HumanDecisionAction
 from hamoon.domains.intelligence.domain.errors import (
     DiagnosisGenerationError,
@@ -75,7 +78,7 @@ from hamoon.infrastructure.ai.providers.openai import OpenAIProvider
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
-from hamoon.shared.contracts.records import AuditRecord
+from hamoon.shared.contracts.records import AuditRecord, DomainEventRecord
 
 router = APIRouter(tags=["intelligence"])
 
@@ -558,13 +561,57 @@ async def complete_ai_evaluation(
 ) -> AIEvaluationRunResponse:
     repository = SqlAlchemyAIRuntimeRegistryRepository(session)
     now = datetime.now(UTC)
+    request_id = current_request_id() or "unknown"
+    correlation_id = current_correlation_id() or request_id
     try:
         async with session.begin():
+            pending = await repository.get_evaluation_run(evaluation_run_id)
+            if pending is None:
+                raise LookupError("EVALUATION_RUN_NOT_FOUND")
+            attestation = attest_evaluation_report(
+                task_class=pending.task_class,
+                expected_policy_version=pending.evaluation_policy_version,
+                report=dict(body.report),
+            )
             evaluation = await repository.complete_evaluation_run(
                 evaluation_run_id=evaluation_run_id,
-                passed=body.passed,
-                summary_metrics=dict(body.summary_metrics),
+                dataset_manifest_digest=body.dataset_manifest_digest,
+                report_digest=attestation.report_digest,
+                passed=attestation.passed,
+                summary_metrics=attestation.summary_metrics,
                 completed_at=now,
+            )
+            event_type = (
+                "EvaluationRunCompleted"
+                if evaluation.passed
+                else "EvaluationRunFailed"
+            )
+            await SqlAlchemyDomainEventRecorder(session).record(
+                DomainEventRecord(
+                    event_id=uuid4(),
+                    event_type=event_type,
+                    event_version=1,
+                    aggregate_type="EVALUATION_RUN",
+                    aggregate_id=evaluation.id,
+                    aggregate_version=1,
+                    actor_id=context.actor_id,
+                    occurred_at=now,
+                    recorded_at=now,
+                    correlation_id=correlation_id,
+                    causation_id=None,
+                    payload={
+                        "task_class": evaluation.task_class.value,
+                        "dataset_version_id": str(evaluation.dataset_version_id),
+                        "dataset_manifest_digest": (
+                            evaluation.dataset_manifest_digest
+                        ),
+                        "evaluation_policy_version": (
+                            evaluation.evaluation_policy_version
+                        ),
+                        "report_digest": evaluation.report_digest,
+                        "passed": evaluation.passed,
+                    },
+                )
             )
             await SqlAlchemyAuditRecorder(session).record(
                 AuditRecord(
@@ -573,17 +620,19 @@ async def complete_ai_evaluation(
                     action="ai.evaluation.complete",
                     resource_type="EVALUATION_RUN",
                     resource_id=evaluation_run_id,
-                    request_id=current_request_id() or "unknown",
-                    correlation_id=current_correlation_id()
-                    or current_request_id()
-                    or "unknown",
+                    request_id=request_id,
+                    correlation_id=correlation_id,
                     created_at=now,
                     purpose="AI_MODEL_GOVERNANCE",
                     metadata={
-                        "passed": body.passed,
+                        "passed": evaluation.passed,
                         "evaluation_policy_version": (
                             evaluation.evaluation_policy_version
                         ),
+                        "dataset_manifest_digest": (
+                            evaluation.dataset_manifest_digest
+                        ),
+                        "report_digest": evaluation.report_digest,
                     },
                 )
             )
@@ -606,6 +655,8 @@ async def complete_ai_evaluation(
             prompt_policy_version_id=evaluation.prompt_policy_version_id,
             evaluation_policy_version=evaluation.evaluation_policy_version,
             dataset_version_id=evaluation.dataset_version_id,
+            dataset_manifest_digest=evaluation.dataset_manifest_digest,
+            report_digest=evaluation.report_digest,
             status=evaluation.status.value,
             passed=evaluation.passed,
             summary_metrics=evaluation.summary_metrics,
@@ -613,7 +664,6 @@ async def complete_ai_evaluation(
             completed_at=evaluation.completed_at,
         )
     )
-
 
 @router.post(
     "/api/v1/admin/ai/routing-policies",
