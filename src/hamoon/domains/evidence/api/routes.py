@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, NoReturn
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -104,7 +104,7 @@ def _ensure_sensitivity_access(
         )
 
 
-def _raise_evidence_http(exc: Exception) -> None:
+def _raise_evidence_http(exc: Exception) -> NoReturn:
     code = str(exc)
     if isinstance(exc, EvidenceNotFoundError) or code in {
         "EVIDENCE_NOT_FOUND",
@@ -197,7 +197,6 @@ async def init_evidence_upload(
             )
     except (EvidenceError, ValueError) as exc:
         _raise_evidence_http(exc)
-        raise AssertionError("unreachable")
 
     upload_url = (
         f"/api/v1/evidence/uploads/{result.upload_session.id}/content"
@@ -261,7 +260,6 @@ async def store_evidence_upload(
             )
     except (EvidenceError, EvidenceNotFoundError, ValueError) as exc:
         _raise_evidence_http(exc)
-        raise AssertionError("unreachable")
     return EvidenceResponse(data=_data(evidence))
 
 
@@ -316,7 +314,6 @@ async def finalize_evidence(
             )
     except (EvidenceError, EvidenceNotFoundError, ValueError) as exc:
         _raise_evidence_http(exc)
-        raise AssertionError("unreachable")
     return EvidenceResponse(data=_data(updated))
 
 
@@ -368,7 +365,6 @@ async def issue_evidence_download(
             )
     except (EvidenceError, EvidenceNotFoundError, ValueError) as exc:
         _raise_evidence_http(exc)
-        raise AssertionError("unreachable")
     return EvidenceDownloadResponse(
         data=EvidenceDownloadData(
             evidence_id=evidence.id,
@@ -395,7 +391,6 @@ async def read_evidence_content(
         )
     except ValueError as exc:
         _raise_evidence_http(exc)
-        raise AssertionError("unreachable")
     if capability.evidence_id != evidence_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -414,7 +409,6 @@ async def read_evidence_content(
         content = await _storage(settings).read(storage_key=evidence.storage_key)
     except LookupError as exc:
         _raise_evidence_http(exc)
-        raise AssertionError("unreachable")
     return Response(
         content=content,
         media_type=evidence.media_type,
