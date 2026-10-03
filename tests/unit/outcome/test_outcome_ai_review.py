@@ -22,7 +22,7 @@ from hamoon.domains.outcome.domain.entities import (
 ACTOR = UUID("11111111-1111-1111-1111-111111111111")
 HH = UUID("22222222-2222-2222-2222-222222222222")
 OUTCOME = UUID("33333333-3333-3333-3333-333333333333")
-AI = UUID("44444444-4444-4444-4444-444444444444")
+AI = UUID("44444444-4444-4444-4444-444444444444")\nRESULT = UUID("55555555-5555-5555-5555-555555555555")
 
 
 class Outcomes:
@@ -32,7 +32,7 @@ class Outcomes:
             household_id=HH,
             intervention_id=ACTOR,
             referral_id=None,
-            provider_result_id=None,
+            provider_result_id=RESULT,
             pre_assessment_id=ACTOR,
             post_assessment_id=AI,
             pre_pgor_snapshot_id=ACTOR,
@@ -149,5 +149,14 @@ async def test_confirm_links_human_decision_learning_signal_and_trace_to_ai() ->
     )
     assert updated.observed_change_summary == "Machine proposal."
     assert decision.ai_decision_id == AI
+    assert decision.outcome_id == OUTCOME
+    assert decision.accepted_payload is not None
+    assert decision.accepted_payload["causal_claim"] is False
     assert signal.ai_decision_id == AI
+    assert signal.human_decision_id == decision.id
+    assert signal.provider_result_id == RESULT
+    assert signal.outcome_id == OUTCOME
+    assert signal.outcome_id != signal.provider_result_id
     assert traces.closed["ai_decision_id"] == AI
+    assert traces.closed["human_decision_id"] == decision.id
+    assert traces.closed["closed_at"] is not None

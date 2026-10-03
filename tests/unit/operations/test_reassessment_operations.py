@@ -261,3 +261,28 @@ async def test_post_pgor_to_outcome_review_completes_operational_loop() -> None:
     assert completed.status is ReassessmentPlanStatus.COMPLETED
     assert work_items.item.status is WorkItemStatus.COMPLETED
     assert events.items[-1].event_type == "ReassessmentLoopCompleted"
+
+@pytest.mark.asyncio
+async def test_finalize_outcome_review_is_noop_for_independent_outcome() -> None:
+    plans = Plans()
+    work_items = WorkItems()
+    events = Recorder()
+    audits = Recorder()
+
+    completed = await FinalizeOutcomeReviewHandler(
+        plans=plans,
+        work_items=work_items,
+        events=events,
+        audits=audits,
+    ).handle(
+        outcome_id=UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+        actor_id=ACTOR,
+        request_id="human-review",
+        correlation_id="corr",
+    )
+
+    assert completed is None
+    assert work_items.item is None
+    assert events.items == []
+    assert audits.items == []
+

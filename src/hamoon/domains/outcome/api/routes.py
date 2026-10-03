@@ -220,21 +220,17 @@ async def _review(
                 action=action,
                 target_status=target_status,
             )
-            if target_status in {
-                OutcomeStatus.CONFIRMED,
-                OutcomeStatus.MODIFIED,
-            }:
-                completed_plan = await FinalizeOutcomeReviewHandler(
-                    plans=SqlAlchemyReassessmentPlanRepository(session),
-                    work_items=SqlAlchemyWorkItemRepository(session),
-                    events=SqlAlchemyDomainEventRecorder(session),
-                    audits=SqlAlchemyAuditRecorder(session),
-                ).handle(
-                    outcome_id=outcome_id,
-                    actor_id=context.actor_id,
-                    request_id=request_id,
-                    correlation_id=correlation_id,
-                )
+            completed_plan = await FinalizeOutcomeReviewHandler(
+                plans=SqlAlchemyReassessmentPlanRepository(session),
+                work_items=SqlAlchemyWorkItemRepository(session),
+                events=SqlAlchemyDomainEventRecorder(session),
+                audits=SqlAlchemyAuditRecorder(session),
+            ).handle(
+                outcome_id=outcome_id,
+                actor_id=context.actor_id,
+                request_id=request_id,
+                correlation_id=correlation_id,
+            )
     except OutcomeVersionConflictError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
