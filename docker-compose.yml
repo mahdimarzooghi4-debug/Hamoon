@@ -47,19 +47,24 @@ services:
     volumes:
       - hamoon_minio:/data
 
-  outbox-worker:
-    build: .
-    command: ["python", "-m", "hamoon.infrastructure.events.outbox"]
-    restart: unless-stopped
-    environment:
-      HAMOON_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hamoon}:${POSTGRES_PASSWORD:-hamoon}@postgres:5432/${POSTGRES_DB:-hamoon}
-      HAMOON_NATS_URL: nats://nats:4222
-      HAMOON_OTEL_ENABLED: "false"
+  minio-init:
+    image: minio/mc:latest
     depends_on:
-      postgres:
-        condition: service_healthy
-      nats:
+      minio:
         condition: service_started
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio12345}
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 \"$$MINIO_ROOT_USER\" \"$$MINIO_ROOT_PASSWORD\"; do sleep 1; done;
+      mc mb --ignore-existing local/hamoon-evidence;
+      mc mb --ignore-existing local/hamoon-evidence-quarantine;
+      mc mb --ignore-existing local/hamoon-derived-artifacts;
+      mc anonymous set none local/hamoon-evidence;
+      mc anonymous set none local/hamoon-evidence-quarantine;
+      mc anonymous set none local/hamoon-derived-artifacts;
+      "
 
   temporal:
     image: temporalio/auto-setup:latest
@@ -75,7 +80,68 @@ services:
     ports:
       - "7233:7233"
 
+  migrate:
+    build: .
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      HAMOON_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hamoon}:${POSTGRES_PASSWORD:-hamoon}@postgres:5432/${POSTGRES_DB:-hamoon}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build: .
+    command: ["uvicorn", "hamoon.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      HAMOON_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hamoon}:${POSTGRES_PASSWORD:-hamoon}@postgres:5432/${POSTGRES_DB:-hamoon}
+      HAMOON_NATS_URL: nats://nats:4222
+      HAMOON_TEMPORAL_ADDRESS: temporal:7233
+      HAMOON_OIDC_ISSUER_URL: http://keycloak:8080/realms/hamoon-local
+      HAMOON_EVIDENCE_LOCAL_ROOT: /data/evidence
+      HAMOON_OTEL_ENABLED: "false"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      nats:
+        condition: service_started
+      keycloak:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    volumes:
+      - hamoon_evidence:/data/evidence
+
+  outbox-worker:
+    build: .
+    command: ["python", "-m", "hamoon.infrastructure.events.outbox"]
+    restart: unless-stopped
+    environment:
+      HAMOON_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hamoon}:${POSTGRES_PASSWORD:-hamoon}@postgres:5432/${POSTGRES_DB:-hamoon}
+      HAMOON_NATS_URL: nats://nats:4222
+      HAMOON_OTEL_ENABLED: "false"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      nats:
+        condition: service_started
+
+  temporal-worker:
+    build: .
+    command: ["python", "-m", "hamoon.infrastructure.temporal.worker"]
+    restart: unless-stopped
+    environment:
+      HAMOON_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hamoon}:${POSTGRES_PASSWORD:-hamoon}@postgres:5432/${POSTGRES_DB:-hamoon}
+      HAMOON_TEMPORAL_ADDRESS: temporal:7233
+      HAMOON_OTEL_ENABLED: "false"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      temporal:
+        condition: service_started
+
 volumes:
   hamoon_postgres:
   hamoon_nats:
   hamoon_minio:
+  hamoon_evidence:
