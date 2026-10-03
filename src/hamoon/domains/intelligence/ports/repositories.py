@@ -123,6 +123,7 @@ class AIRuntimeRegistryRepository(Protocol):
         model_version_id: UUID,
         prompt_policy_version_id: UUID,
         dataset_version_id: UUID,
+        dataset_manifest_digest: str,
         evaluation_policy_version: str,
         started_at: datetime,
     ) -> EvaluationRunState: ...
@@ -131,6 +132,8 @@ class AIRuntimeRegistryRepository(Protocol):
         self,
         *,
         evaluation_run_id: UUID,
+        dataset_manifest_digest: str,
+        report_digest: str,
         passed: bool,
         summary_metrics: dict[str, JsonValue],
         completed_at: datetime,
