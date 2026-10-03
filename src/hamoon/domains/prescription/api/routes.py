@@ -252,22 +252,21 @@ async def _review_prescription(
     session: AsyncSession,
 ) -> PrescriptionReviewResponse:
     repository = SqlAlchemyPrescriptionRepository(session)
-    prescription = await repository.get(prescription_id)
-    if prescription is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "RESOURCE_NOT_FOUND"},
-        )
-    await require_household_assignment(
-        session=session,
-        context=context,
-        household_id=prescription.household_id,
-    )
-
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
     try:
         async with session.begin():
+            prescription = await repository.get(prescription_id)
+            if prescription is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"code": "RESOURCE_NOT_FOUND"},
+                )
+            await require_household_assignment(
+                session=session,
+                context=context,
+                household_id=prescription.household_id,
+            )
             updated, human, signal, items = await ReviewPrescriptionHandler(
                 prescriptions=repository,
                 ai_decisions=SqlAlchemyAIDecisionRepository(session),
