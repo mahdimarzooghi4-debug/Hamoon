@@ -53,7 +53,7 @@ class ReassessmentWorkflow:
         if post_pgor is None:
             raise RuntimeError("POST_PGOR_SIGNAL_MISSING")
 
-        self._outcome_id = await workflow.execute_activity(
+        outcome_id_text = await workflow.execute_activity(
             "prepare_reassessment_outcome",
             PrepareOutcomeInput(
                 plan_id=data.plan_id,
@@ -67,7 +67,8 @@ class ReassessmentWorkflow:
             result_type=str,
         )
 
-        outcome_id = UUID(self._outcome_id)
+        self._outcome_id = outcome_id_text
+        outcome_id = UUID(outcome_id_text)
         await workflow.execute_activity(
             "generate_reassessment_outcome_ai",
             GenerateOutcomeAIInput(
@@ -98,7 +99,7 @@ class ReassessmentWorkflow:
         )
 
         await workflow.wait_condition(lambda: self._outcome_reviewed)
-        return self._outcome_id
+        return outcome_id_text
 
     @workflow.signal(name="PostPGORReady")
     async def post_pgor_ready(self, signal: PostPGORReadySignal) -> None:
