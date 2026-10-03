@@ -3,6 +3,8 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
 
+from pydantic import JsonValue
+
 from hamoon.infrastructure.ai.contracts import AIRoutingPolicy, AITaskClass
 
 class AIProviderStatus(StrEnum):
@@ -53,7 +55,7 @@ class EvaluationRunState:
     evaluation_policy_version: str
     status: EvaluationStatus
     passed: bool
-    summary_metrics: dict[str, object]
+    summary_metrics: dict[str, JsonValue]
     completed_at: datetime | None
 
 @dataclass(frozen=True, slots=True)

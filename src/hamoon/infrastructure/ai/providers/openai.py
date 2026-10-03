@@ -1,7 +1,8 @@
 import json
-from typing import Any
+from typing import cast
 
 import httpx
+from pydantic import JsonValue
 from hamoon.infrastructure.ai.contracts import (
     ProviderStructuredRequest,
     ProviderStructuredResponse,
@@ -34,7 +35,7 @@ class OpenAIProvider:
         self,
         request: ProviderStructuredRequest,
     ) -> ProviderStructuredResponse:
-        payload: dict[str, Any] = {
+        payload: dict[str, JsonValue] = {
             "model": request.model_id,
             "instructions": request.instructions,
             "input": [
@@ -82,20 +83,25 @@ class OpenAIProvider:
                 json=payload,
             )
             response.raise_for_status()
-            body = response.json()
+            raw_body = cast(object, response.json())
         except (httpx.HTTPError, ValueError) as exc:
             raise OpenAIProviderError("AI_PROVIDER_REQUEST_FAILED") from exc
         finally:
             if owns_client:
                 await client.aclose()
 
+        if not isinstance(raw_body, dict):
+            raise OpenAIProviderError("AI_PROVIDER_RESPONSE_NOT_OBJECT")
+        body = cast(dict[str, object], raw_body)
+
         text_output = self._extract_output_text(body)
         try:
-            parsed = json.loads(text_output)
+            parsed_raw = cast(object, json.loads(text_output))
         except json.JSONDecodeError as exc:
             raise OpenAIProviderError("AI_PROVIDER_OUTPUT_NOT_JSON") from exc
-        if not isinstance(parsed, dict):
+        if not isinstance(parsed_raw, dict):
             raise OpenAIProviderError("AI_PROVIDER_OUTPUT_NOT_OBJECT")
+        parsed = cast(dict[str, JsonValue], parsed_raw)
 
         return ProviderStructuredResponse(
             provider_code=self.code,
@@ -104,25 +110,27 @@ class OpenAIProvider:
         )
 
     @staticmethod
-    def _extract_output_text(body: dict[str, Any]) -> str:
+    def _extract_output_text(body: dict[str, object]) -> str:
         outputs = body.get("output")
         if not isinstance(outputs, list):
             raise OpenAIProviderError("AI_PROVIDER_OUTPUT_MISSING")
 
         chunks: list[str] = []
-        for item in outputs:
+        for item in cast(list[object], outputs):
             if not isinstance(item, dict):
                 continue
-            content = item.get("content")
+            item_object = cast(dict[str, object], item)
+            content = item_object.get("content")
             if not isinstance(content, list):
                 continue
-            for part in content:
+            for part in cast(list[object], content):
                 if not isinstance(part, dict):
                     continue
-                if part.get("type") == "refusal":
+                part_object = cast(dict[str, object], part)
+                if part_object.get("type") == "refusal":
                     raise OpenAIProviderError("AI_PROVIDER_REFUSED")
-                if part.get("type") == "output_text":
-                    value = part.get("text")
+                if part_object.get("type") == "output_text":
+                    value = part_object.get("text")
                     if isinstance(value, str):
                         chunks.append(value)
 

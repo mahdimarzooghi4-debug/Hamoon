@@ -2,6 +2,8 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
+from pydantic import JsonValue
+
 from hamoon.domains.intelligence.domain.decisions import (
     AIDecision,
     DecisionTrace,
@@ -93,7 +95,7 @@ class AIRuntimeRegistryRepository(Protocol):
         *,
         evaluation_run_id: UUID,
         passed: bool,
-        summary_metrics: dict[str, object],
+        summary_metrics: dict[str, JsonValue],
         completed_at: datetime,
     ) -> EvaluationRunState: ...
 

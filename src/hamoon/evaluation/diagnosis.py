@@ -112,8 +112,12 @@ def _evaluate_case(
                     unsupported_item_count += 1
 
     review_flags = output.output.get("review_flags")
-    actual_flags = (
-        {value for value in review_flags if isinstance(value, str)}
+    actual_flags: set[str] = (
+        {
+            value
+            for value in cast(list[object], review_flags)
+            if isinstance(value, str)
+        }
         if isinstance(review_flags, list)
         else set()
     )

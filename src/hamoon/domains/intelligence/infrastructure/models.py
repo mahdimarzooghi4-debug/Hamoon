@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import Boolean, JSON, DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
+from pydantic import JsonValue
 
 from hamoon.domains.intelligence.domain.decisions import (
     AIDecisionStatus,
@@ -83,7 +84,7 @@ class FeatureValueModel(Base):
         index=True,
     )
     feature_key: Mapped[str] = mapped_column(String(250), nullable=False)
-    value_json: Mapped[object] = mapped_column(JSON, nullable=False)
+    value_json: Mapped[JsonValue] = mapped_column(JSON, nullable=False)
     source_refs: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     sensitivity_class: Mapped[SensitivityClass] = mapped_column(
         Enum(SensitivityClass, name="feature_sensitivity_class"),
@@ -131,7 +132,7 @@ class AIDecisionModel(Base):
     routing_policy_version: Mapped[str] = mapped_column(String(100), nullable=False)
     prompt_policy_version: Mapped[str] = mapped_column(String(100), nullable=False)
     output_schema_version: Mapped[str] = mapped_column(String(100), nullable=False)
-    structured_output: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    structured_output: Mapped[dict[str, JsonValue]] = mapped_column(JSON, nullable=False)
     trace_id: Mapped[UUID] = mapped_column(nullable=False)
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -156,7 +157,7 @@ class DiagnosisModel(Base):
         nullable=False,
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False)
-    accepted_payload: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    accepted_payload: Mapped[dict[str, JsonValue] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     latest_human_decision_id: Mapped[UUID | None] = mapped_column(
         ForeignKey(
@@ -203,8 +204,8 @@ class HumanDecisionModel(Base):
     )
     reason_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     reason_text: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    accepted_payload: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
-    modified_payload: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    accepted_payload: Mapped[dict[str, JsonValue] | None] = mapped_column(JSON, nullable=True)
+    modified_payload: Mapped[dict[str, JsonValue] | None] = mapped_column(JSON, nullable=True)
     decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 class DecisionTraceModel(Base):
@@ -400,7 +401,7 @@ class EvaluationRunModel(Base):
         nullable=False,
     )
     passed: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    summary_metrics: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    summary_metrics: Mapped[dict[str, JsonValue]] = mapped_column(JSON, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

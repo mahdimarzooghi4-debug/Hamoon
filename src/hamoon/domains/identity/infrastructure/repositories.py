@@ -32,7 +32,7 @@ class SqlAlchemyIdentityRepository:
         row = result.one_or_none()
 
         if row is not None:
-            account, actor = row
+            _account, actor = row
             if actor.status is ActorStatus.DISABLED:
                 raise IdentityDisabledError("Identity is disabled.")
 

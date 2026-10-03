@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import JsonValue
 
 from hamoon.domains.intelligence.domain.decisions import (
     AIDecision,
@@ -332,7 +333,7 @@ class SqlAlchemyDecisionTraceRepository:
         *,
         ai_decision_id: UUID,
         human_decision_id: UUID,
-        closed_at,
+        closed_at: datetime | None,
     ) -> None:
         result = await self._session.execute(
             select(DecisionTraceModel)
@@ -455,7 +456,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         *,
         evaluation_run_id: UUID,
         passed: bool,
-        summary_metrics: dict[str, object],
+        summary_metrics: dict[str, JsonValue],
         completed_at: datetime,
     ) -> EvaluationRunState:
         result = await self._session.execute(
