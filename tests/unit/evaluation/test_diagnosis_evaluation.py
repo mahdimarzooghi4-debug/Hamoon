@@ -17,7 +17,11 @@ def _case() -> DiagnosisEvaluationCase:
     )
 
 
-def _valid_output() -> DiagnosisEvaluationOutput:
+def _output(
+    *,
+    supporting_refs: list[str] | None = None,
+    review_flags: list[str] | None = None,
+) -> DiagnosisEvaluationOutput:
     return DiagnosisEvaluationOutput(
         case_id="case-1",
         output={
@@ -29,14 +33,19 @@ def _valid_output() -> DiagnosisEvaluationOutput:
                     "category": "CONSTRAINT",
                     "title": "Opportunity constraint",
                     "rationale": "O is the lowest PGOR variable.",
-                    "supporting_feature_refs": [
-                        "pgor.O",
-                        "pgor.bottleneck_variables",
-                    ],
+                    "supporting_feature_refs": (
+                        supporting_refs
+                        if supporting_refs is not None
+                        else ["pgor.O", "pgor.bottleneck_variables"]
+                    ),
                     "uncertainty": "UNKNOWN",
                 }
             ],
-            "review_flags": ["HUMAN_REVIEW_REQUIRED"],
+            "review_flags": (
+                review_flags
+                if review_flags is not None
+                else ["HUMAN_REVIEW_REQUIRED"]
+            ),
         },
     )
 
@@ -55,7 +64,7 @@ def test_diagnosis_evaluation_passes_structural_gate_for_grounded_output() -> No
     report = evaluate_diagnosis_outputs(
         dataset_version="test-v1",
         cases=[_case()],
-        outputs=[_valid_output()],
+        outputs=[_output()],
         policy=_policy(),
     )
 
@@ -69,13 +78,10 @@ def test_diagnosis_evaluation_passes_structural_gate_for_grounded_output() -> No
 
 
 def test_diagnosis_evaluation_blocks_unsupported_feature_reference() -> None:
-    invalid = _valid_output().model_copy(deep=True)
-    invalid.output["items"][0]["supporting_feature_refs"] = ["household.imagined_fact"]
-
     report = evaluate_diagnosis_outputs(
         dataset_version="test-v1",
         cases=[_case()],
-        outputs=[invalid],
+        outputs=[_output(supporting_refs=["household.imagined_fact"])],
         policy=_policy(),
     )
 
@@ -85,13 +91,10 @@ def test_diagnosis_evaluation_blocks_unsupported_feature_reference() -> None:
 
 
 def test_diagnosis_evaluation_blocks_missing_human_review_flag() -> None:
-    invalid = _valid_output().model_copy(deep=True)
-    invalid.output["review_flags"] = []
-
     report = evaluate_diagnosis_outputs(
         dataset_version="test-v1",
         cases=[_case()],
-        outputs=[invalid],
+        outputs=[_output(review_flags=[])],
         policy=_policy(),
     )
 
