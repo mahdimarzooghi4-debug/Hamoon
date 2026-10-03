@@ -1,3 +1,5 @@
+from typing import cast
+
 from pydantic import JsonValue
 
 from hamoon.infrastructure.ai.contracts import (
@@ -130,7 +132,7 @@ class FakeAIProvider:
         ]
         if not refs:
             refs = ["policy.causal_claim_allowed"]
-        output: dict[str, JsonValue] = {
+        return cast(dict[str, JsonValue], {
             "schema_version": "outcome-interpretation-v1",
             "classification": "NO_SIGNIFICANT_CHANGE",
             "observed_change_summary": (
@@ -139,5 +141,4 @@ class FakeAIProvider:
             "causal_claim": False,
             "supporting_feature_refs": refs,
             "review_flags": ["FAKE_PROVIDER", "HUMAN_REVIEW_REQUIRED"],
-        }
-        return output
+        })
