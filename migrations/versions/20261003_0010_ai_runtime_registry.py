@@ -6,6 +6,7 @@ Create Date: 2026-10-03
 """
 
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from uuid import UUID
 
 import sqlalchemy as sa
@@ -266,7 +267,7 @@ def upgrade() -> None:
             "output_schema_version": "diagnosis-v1",
             "guardrail_version": "diagnosis-guardrail-v1",
             "status": "ACTIVE",
-            "approved_at": sa.func.now(),
+            "approved_at": datetime(2026, 10, 3, tzinfo=UTC),
         }],
     )
 
