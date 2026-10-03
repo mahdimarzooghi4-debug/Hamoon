@@ -40,7 +40,6 @@ from hamoon.domains.assessment.application.handlers import (
 from hamoon.domains.assessment.domain.entities import Assessment
 from hamoon.domains.assessment.domain.errors import (
     AcceptedObservationVersionConflictError,
-    AssessmentNotFoundError,
     DefinitionNotAvailableError,
     IndicatorNotInDefinitionError,
     InvalidObservationScoreError,

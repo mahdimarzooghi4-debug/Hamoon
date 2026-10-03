@@ -2,8 +2,6 @@ import json
 from typing import Any
 
 import httpx
-from pydantic import JsonValue
-
 from hamoon.infrastructure.ai.contracts import (
     ProviderStructuredRequest,
     ProviderStructuredResponse,

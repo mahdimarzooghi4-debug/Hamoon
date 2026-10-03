@@ -105,7 +105,7 @@ class FactValidationState:
         changed_by: UUID,
         reason_code: str,
         reason_text: str | None,
-    ) -> "FactValidationState":
+    ) -> FactValidationState:
         allowed = _ALLOWED_VALIDATION_TRANSITIONS[self.status]
         if to_status not in allowed:
             from hamoon.domains.family_data.domain.errors import (

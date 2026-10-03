@@ -6,7 +6,6 @@ from hamoon.domains.family_data.domain.entities import (
     CurrentAcceptedFact,
     DataSource,
     FactValidationState,
-    FactValidationStatus,
     HouseholdFact,
 )
 

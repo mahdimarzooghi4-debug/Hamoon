@@ -353,7 +353,7 @@ def upgrade() -> None:
     # Source chapter 6 names five R dimensions but does not enumerate child
     # indicators. V1 preserves that gap explicitly by using one direct measure
     # per named R dimension instead of inventing additional scientific indicators.
-    for order, (dim_code, name_fa) in enumerate(DIMENSIONS["R"], start=1):
+    for dim_code, name_fa in DIMENSIONS["R"]:
         indicator_rows.append(
             {
                 "id": _id("indicator", f"R:{dim_code}:{dim_code}"),
