@@ -1,3 +1,4 @@
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -7,6 +8,7 @@ from hamoon.domains.pgor.domain.definitions import (
     PGORVariableCode,
     RequirementPolicyStatus,
 )
+from hamoon.domains.pgor.domain.engine import EBand, PBand, PGORSnapshotStatus, RBand
 
 
 class IndicatorDefinitionData(BaseModel):
@@ -50,3 +52,33 @@ class PGORDefinitionData(BaseModel):
 
 class PGORDefinitionResponse(BaseModel):
     data: PGORDefinitionData
+
+
+class CalculatePGORRequest(BaseModel):
+    formula_version_id: UUID
+
+
+class PGORSnapshotData(BaseModel):
+    id: UUID
+    household_id: UUID
+    assessment_id: UUID
+    definition_version_id: UUID
+    formula_version_id: UUID
+    engine_version: str
+    status: PGORSnapshotStatus
+    p: Decimal
+    g: Decimal
+    o: Decimal
+    r: Decimal
+    e: Decimal
+    bottleneck_variables: list[PGORVariableCode]
+    e_band: EBand
+    p_band: PBand
+    r_band: RBand
+    completeness_ratio: Decimal | None
+    data_quality_flags: list[str]
+    input_fingerprint: str
+
+
+class PGORSnapshotResponse(BaseModel):
+    data: PGORSnapshotData
