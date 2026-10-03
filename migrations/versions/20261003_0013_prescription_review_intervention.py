@@ -34,14 +34,13 @@ def upgrade() -> None:
         name="human_decision_context",
         create_type=False,
     )
-    item_status = postgresql.ENUM(
+    item_status = sa.Enum(
         "ACCEPTED",
         "ACTIVATED",
         "SUPERSEDED",
         name="prescription_item_status",
-        create_type=False,
     )
-    intervention_type = postgresql.ENUM(
+    intervention_type = sa.Enum(
         "COUNSELING",
         "MOTIVATION",
         "PSYCHOLOGICAL_EMPOWERMENT",
@@ -58,9 +57,8 @@ def upgrade() -> None:
         "RISK_REDUCTION",
         "STABILIZATION",
         name="intervention_type",
-        create_type=False,
     )
-    intervention_status = postgresql.ENUM(
+    intervention_status = sa.Enum(
         "PLANNED",
         "READY_FOR_REFERRAL",
         "REFERRED",
@@ -68,29 +66,9 @@ def upgrade() -> None:
         "COMPLETED",
         "CANCELLED",
         name="intervention_status",
-        create_type=False,
     )
 
-    op.execute(
-        "CREATE TYPE human_decision_context AS ENUM ('DIAGNOSIS', 'PRESCRIPTION')"
-    )
-    op.execute(
-        "CREATE TYPE prescription_item_status AS ENUM "
-        "('ACCEPTED', 'ACTIVATED', 'SUPERSEDED')"
-    )
-    op.execute(
-        "CREATE TYPE intervention_type AS ENUM "
-        "('COUNSELING', 'MOTIVATION', 'PSYCHOLOGICAL_EMPOWERMENT', "
-        "'COACHING', 'TRAINING', 'SKILLS_TRAINING', 'VOCATIONAL_TRAINING', "
-        "'MARKET_LINKAGE', 'EMPLOYMENT', 'FINANCING_FACILITIES', "
-        "'NETWORKING', 'SOCIAL_SUPPORT', 'TREATMENT', 'RISK_REDUCTION', "
-        "'STABILIZATION')"
-    )
-    op.execute(
-        "CREATE TYPE intervention_status AS ENUM "
-        "('PLANNED', 'READY_FOR_REFERRAL', 'REFERRED', 'ACTIVE', "
-        "'COMPLETED', 'CANCELLED')"
-    )
+    decision_context.create(op.get_bind(), checkfirst=True)
 
     op.alter_column("human_decision", "diagnosis_id", nullable=True)
     op.add_column(
