@@ -4,6 +4,9 @@ from uuid import UUID
 import pytest
 
 from hamoon.domains.operations.application.handlers import (
+    CreateOutcomeReviewWorkItemHandler,
+    FinalizeOutcomeReviewHandler,
+    MarkPostPGORReadyHandler,
     MaterializeReassessmentWorkItemHandler,
     ScheduleReassessmentHandler,
 )
@@ -35,13 +38,18 @@ class Plans:
             return self.item
         return None
 
+    async def get_by_outcome(self, outcome_id):
+        if self.item is not None and self.item.outcome_id == outcome_id:
+            return self.item
+        return None
+
     async def update(self, plan, *, expected_version):
         assert self.item is not None
         assert self.item.version == expected_version
         self.item = plan
 
-    async def list_scheduled(self, *, limit):
-        if self.item is None or self.item.status is not ReassessmentPlanStatus.SCHEDULED:
+    async def list_by_status(self, *, statuses, limit):
+        if self.item is None or self.item.status not in statuses:
             return []
         return [self.item][:limit]
 
@@ -161,3 +169,95 @@ def test_work_item_claim_enforces_assignment() -> None:
     other = UUID("99999999-9999-9999-9999-999999999999")
     with pytest.raises(ValueError, match="WORK_ITEM_ASSIGNED_TO_ANOTHER_ACTOR"):
         item.claim(actor_id=other, claimed_at=datetime.now(UTC))
+
+
+
+@pytest.mark.asyncio
+async def test_post_pgor_to_outcome_review_completes_operational_loop() -> None:
+    plans = Plans()
+    work_items = WorkItems()
+    events = Recorder()
+    audits = Recorder()
+    plan = await ScheduleReassessmentHandler(
+        plans=plans,
+        events=events,
+        audits=audits,
+    ).handle(
+        household_id=HOUSEHOLD,
+        intervention_id=INTERVENTION,
+        provider_result_id=RESULT,
+        prescription_item_id=ITEM,
+        assigned_actor_id=ACTOR,
+        review_after_days=14,
+        anchor_at=datetime(2026, 2, 1, tzinfo=UTC),
+        actor_id=ACTOR,
+        request_id="req",
+        correlation_id="corr",
+    )
+    reassessment_work_item = await MaterializeReassessmentWorkItemHandler(
+        plans=plans,
+        work_items=work_items,
+        events=events,
+        audits=audits,
+    ).handle(
+        plan_id=plan.id,
+        actor_id=ACTOR,
+        request_id="activity",
+        correlation_id=plan.workflow_id,
+    )
+    assessment_id = UUID("66666666-6666-6666-6666-666666666666")
+    snapshot_id = UUID("77777777-7777-7777-7777-777777777777")
+    outcome_id = UUID("88888888-8888-8888-8888-888888888888")
+
+    started = plans.item.attach_reassessment(assessment_id=assessment_id)
+    await plans.update(started, expected_version=plans.item.version)
+
+    ready = await MarkPostPGORReadyHandler(
+        plans=plans,
+        work_items=work_items,
+        events=events,
+        audits=audits,
+    ).handle(
+        provider_result_id=RESULT,
+        assessment_id=assessment_id,
+        snapshot_id=snapshot_id,
+        actor_id=ACTOR,
+        request_id="pgor",
+        correlation_id="corr",
+    )
+    assert ready.status is ReassessmentPlanStatus.POST_PGOR_READY
+    assert ready.post_pgor_snapshot_id == snapshot_id
+    assert work_items.item.id == reassessment_work_item.id
+    assert work_items.item.status is WorkItemStatus.COMPLETED
+
+    review_item = await CreateOutcomeReviewWorkItemHandler(
+        plans=plans,
+        work_items=work_items,
+        events=events,
+        audits=audits,
+    ).handle(
+        plan_id=plan.id,
+        outcome_id=outcome_id,
+        actor_id=ACTOR,
+        request_id="outcome-ai",
+        correlation_id=plan.workflow_id,
+    )
+    assert review_item.work_type is WorkItemType.OUTCOME_REVIEW
+    assert plans.item.status is ReassessmentPlanStatus.OUTCOME_REVIEW
+    assert plans.item.outcome_id == outcome_id
+
+    completed = await FinalizeOutcomeReviewHandler(
+        plans=plans,
+        work_items=work_items,
+        events=events,
+        audits=audits,
+    ).handle(
+        outcome_id=outcome_id,
+        actor_id=ACTOR,
+        request_id="human-review",
+        correlation_id="corr",
+    )
+    assert completed is not None
+    assert completed.status is ReassessmentPlanStatus.COMPLETED
+    assert work_items.item.status is WorkItemStatus.COMPLETED
+    assert events.items[-1].event_type == "ReassessmentLoopCompleted"
