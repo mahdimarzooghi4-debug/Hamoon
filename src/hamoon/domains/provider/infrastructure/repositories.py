@@ -5,7 +5,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.domains.intervention.domain.entities import InterventionType
 from hamoon.domains.provider.domain.entities import (
-    CapacityStatus,
     Provider,
     ProviderCapacitySnapshot,
     ProviderEligibilityRule,
