@@ -2,6 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import JsonValue
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.app.config.settings import Settings, get_settings
@@ -10,7 +11,11 @@ from hamoon.app.security.context import AuthorizationContext, Role
 from hamoon.app.security.dependencies import require_roles
 from hamoon.app.security.resource_scope import require_household_assignment
 from hamoon.domains.intelligence.api.schemas import (
+    AIDecisionData,
+    AIDecisionResponse,
     ConfirmDiagnosisRequest,
+    DecisionTraceData,
+    DecisionTraceResponse,
     DiagnosisData,
     DiagnosisResponse,
     GenerateDiagnosisData,
@@ -212,6 +217,7 @@ async def _review(
         diagnoses=SqlAlchemyDiagnosisRepository(session),
         ai_decisions=SqlAlchemyAIDecisionRepository(session),
         human_decisions=SqlAlchemyHumanDecisionRepository(session),
+        feature_packages=SqlAlchemyFeaturePackageRepository(session),
         traces=SqlAlchemyDecisionTraceRepository(session),
         learning_signals=SqlAlchemyLearningSignalRepository(session),
         events=SqlAlchemyDomainEventRecorder(session),
@@ -370,4 +376,98 @@ async def defer_diagnosis(
         modified_payload=None,
         context=context,
         session=session,
+    )
+
+
+
+@router.get(
+    "/api/v1/ai/decisions/{decision_id}",
+    response_model=AIDecisionResponse,
+)
+async def get_ai_decision(
+    decision_id: UUID,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> AIDecisionResponse:
+    decision = await SqlAlchemyAIDecisionRepository(session).get(decision_id)
+    if decision is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RESOURCE_NOT_FOUND"},
+        )
+    await require_household_assignment(
+        session=session,
+        context=context,
+        household_id=decision.household_id,
+    )
+    return AIDecisionResponse(
+        data=AIDecisionData(
+            id=decision.id,
+            household_id=decision.household_id,
+            assessment_id=decision.assessment_id,
+            feature_package_id=decision.feature_package_id,
+            pgor_snapshot_id=decision.pgor_snapshot_id,
+            decision_type=decision.decision_type,
+            status=decision.status,
+            provider_code=decision.provider_code,
+            model_id=decision.model_id,
+            model_alias=decision.model_alias,
+            routing_policy_id=decision.routing_policy_id,
+            routing_policy_version=decision.routing_policy_version,
+            prompt_policy_version=decision.prompt_policy_version,
+            output_schema_version=decision.output_schema_version,
+            structured_output=decision.structured_output,
+            trace_id=decision.trace_id,
+            generated_at=decision.generated_at,
+        )
+    )
+
+
+@router.get(
+    "/api/v1/ai/decisions/{decision_id}/trace",
+    response_model=DecisionTraceResponse,
+)
+async def get_ai_decision_trace(
+    decision_id: UUID,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> DecisionTraceResponse:
+    decision = await SqlAlchemyAIDecisionRepository(session).get(decision_id)
+    if decision is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RESOURCE_NOT_FOUND"},
+        )
+    await require_household_assignment(
+        session=session,
+        context=context,
+        household_id=decision.household_id,
+    )
+    trace = await SqlAlchemyDecisionTraceRepository(session).get_by_ai_decision(
+        decision_id
+    )
+    if trace is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RESOURCE_NOT_FOUND"},
+        )
+    return DecisionTraceResponse(
+        data=DecisionTraceData(
+            id=trace.id,
+            household_id=trace.household_id,
+            trace_type=trace.trace_type,
+            state_fingerprint=trace.state_fingerprint,
+            pgor_snapshot_id=trace.pgor_snapshot_id,
+            feature_package_id=trace.feature_package_id,
+            ai_decision_id=trace.ai_decision_id,
+            human_decision_id=trace.human_decision_id,
+            opened_at=trace.opened_at,
+            closed_at=trace.closed_at,
+        )
     )
