@@ -425,3 +425,158 @@ Business
 ### گام بعدی
 
 مرحله بعد، تبدیل این Baseline به **Hamoon AI Blueprint v1** و سپس Technical Architecture است؛ شامل Domain Model، API Contracts، Event Model، Referral State Machine، Outcome Schema، Provider Registry، Data Architecture، AI/ML boundaries، Security و Backlog.
+
+## 19. Product Boundary: سامانه جامع توانمندسازی در اختیار مددکار
+
+Hamoon صرفاً یک سیستم تشخیصی نیست؛ **سامانه جامع و هوشمند مدیریت مسیر توانمندسازی خانوار** است.
+
+مرز نقش‌ها:
+
+- **مددجو / خانوار:** موضوع توانمندسازی و صاحب مسیر؛ کاربر عملیاتی Hamoon نیست.
+- **مددکار:** کاربر اصلی Hamoon و عامل انسانی تصمیم، اصلاح داده، تأیید/اصلاح نسخه و پیگیری مسیر.
+- **Hamoon:** سامانه جامع مدیریت چرخه توانمندسازی و Decision Intelligence.
+- **Specialized Providers:** ارائه‌دهندگان مستقل مداخلات و خدمات.
+
+جامع بودن Hamoon در چرخه Backend و مدیریت مسیر است و الزاماً به معنی UI پیچیده نیست. تجربه مددکار می‌تواند حول جست‌وجوی کد ملی و مشاهده پرونده جامع توانمندسازی طراحی شود.
+
+```text
+مددکار
+  ↓
+کد ملی خانوار
+  ↓
+پرونده جامع توانمندسازی
+  ↓
+وضعیت + PGOR + روند
+  ↓
+تشخیص
+  ↓
+نسخه
+  ↓
+مداخلات / ارجاعات
+  ↓
+نتایج
+  ↓
+ارزیابی مجدد
+  ↓
+یادگیری
+```
+
+## 20. نقش مددکار در کیفیت و اصلاح داده
+
+مددکار علاوه بر نقش توانمندسازی، **عامل انسانی اصلاح و کنترل کیفیت داده پرونده** نیز هست.
+
+داده خانوار ممکن است قبلاً در Hamoon یا سامانه‌های دیگر ثبت شده باشد. اگر مددکار بر اساس اطلاعات یا شواهد جدید متوجه نادرستی یک مقدار شود، باید بتواند آن را اصلاح کند.
+
+اصلاح داده نباید تاریخچه را حذف کند. Hamoon باید حداقل موارد زیر را نگه دارد:
+
+- مقدار قبلی
+- مقدار جدید
+- منبع مقدار قبلی
+- عامل اصلاح
+- زمان اصلاح
+- دلیل اصلاح
+- مستند/شاهد مرتبط، در صورت وجود
+- مقدار جاری مورد استفاده در محاسبات
+- Audit Trail کامل
+
+مددکار می‌تواند داده را تأیید، اصلاح یا در صورت وجود تعارض برای بررسی علامت‌گذاری کند. AI می‌تواند تعارض یا ناهنجاری را گزارش کند، اما صرفاً به دلیل غیرعادی بودن داده نباید آن را خودکار تغییر دهد.
+
+## 21. اصل صحت داده — Presumption of Data Validity
+
+اصل پایه Hamoon:
+
+> **داده‌ها درست هستند، مگر اینکه خلاف آن ثابت شود.**
+
+هر داده‌ای که از یک منبع مجاز وارد Hamoon می‌شود، به‌صورت پیش‌فرض صحیح و قابل استفاده در نظر گرفته می‌شود. Hamoon نباید تمام داده‌ها را تا زمان راستی‌آزمایی مجدد «مشکوک» یا «تأییدنشده» تلقی کند.
+
+```text
+Authorized Source Data
+        ↓
+Accepted by Default
+        ↓
+Used by Hamoon
+        ↓
+Evidence of Conflict / Error?
+        │
+   No ──┴── Yes
+   ↓         ↓
+Remain     Human Review
+Accepted      ↓
+          Confirm / Correct / Dispute
+```
+
+وضعیت‌های مفهومی پیشنهادی داده:
+
+- **ACCEPTED:** حالت پیش‌فرض؛ داده معتبر فرض می‌شود.
+- **CORRECTED:** خلاف مقدار قبلی احراز و مقدار اصلاح شده است.
+- **DISPUTED:** تعارض یا ادعای خلاف وجود دارد ولی هنوز تعیین تکلیف نشده است.
+- **SUPERSEDED:** رکورد تاریخی که مقدار جدید جایگزین آن شده است.
+
+### اصل عدم حذف تاریخچه
+
+اصلاح یک داده به معنی حذف مقدار قبلی نیست. مقدار قبلی باید برای Audit، تحلیل کیفیت منابع و بازسازی تصمیم‌های تاریخی حفظ شود.
+
+### منشأ داده — Data Provenance
+
+برای داده‌های مؤثر در تصمیم، Hamoon باید بتواند مشخص کند:
+
+```text
+Value
++ Source
++ Recorded At
++ Effective At
++ Changed By
++ Change Reason
++ Evidence (when applicable)
++ Status
++ Version / History
+```
+
+### استفاده در AI و PGOR
+
+PGOR Engine، Diagnostic Engine، Prescription Engine و سایر اجزای Hamoon از **Current Accepted Value** استفاده می‌کنند.
+
+در صورت وجود `DISPUTED` data، سیستم باید متناسب با اهمیت آن داده، تعارض را به مددکار نشان دهد و در تصمیم‌های حساس عدم‌قطعیت را لحاظ کند.
+
+AI می‌تواند بگوید:
+
+> «بین دو منبع درباره وضعیت اشتغال تعارض وجود دارد؛ بررسی مددکار لازم است.»
+
+اما نباید بدون Rule/Authority مشخص، مقدار رسمی پرونده را تغییر دهد.
+
+## 22. تفکیک انواع داده خانوار
+
+برای حفظ معنای داده، Hamoon باید منشأ و نوع آن را از هم تفکیک کند:
+
+- **Declared Data:** داده اعلام‌شده توسط مددجو یا منبع اولیه.
+- **Observed Data:** داده حاصل از مشاهده یا بررسی.
+- **Corrected Data:** مقداری که پس از اثبات خلاف داده قبلی اصلاح شده است.
+- **Derived Data:** داده محاسبه یا استنباط‌شده توسط Hamoon، مانند PGOR، E، Risk، Diagnosis یا Prediction.
+
+این دسته‌بندی به معنی مشکوک بودن Declared Data نیست. مطابق اصل صحت داده، همه داده‌های مجاز در حالت عادی قابل استفاده‌اند مگر اینکه خلافشان ثابت شود.
+
+## 23. پیامد معماری
+
+با این اصول، Hamoon فقط Data Consumer نیست. Hamoon باید یک **Family Data & Empowerment System of Record** با قابلیت Data Integration، Provenance، Versioning، Correction، Audit و Decision Intelligence باشد.
+
+```text
+External / Existing Systems
+          ↓
+     Family Data
+          ↓
+ Presumption of Validity
+          ↓
+       HAMOON
+          ↕
+       مددکار
+  (Correction / Review)
+          ↓
+Current Family State
+          ↓
+PGOR / Diagnosis / Prescription
+          ↓
+Intervention / Outcome / Learning
+```
+
+این اصول باید در طراحی Domain Model، Data Architecture، API Integration، Security، Audit Log و AI Guardrails رعایت شوند.
+
