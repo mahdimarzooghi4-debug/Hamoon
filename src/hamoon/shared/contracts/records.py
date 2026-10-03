@@ -17,6 +17,8 @@ class DomainEventRecord:
     correlation_id: str
     causation_id: str | None
     payload: dict[str, object]
+    traceparent: str | None = None
+    tracestate: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
