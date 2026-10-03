@@ -194,8 +194,14 @@ def main() -> None:
     if not isinstance(cases_raw, list) or not isinstance(outputs_values, list):
         raise ValueError("Outcome dataset cases and outputs must be JSON arrays.")
 
-    cases = [OutcomeEvaluationCase.model_validate(item) for item in cases_raw]
-    outputs = [OutcomeEvaluationOutput.model_validate(item) for item in outputs_values]
+    cases = [
+        OutcomeEvaluationCase.model_validate(item)
+        for item in cast(list[object], cases_raw)
+    ]
+    outputs = [
+        OutcomeEvaluationOutput.model_validate(item)
+        for item in cast(list[object], outputs_values)
+    ]
     policy = OutcomeEvaluationPolicy.model_validate(policy_raw)
     report = evaluate_outcome_outputs(
         dataset_version=version,
