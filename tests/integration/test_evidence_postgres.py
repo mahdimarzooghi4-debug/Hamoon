@@ -63,9 +63,7 @@ async def test_evidence_lifecycle_persists_on_real_postgres(
                     created_at=now,
                 )
             )
-
-    async with session_maker() as session:
-        async with session.begin():
+            await session.flush()
             session.add(
                 HouseholdModel(
                     id=household_id,
