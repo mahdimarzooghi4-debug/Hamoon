@@ -99,8 +99,12 @@ class DecisionTraceResponse(BaseModel):
     data: DecisionTraceData
 
 class CompleteAIEvaluationRequest(BaseModel):
-    passed: bool
-    summary_metrics: dict[str, JsonValue]
+    dataset_manifest_digest: str = Field(
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+    report: dict[str, JsonValue]
 
 class AIEvaluationRunData(BaseModel):
     id: UUID
@@ -109,6 +113,8 @@ class AIEvaluationRunData(BaseModel):
     prompt_policy_version_id: UUID
     evaluation_policy_version: str
     dataset_version_id: UUID | None
+    dataset_manifest_digest: str | None
+    report_digest: str | None
     status: str
     passed: bool
     summary_metrics: dict[str, JsonValue]
