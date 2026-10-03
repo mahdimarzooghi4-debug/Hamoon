@@ -1,5 +1,6 @@
 from uuid import uuid4
 
+from opentelemetry.propagate import inject
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.infrastructure.events.models import DomainEventModel, OutboxMessageModel
@@ -11,6 +12,10 @@ class SqlAlchemyDomainEventRecorder:
         self._session = session
 
     async def record(self, event: DomainEventRecord) -> None:
+        carrier: dict[str, str] = {}
+        inject(carrier)
+        traceparent = event.traceparent or carrier.get("traceparent")
+        tracestate = event.tracestate or carrier.get("tracestate")
         self._session.add(
             DomainEventModel(
                 id=uuid4(),
@@ -25,6 +30,8 @@ class SqlAlchemyDomainEventRecorder:
                 recorded_at=event.recorded_at,
                 correlation_id=event.correlation_id,
                 causation_id=event.causation_id,
+                traceparent=traceparent,
+                tracestate=tracestate,
                 payload=event.payload,
             )
         )
@@ -39,6 +46,8 @@ class SqlAlchemyDomainEventRecorder:
                 aggregate_version=event.aggregate_version,
                 correlation_id=event.correlation_id,
                 causation_id=event.causation_id,
+                traceparent=traceparent,
+                tracestate=tracestate,
                 payload=event.payload,
                 created_at=event.recorded_at,
                 published_at=None,
