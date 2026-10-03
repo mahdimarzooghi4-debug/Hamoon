@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     outbox_lease_seconds: int = 30
     outbox_max_backoff_seconds: int = 300
     otel_enabled: bool = False
+    otel_service_name: str = "hamoon-api"
+    otel_exporter_otlp_endpoint: str | None = None
+    metrics_enabled: bool = True
+    structured_logging: bool = True
 
     oidc_issuer_url: str = "http://localhost:8081/realms/hamoon-local"
     oidc_audience: str = "hamoon-api"
