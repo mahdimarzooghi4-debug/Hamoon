@@ -118,7 +118,7 @@ class FakeAIProvider:
 
     @staticmethod
     def _outcome(request: ProviderStructuredRequest) -> dict[str, JsonValue]:
-        refs = [
+        refs: list[str] = [
             key
             for key in (
                 "pgor.delta.E",
