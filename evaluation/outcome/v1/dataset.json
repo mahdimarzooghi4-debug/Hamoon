@@ -1,0 +1,91 @@
+{
+  "dataset_version": "outcome-dataset-v1",
+  "description": "Synthetic, de-identified Hamoon outcome evaluation cases. No production household data.",
+  "cases": [
+    {
+      "case_id": "o-progress",
+      "input": {
+        "schema_version": "outcome-learning-input-v1",
+        "pre_pgor": {"p": "0.70", "g": "0.65", "o": "0.24", "r": "0.60", "e": "0.40"},
+        "post_pgor": {"p": "0.72", "g": "0.66", "o": "0.39", "r": "0.61", "e": "0.48"},
+        "delta": {"p": "0.02", "g": "0.01", "o": "0.15", "r": "0.01", "e": "0.08"},
+        "intervention_type": "MARKET_LINKAGE",
+        "target_pgor_variable": "O",
+        "provider_result_type": "SERVICE_COMPLETION",
+        "provider_result_status": "COMPLETED",
+        "methodology_version": "observed-pgor-delta-v1",
+        "causal_claim_allowed": false
+      },
+      "expert_classification": "PROGRESS",
+      "source_refs": ["outcome:synthetic-o-progress"]
+    },
+    {
+      "case_id": "stable",
+      "input": {
+        "schema_version": "outcome-learning-input-v1",
+        "pre_pgor": {"p": "0.62", "g": "0.58", "o": "0.55", "r": "0.60", "e": "0.47"},
+        "post_pgor": {"p": "0.62", "g": "0.59", "o": "0.55", "r": "0.60", "e": "0.47"},
+        "delta": {"p": "0.00", "g": "0.01", "o": "0.00", "r": "0.00", "e": "0.00"},
+        "intervention_type": "COACHING",
+        "target_pgor_variable": "G",
+        "provider_result_type": "SERVICE_COMPLETION",
+        "provider_result_status": "COMPLETED",
+        "methodology_version": "observed-pgor-delta-v1",
+        "causal_claim_allowed": false
+      },
+      "expert_classification": "NO_SIGNIFICANT_CHANGE",
+      "source_refs": ["outcome:synthetic-stable"]
+    },
+    {
+      "case_id": "regression",
+      "input": {
+        "schema_version": "outcome-learning-input-v1",
+        "pre_pgor": {"p": "0.72", "g": "0.66", "o": "0.60", "r": "0.65", "e": "0.53"},
+        "post_pgor": {"p": "0.66", "g": "0.61", "o": "0.52", "r": "0.57", "e": "0.45"},
+        "delta": {"p": "-0.06", "g": "-0.05", "o": "-0.08", "r": "-0.08", "e": "-0.08"},
+        "intervention_type": "SOCIAL_SUPPORT",
+        "target_pgor_variable": "R",
+        "provider_result_type": "SERVICE_COMPLETION",
+        "provider_result_status": "COMPLETED",
+        "methodology_version": "observed-pgor-delta-v1",
+        "causal_claim_allowed": false
+      },
+      "expert_classification": "REGRESSION",
+      "source_refs": ["outcome:synthetic-regression"]
+    },
+    {
+      "case_id": "goal-achieved",
+      "input": {
+        "schema_version": "outcome-learning-input-v1",
+        "pre_pgor": {"p": "0.68", "g": "0.64", "o": "0.30", "r": "0.62", "e": "0.44"},
+        "post_pgor": {"p": "0.75", "g": "0.72", "o": "0.58", "r": "0.70", "e": "0.61"},
+        "delta": {"p": "0.07", "g": "0.08", "o": "0.28", "r": "0.08", "e": "0.17"},
+        "intervention_type": "MARKET_LINKAGE",
+        "target_pgor_variable": "O",
+        "provider_result_type": "SERVICE_COMPLETION",
+        "provider_result_status": "COMPLETED",
+        "methodology_version": "observed-pgor-delta-v1",
+        "causal_claim_allowed": false
+      },
+      "expert_classification": "GOAL_ACHIEVED",
+      "source_refs": ["outcome:synthetic-goal-achieved"]
+    },
+    {
+      "case_id": "needs-more-data",
+      "input": {
+        "schema_version": "outcome-learning-input-v1",
+        "pre_pgor": {"p": "0.60", "g": "0.55", "o": "0.42", "r": "0.58", "e": "0.43"},
+        "post_pgor": {"p": "0.61", "g": "0.55", "o": "0.43", "r": "0.58", "e": "0.43"},
+        "delta": {"p": "0.01", "g": "0.00", "o": "0.01", "r": "0.00", "e": "0.00"},
+        "intervention_type": "TRAINING",
+        "target_pgor_variable": "G",
+        "provider_result_type": "PARTIAL_UPDATE",
+        "provider_result_status": "NEEDS_INFORMATION",
+        "methodology_version": "observed-pgor-delta-v1",
+        "causal_claim_allowed": false
+      },
+      "expert_classification": "NEEDS_MORE_DATA",
+      "source_refs": ["outcome:synthetic-needs-more-data"]
+    }
+  ]
+}

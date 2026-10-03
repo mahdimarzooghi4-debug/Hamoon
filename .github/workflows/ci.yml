@@ -39,6 +39,15 @@ jobs:
             --report /tmp/diagnosis-evaluation-report.json
           uv run python -c 'import json; r=json.load(open("/tmp/diagnosis-evaluation-report.json")); assert r["structural_gate_passed"] is True'
 
+      - name: Outcome evaluation replay gate
+        run: |
+          uv run python -m hamoon.evaluation.outcome \
+            --dataset evaluation/outcome/v1/dataset.json \
+            --outputs evaluation/outcome/v1/replay_outputs.json \
+            --policy evaluation/outcome/v1/policy.json \
+            --report /tmp/outcome-evaluation-report.json
+          uv run python -c 'import json; r=json.load(open("/tmp/outcome-evaluation-report.json")); assert r["structural_gate_passed"] is True; assert r["grounding_coverage"] == 1.0; assert r["unsupported_ref_rate"] == 0.0'
+
       - name: Alembic topology
         run: uv run alembic heads
 

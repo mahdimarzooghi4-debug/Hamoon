@@ -4,5 +4,7 @@
   "classification_agreement_min": 0.8,
   "causal_claim_violation_rate_max": 0.0,
   "human_review_flag_rate_min": 1.0,
+  "grounding_coverage_min": 1.0,
+  "unsupported_ref_rate_max": 0.0,
   "manual_approval_required": true
 }

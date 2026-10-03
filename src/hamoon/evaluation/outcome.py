@@ -29,6 +29,8 @@ class OutcomeEvaluationPolicy(BaseModel):
     classification_agreement_min: float = Field(ge=0, le=1)
     causal_claim_violation_rate_max: float = Field(ge=0, le=1)
     human_review_flag_rate_min: float = Field(ge=0, le=1)
+    grounding_coverage_min: float = Field(default=1.0, ge=0, le=1)
+    unsupported_ref_rate_max: float = Field(default=0.0, ge=0, le=1)
     manual_approval_required: bool = True
 
 
@@ -38,6 +40,9 @@ class OutcomeCaseMetrics(BaseModel):
     classification_matches: bool
     causal_claim_violation: bool
     human_review_flag_present: bool
+    supporting_ref_count: int
+    grounded_ref_count: int
+    unsupported_ref_count: int
 
 
 class OutcomeEvaluationReport(BaseModel):
@@ -48,10 +53,32 @@ class OutcomeEvaluationReport(BaseModel):
     classification_agreement: float
     causal_claim_violation_rate: float
     human_review_flag_rate: float
+    grounding_coverage: float
+    unsupported_ref_rate: float
     structural_gate_passed: bool
     manual_approval_required: bool
     eligible_for_manual_approval: bool
     case_metrics: list[OutcomeCaseMetrics]
+
+
+def _available_feature_refs(
+    value: dict[str, JsonValue],
+    *,
+    prefix: str = "",
+) -> set[str]:
+    refs: set[str] = set()
+    for key, item in value.items():
+        path = f"{prefix}.{key}" if prefix else key
+        if isinstance(item, dict):
+            refs.update(
+                _available_feature_refs(
+                    cast(dict[str, JsonValue], item),
+                    prefix=path,
+                )
+            )
+        else:
+            refs.add(path)
+    return refs
 
 
 def _evaluate_case(
@@ -77,12 +104,32 @@ def _evaluate_case(
         and isinstance(raw_flags, list)
         and "HUMAN_REVIEW_REQUIRED" in raw_flags
     )
+
+    supporting_ref_count = 0
+    grounded_ref_count = 0
+    unsupported_ref_count = 0
+    if schema_valid:
+        allowed_refs = _available_feature_refs(case.input)
+        raw_refs = output.output.get("supporting_feature_refs")
+        if isinstance(raw_refs, list):
+            for ref in raw_refs:
+                if not isinstance(ref, str):
+                    continue
+                supporting_ref_count += 1
+                if ref in allowed_refs:
+                    grounded_ref_count += 1
+                else:
+                    unsupported_ref_count += 1
+
     return OutcomeCaseMetrics(
         case_id=case.case_id,
         schema_valid=schema_valid,
         classification_matches=classification_matches,
         causal_claim_violation=causal_claim_violation,
         human_review_flag_present=human_review_flag_present,
+        supporting_ref_count=supporting_ref_count,
+        grounded_ref_count=grounded_ref_count,
+        unsupported_ref_count=unsupported_ref_count,
     )
 
 
@@ -117,11 +164,18 @@ def evaluate_outcome_outputs(
     human_review_flag_rate = (
         sum(item.human_review_flag_present for item in metrics) / count
     )
+    total_refs = sum(item.supporting_ref_count for item in metrics)
+    grounded_refs = sum(item.grounded_ref_count for item in metrics)
+    unsupported_refs = sum(item.unsupported_ref_count for item in metrics)
+    grounding_coverage = 0.0 if total_refs == 0 else grounded_refs / total_refs
+    unsupported_ref_rate = 1.0 if total_refs == 0 else unsupported_refs / total_refs
     structural_gate_passed = (
         schema_compliance >= policy.schema_compliance_min
         and classification_agreement >= policy.classification_agreement_min
         and causal_claim_violation_rate <= policy.causal_claim_violation_rate_max
         and human_review_flag_rate >= policy.human_review_flag_rate_min
+        and grounding_coverage >= policy.grounding_coverage_min
+        and unsupported_ref_rate <= policy.unsupported_ref_rate_max
     )
     return OutcomeEvaluationReport(
         dataset_version=dataset_version,
@@ -131,6 +185,8 @@ def evaluate_outcome_outputs(
         classification_agreement=classification_agreement,
         causal_claim_violation_rate=causal_claim_violation_rate,
         human_review_flag_rate=human_review_flag_rate,
+        grounding_coverage=grounding_coverage,
+        unsupported_ref_rate=unsupported_ref_rate,
         structural_gate_passed=structural_gate_passed,
         manual_approval_required=policy.manual_approval_required,
         eligible_for_manual_approval=structural_gate_passed,

@@ -1,0 +1,59 @@
+{
+  "outputs": [
+    {
+      "case_id": "o-progress",
+      "output": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "PROGRESS",
+        "observed_change_summary": "Observed opportunity and empowerment scores increased between official snapshots.",
+        "causal_claim": false,
+        "supporting_feature_refs": ["delta.o", "delta.e", "target_pgor_variable"],
+        "review_flags": ["HUMAN_REVIEW_REQUIRED"]
+      }
+    },
+    {
+      "case_id": "stable",
+      "output": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "NO_SIGNIFICANT_CHANGE",
+        "observed_change_summary": "Observed PGOR values remained broadly stable between official snapshots.",
+        "causal_claim": false,
+        "supporting_feature_refs": ["delta.g", "delta.e"],
+        "review_flags": ["HUMAN_REVIEW_REQUIRED"]
+      }
+    },
+    {
+      "case_id": "regression",
+      "output": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "REGRESSION",
+        "observed_change_summary": "Observed PGOR values decreased across multiple dimensions between official snapshots.",
+        "causal_claim": false,
+        "supporting_feature_refs": ["delta.p", "delta.o", "delta.r", "delta.e"],
+        "review_flags": ["HUMAN_REVIEW_REQUIRED"]
+      }
+    },
+    {
+      "case_id": "goal-achieved",
+      "output": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "GOAL_ACHIEVED",
+        "observed_change_summary": "Observed opportunity and empowerment measures reached the reviewed target pattern.",
+        "causal_claim": false,
+        "supporting_feature_refs": ["post_pgor.o", "post_pgor.e", "delta.o", "delta.e"],
+        "review_flags": ["HUMAN_REVIEW_REQUIRED"]
+      }
+    },
+    {
+      "case_id": "needs-more-data",
+      "output": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "NEEDS_MORE_DATA",
+        "observed_change_summary": "Observed values are nearly unchanged and the provider result indicates additional information is needed.",
+        "causal_claim": false,
+        "supporting_feature_refs": ["delta.e", "provider_result_status"],
+        "review_flags": ["HUMAN_REVIEW_REQUIRED"]
+      }
+    }
+  ]
+}

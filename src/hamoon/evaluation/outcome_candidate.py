@@ -71,7 +71,7 @@ async def run_candidate_evaluation(
                 model_alias=model_alias,
                 prompt_policy_version=prompt_policy_version,
                 output_schema_version=output_schema_version,
-                feature_schema_version="outcome-input-v1",
+                feature_schema_version="outcome-learning-input-v1",
                 instructions=instructions,
                 output_schema=OUTCOME_INTERPRETATION_V1_SCHEMA,
                 features=case.input,
