@@ -239,7 +239,7 @@ class ReviewPrescriptionHandler:
                 occurred_at=now,
                 recorded_at=now,
                 correlation_id=command.correlation_id,
-                causation_id=event_id,
+                causation_id=str(event_id),
                 payload={
                     "learning_signal_id": str(signal.id),
                     "household_id": str(signal.household_id),
