@@ -34,21 +34,21 @@ from hamoon.domains.intelligence.application.diagnosis_handlers import (
     ReviewDiagnosisHandler,
 )
 from hamoon.domains.intelligence.domain.decisions import HumanDecisionAction
-from hamoon.domains.intelligence.domain.registry import ResolvedAIRoute
 from hamoon.domains.intelligence.domain.errors import (
     DiagnosisGenerationError,
     DiagnosisNotFoundError,
     DiagnosisVersionConflictError,
     InvalidDiagnosisReviewError,
 )
+from hamoon.domains.intelligence.domain.registry import ResolvedAIRoute
 from hamoon.domains.intelligence.infrastructure.repositories import (
     SqlAlchemyAIDecisionRepository,
+    SqlAlchemyAIRuntimeRegistryRepository,
     SqlAlchemyDecisionTraceRepository,
     SqlAlchemyDiagnosisRepository,
     SqlAlchemyFeaturePackageRepository,
     SqlAlchemyHumanDecisionRepository,
     SqlAlchemyLearningSignalRepository,
-    SqlAlchemyAIRuntimeRegistryRepository,
 )
 from hamoon.domains.pgor.infrastructure.repositories import (
     SqlAlchemyPGORDefinitionRepository,
@@ -203,7 +203,6 @@ async def generate_diagnosis(
             trace_id=ai_decision.trace_id,
         )
     )
-
 
 @router.get(
     "/api/v1/diagnoses/{diagnosis_id}",
@@ -441,7 +440,6 @@ async def defer_diagnosis(
     )
 
 
-
 @router.get(
     "/api/v1/ai/decisions/{decision_id}",
     response_model=AIDecisionResponse,
@@ -486,7 +484,6 @@ async def get_ai_decision(
             generated_at=decision.generated_at,
         )
     )
-
 
 @router.get(
     "/api/v1/ai/decisions/{decision_id}/trace",
