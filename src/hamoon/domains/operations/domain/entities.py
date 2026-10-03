@@ -21,6 +21,9 @@ class WorkItemStatus(StrEnum):
 class ReassessmentPlanStatus(StrEnum):
     SCHEDULED = "SCHEDULED"
     TASK_CREATED = "TASK_CREATED"
+    REASSESSMENT_STARTED = "REASSESSMENT_STARTED"
+    POST_PGOR_READY = "POST_PGOR_READY"
+    OUTCOME_REVIEW = "OUTCOME_REVIEW"
     COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"
 
@@ -94,6 +97,10 @@ class ReassessmentPlan:
     created_by: UUID
     work_item_id: UUID | None = None
     task_created_at: datetime | None = None
+    post_assessment_id: UUID | None = None
+    post_pgor_snapshot_id: UUID | None = None
+    outcome_id: UUID | None = None
+    outcome_work_item_id: UUID | None = None
 
     def attach_work_item(
         self,
@@ -109,4 +116,88 @@ class ReassessmentPlan:
             version=self.version + 1,
             work_item_id=work_item_id,
             task_created_at=task_created_at,
+        )
+
+    def attach_reassessment(self, *, assessment_id: UUID) -> "ReassessmentPlan":
+        if self.status not in {
+            ReassessmentPlanStatus.TASK_CREATED,
+            ReassessmentPlanStatus.REASSESSMENT_STARTED,
+        }:
+            raise ValueError("REASSESSMENT_PLAN_NOT_READY_TO_START")
+        if self.post_assessment_id is not None:
+            if self.post_assessment_id != assessment_id:
+                raise ValueError("REASSESSMENT_PLAN_ASSESSMENT_CONFLICT")
+            return self
+        return replace(
+            self,
+            status=ReassessmentPlanStatus.REASSESSMENT_STARTED,
+            version=self.version + 1,
+            post_assessment_id=assessment_id,
+        )
+
+    def mark_post_pgor_ready(
+        self,
+        *,
+        assessment_id: UUID,
+        snapshot_id: UUID,
+    ) -> "ReassessmentPlan":
+        if self.post_assessment_id != assessment_id:
+            raise ValueError("REASSESSMENT_PLAN_ASSESSMENT_MISMATCH")
+        if self.status not in {
+            ReassessmentPlanStatus.REASSESSMENT_STARTED,
+            ReassessmentPlanStatus.POST_PGOR_READY,
+        }:
+            raise ValueError("REASSESSMENT_PLAN_NOT_MEASURING")
+        if self.post_pgor_snapshot_id is not None:
+            if self.post_pgor_snapshot_id != snapshot_id:
+                raise ValueError("REASSESSMENT_PLAN_SNAPSHOT_CONFLICT")
+            return self
+        return replace(
+            self,
+            status=ReassessmentPlanStatus.POST_PGOR_READY,
+            version=self.version + 1,
+            post_pgor_snapshot_id=snapshot_id,
+        )
+
+    def attach_outcome_review(
+        self,
+        *,
+        outcome_id: UUID,
+        work_item_id: UUID,
+    ) -> "ReassessmentPlan":
+        if self.status not in {
+            ReassessmentPlanStatus.POST_PGOR_READY,
+            ReassessmentPlanStatus.OUTCOME_REVIEW,
+        }:
+            raise ValueError("REASSESSMENT_PLAN_OUTCOME_NOT_READY")
+        if self.outcome_id is not None and self.outcome_id != outcome_id:
+            raise ValueError("REASSESSMENT_PLAN_OUTCOME_CONFLICT")
+        if (
+            self.outcome_work_item_id is not None
+            and self.outcome_work_item_id != work_item_id
+        ):
+            raise ValueError("REASSESSMENT_PLAN_OUTCOME_WORK_ITEM_CONFLICT")
+        if (
+            self.outcome_id == outcome_id
+            and self.outcome_work_item_id == work_item_id
+            and self.status is ReassessmentPlanStatus.OUTCOME_REVIEW
+        ):
+            return self
+        return replace(
+            self,
+            status=ReassessmentPlanStatus.OUTCOME_REVIEW,
+            version=self.version + 1,
+            outcome_id=outcome_id,
+            outcome_work_item_id=work_item_id,
+        )
+
+    def complete(self) -> "ReassessmentPlan":
+        if self.status is ReassessmentPlanStatus.COMPLETED:
+            return self
+        if self.status is not ReassessmentPlanStatus.OUTCOME_REVIEW:
+            raise ValueError("REASSESSMENT_PLAN_OUTCOME_REVIEW_NOT_ACTIVE")
+        return replace(
+            self,
+            status=ReassessmentPlanStatus.COMPLETED,
+            version=self.version + 1,
         )

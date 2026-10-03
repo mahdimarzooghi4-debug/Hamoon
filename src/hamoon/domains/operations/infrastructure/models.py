@@ -69,6 +69,26 @@ class ReassessmentPlanModel(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    post_assessment_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("assessment.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+    )
+    post_pgor_snapshot_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("pgor_snapshot.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+    )
+    outcome_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("hamoon_outcome.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+    )
+    outcome_work_item_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("work_item.id", ondelete="SET NULL", use_alter=True),
+        nullable=True,
+        unique=True,
+    )
 
 
 class WorkItemModel(Base):

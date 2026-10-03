@@ -4,6 +4,7 @@ from uuid import UUID
 
 from hamoon.domains.operations.domain.entities import (
     ReassessmentPlan,
+    ReassessmentPlanStatus,
     WorkItem,
     WorkItemStatus,
 )
@@ -26,7 +27,12 @@ class ReassessmentPlanRepository(Protocol):
         expected_version: int,
     ) -> None: ...
 
-    async def list_scheduled(self, *, limit: int) -> list[ReassessmentPlan]: ...
+    async def list_by_status(
+        self,
+        *,
+        statuses: tuple[ReassessmentPlanStatus, ...],
+        limit: int,
+    ) -> list[ReassessmentPlan]: ...
 
 
 class WorkItemRepository(Protocol):

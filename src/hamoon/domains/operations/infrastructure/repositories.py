@@ -34,6 +34,10 @@ def _plan(model: ReassessmentPlanModel) -> ReassessmentPlan:
         created_by=model.created_by,
         work_item_id=model.work_item_id,
         task_created_at=model.task_created_at,
+        post_assessment_id=model.post_assessment_id,
+        post_pgor_snapshot_id=model.post_pgor_snapshot_id,
+        outcome_id=model.outcome_id,
+        outcome_work_item_id=model.outcome_work_item_id,
     )
 
 
@@ -84,6 +88,10 @@ class SqlAlchemyReassessmentPlanRepository:
                 created_by=plan.created_by,
                 work_item_id=plan.work_item_id,
                 task_created_at=plan.task_created_at,
+                post_assessment_id=plan.post_assessment_id,
+                post_pgor_snapshot_id=plan.post_pgor_snapshot_id,
+                outcome_id=plan.outcome_id,
+                outcome_work_item_id=plan.outcome_work_item_id,
             )
         )
 
@@ -123,14 +131,20 @@ class SqlAlchemyReassessmentPlanRepository:
         model.version = plan.version
         model.work_item_id = plan.work_item_id
         model.task_created_at = plan.task_created_at
+        model.post_assessment_id = plan.post_assessment_id
+        model.post_pgor_snapshot_id = plan.post_pgor_snapshot_id
+        model.outcome_id = plan.outcome_id
+        model.outcome_work_item_id = plan.outcome_work_item_id
 
-    async def list_scheduled(self, *, limit: int) -> list[ReassessmentPlan]:
+    async def list_by_status(
+        self,
+        *,
+        statuses: tuple[ReassessmentPlanStatus, ...],
+        limit: int,
+    ) -> list[ReassessmentPlan]:
         result = await self._session.execute(
             select(ReassessmentPlanModel)
-            .where(
-                ReassessmentPlanModel.status
-                == ReassessmentPlanStatus.SCHEDULED
-            )
+            .where(ReassessmentPlanModel.status.in_(statuses))
             .order_by(ReassessmentPlanModel.due_at)
             .limit(limit)
         )
