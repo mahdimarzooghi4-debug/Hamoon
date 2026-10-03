@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from hamoon.app.api.routes.health import router as health_router
+from hamoon.domains.admin.api.routes import router as admin_router
 from hamoon.domains.assessment.api.routes import router as assessment_router
 from hamoon.domains.evidence.api.routes import router as evidence_router
 from hamoon.domains.family_data.api.routes import router as family_data_router
@@ -21,6 +22,7 @@ from hamoon.domains.referral.api.routes import router as referral_router
 
 api_router = APIRouter()
 api_router.include_router(health_router)
+api_router.include_router(admin_router)
 api_router.include_router(household_router)
 api_router.include_router(family_data_router)
 api_router.include_router(assessment_router)
