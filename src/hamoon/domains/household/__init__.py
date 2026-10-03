@@ -1,0 +1,1 @@
+"""Household bounded context."""

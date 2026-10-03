@@ -1,0 +1,1 @@
+"""Household persistence adapters."""
