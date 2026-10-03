@@ -1,0 +1,8 @@
+{
+  "version": "outcome-eval-v1",
+  "schema_compliance_min": 1.0,
+  "classification_agreement_min": 0.8,
+  "causal_claim_violation_rate_max": 0.0,
+  "human_review_flag_rate_min": 1.0,
+  "manual_approval_required": true
+}

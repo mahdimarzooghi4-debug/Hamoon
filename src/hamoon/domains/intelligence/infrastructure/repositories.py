@@ -35,6 +35,7 @@ from hamoon.domains.intelligence.infrastructure.models import (
     FeatureValueModel,
     HumanDecisionModel,
     LearningSignalModel,
+    EvaluationMetricModel,
     AIModelModel,
     AIModelVersionModel,
     AIProviderModel,
@@ -401,6 +402,72 @@ class SqlAlchemyLearningSignalRepository:
             )
         )
 
+    @staticmethod
+    def _hydrate(model: LearningSignalModel) -> LearningSignal:
+        return LearningSignal(
+            id=model.id,
+            household_id=model.household_id,
+            signal_type=model.signal_type,
+            ai_decision_id=model.ai_decision_id,
+            human_decision_id=model.human_decision_id,
+            diagnosis_id=model.diagnosis_id,
+            signal_label=model.signal_label,
+            quality_status=model.quality_status,
+            created_at=model.created_at,
+            created_by=model.created_by,
+            prescription_id=model.prescription_id,
+            intervention_id=model.intervention_id,
+            provider_match_id=model.provider_match_id,
+            provider_id=model.provider_id,
+            provider_result_id=model.provider_result_id,
+            outcome_id=model.outcome_id,
+        )
+
+    async def get(self, signal_id: UUID) -> LearningSignal | None:
+        model = await self._session.get(LearningSignalModel, signal_id)
+        return None if model is None else self._hydrate(model)
+
+    async def list(
+        self,
+        *,
+        quality_status: object | None,
+        signal_type: object | None,
+        limit: int,
+    ) -> list[LearningSignal]:
+        statement = select(LearningSignalModel)
+        if quality_status is not None:
+            statement = statement.where(
+                LearningSignalModel.quality_status == quality_status
+            )
+        if signal_type is not None:
+            statement = statement.where(
+                LearningSignalModel.signal_type == signal_type
+            )
+        result = await self._session.execute(
+            statement.order_by(LearningSignalModel.created_at.desc()).limit(limit)
+        )
+        return [self._hydrate(model) for model in result.scalars().all()]
+
+    async def change_quality(
+        self,
+        *,
+        signal_id: UUID,
+        expected_quality: object,
+        new_quality: object,
+    ) -> LearningSignal:
+        result = await self._session.execute(
+            select(LearningSignalModel)
+            .where(LearningSignalModel.id == signal_id)
+            .with_for_update()
+        )
+        model = result.scalar_one_or_none()
+        if model is None:
+            raise LookupError("LEARNING_SIGNAL_NOT_FOUND")
+        if model.quality_status != expected_quality:
+            raise ValueError("LEARNING_SIGNAL_QUALITY_CONFLICT")
+        model.quality_status = new_quality  # type: ignore[assignment]
+        return self._hydrate(model)
+
 class SqlAlchemyAIRuntimeRegistryRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -479,6 +546,41 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             evaluation_completed_at=evaluation.completed_at,
         )
 
+    async def create_evaluation_run(
+        self,
+        *,
+        task_class: AITaskClass,
+        model_version_id: UUID,
+        prompt_policy_version_id: UUID,
+        dataset_version_id: UUID,
+        evaluation_policy_version: str,
+        started_at: datetime,
+    ) -> EvaluationRunState:
+        model_version = await self._session.get(AIModelVersionModel, model_version_id)
+        if model_version is None:
+            raise LookupError("AI_MODEL_VERSION_NOT_FOUND")
+        prompt_version = await self._session.get(
+            PromptPolicyVersionModel,
+            prompt_policy_version_id,
+        )
+        if prompt_version is None:
+            raise LookupError("PROMPT_POLICY_VERSION_NOT_FOUND")
+        model = EvaluationRunModel(
+            id=uuid4(),
+            task_class=task_class,
+            model_version_id=model_version_id,
+            prompt_policy_version_id=prompt_policy_version_id,
+            evaluation_policy_version=evaluation_policy_version,
+            dataset_version_id=dataset_version_id,
+            started_at=started_at,
+            status=EvaluationStatus.PENDING,
+            passed=False,
+            summary_metrics={},
+            completed_at=None,
+        )
+        self._session.add(model)
+        return _evaluation_run_state(model)
+
     async def get_evaluation_run(
         self,
         evaluation_run_id: UUID,
@@ -515,6 +617,24 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         model.passed = passed
         model.summary_metrics = summary_metrics
         model.completed_at = completed_at
+        for metric_key, metric_value in summary_metrics.items():
+            if isinstance(metric_value, (str, int, float, bool)) or metric_value is None:
+                self._session.add(
+                    EvaluationMetricModel(
+                        id=uuid4(),
+                        evaluation_run_id=model.id,
+                        metric_key=metric_key,
+                        metric_value=metric_value,
+                        segment=None,
+                        threshold=None,
+                        passed=(
+                            bool(metric_value)
+                            if metric_key == "structural_gate_passed"
+                            and isinstance(metric_value, bool)
+                            else None
+                        ),
+                    )
+                )
         return _evaluation_run_state(model)
 
     async def promote_routing_policy(
@@ -615,8 +735,10 @@ def _evaluation_run_state(model: EvaluationRunModel) -> EvaluationRunState:
         model_version_id=model.model_version_id,
         prompt_policy_version_id=model.prompt_policy_version_id,
         evaluation_policy_version=model.evaluation_policy_version,
+        dataset_version_id=model.dataset_version_id,
         status=model.status,
         passed=model.passed,
         summary_metrics=model.summary_metrics,
+        started_at=model.started_at,
         completed_at=model.completed_at,
     )

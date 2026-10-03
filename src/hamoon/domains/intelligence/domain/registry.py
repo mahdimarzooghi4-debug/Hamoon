@@ -53,9 +53,11 @@ class EvaluationRunState:
     model_version_id: UUID
     prompt_policy_version_id: UUID
     evaluation_policy_version: str
+    dataset_version_id: UUID | None
     status: EvaluationStatus
     passed: bool
     summary_metrics: dict[str, JsonValue]
+    started_at: datetime | None
     completed_at: datetime | None
 
 @dataclass(frozen=True, slots=True)

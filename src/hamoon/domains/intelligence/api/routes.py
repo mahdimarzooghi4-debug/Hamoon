@@ -602,9 +602,11 @@ async def complete_ai_evaluation(
             model_version_id=evaluation.model_version_id,
             prompt_policy_version_id=evaluation.prompt_policy_version_id,
             evaluation_policy_version=evaluation.evaluation_policy_version,
+            dataset_version_id=evaluation.dataset_version_id,
             status=evaluation.status.value,
             passed=evaluation.passed,
             summary_metrics=evaluation.summary_metrics,
+            started_at=evaluation.started_at,
             completed_at=evaluation.completed_at,
         )
     )

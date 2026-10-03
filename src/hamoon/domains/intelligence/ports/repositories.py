@@ -85,6 +85,24 @@ class DecisionTraceRepository(Protocol):
 class LearningSignalRepository(Protocol):
     async def add(self, signal: LearningSignal) -> None: ...
 
+    async def get(self, signal_id: UUID) -> LearningSignal | None: ...
+
+    async def list(
+        self,
+        *,
+        quality_status: object | None,
+        signal_type: object | None,
+        limit: int,
+    ) -> list[LearningSignal]: ...
+
+    async def change_quality(
+        self,
+        *,
+        signal_id: UUID,
+        expected_quality: object,
+        new_quality: object,
+    ) -> LearningSignal: ...
+
 
 class AIRuntimeRegistryRepository(Protocol):
     async def resolve_active_route(
@@ -96,6 +114,17 @@ class AIRuntimeRegistryRepository(Protocol):
         self,
         evaluation_run_id: UUID,
     ) -> EvaluationRunState | None: ...
+
+    async def create_evaluation_run(
+        self,
+        *,
+        task_class: AITaskClass,
+        model_version_id: UUID,
+        prompt_policy_version_id: UUID,
+        dataset_version_id: UUID,
+        evaluation_policy_version: str,
+        started_at: datetime,
+    ) -> EvaluationRunState: ...
 
     async def complete_evaluation_run(
         self,

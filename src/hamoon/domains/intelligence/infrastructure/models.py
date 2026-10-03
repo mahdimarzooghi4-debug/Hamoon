@@ -445,6 +445,14 @@ class EvaluationRunModel(Base):
         String(100),
         nullable=False,
     )
+    dataset_version_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("learning_dataset_version.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     status: Mapped[EvaluationStatus] = mapped_column(
         Enum(EvaluationStatus, name="ai_evaluation_status"),
         nullable=False,
@@ -498,3 +506,28 @@ class ModelRoutingPolicyModel(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+
+
+
+class EvaluationMetricModel(Base):
+    __tablename__ = "evaluation_metric"
+    __table_args__ = (
+        UniqueConstraint(
+            "evaluation_run_id",
+            "metric_key",
+            "segment",
+            name="uq_evaluation_metric_run_key_segment",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    evaluation_run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("evaluation_run.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    metric_key: Mapped[str] = mapped_column(String(150), nullable=False)
+    metric_value: Mapped[JsonValue] = mapped_column(JSON, nullable=False)
+    segment: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    threshold: Mapped[JsonValue | None] = mapped_column(JSON, nullable=True)
+    passed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
