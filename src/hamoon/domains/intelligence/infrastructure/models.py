@@ -26,7 +26,6 @@ from hamoon.domains.intelligence.domain.registry import (
 from hamoon.infrastructure.ai.contracts import AITaskClass
 from hamoon.infrastructure.db.base import Base
 
-
 class FeaturePackageModel(Base):
     __tablename__ = "feature_package"
     __table_args__ = (
@@ -67,7 +66,6 @@ class FeaturePackageModel(Base):
         nullable=False,
     )
 
-
 class FeatureValueModel(Base):
     __tablename__ = "feature_value"
     __table_args__ = (
@@ -92,7 +90,6 @@ class FeatureValueModel(Base):
         nullable=False,
     )
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
-
 
 class AIDecisionModel(Base):
     __tablename__ = "ai_decision"
@@ -138,7 +135,6 @@ class AIDecisionModel(Base):
     trace_id: Mapped[UUID] = mapped_column(nullable=False)
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-
 class DiagnosisModel(Base):
     __tablename__ = "diagnosis"
     __table_args__ = (
@@ -180,7 +176,6 @@ class DiagnosisModel(Base):
         nullable=True,
     )
 
-
 class HumanDecisionModel(Base):
     __tablename__ = "human_decision"
 
@@ -211,7 +206,6 @@ class HumanDecisionModel(Base):
     accepted_payload: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     modified_payload: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-
 
 class DecisionTraceModel(Base):
     __tablename__ = "decision_trace"
@@ -252,7 +246,6 @@ class DecisionTraceModel(Base):
         nullable=True,
     )
 
-
 class LearningSignalModel(Base):
     __tablename__ = "learning_signal"
 
@@ -290,8 +283,6 @@ class LearningSignalModel(Base):
         nullable=False,
     )
 
-
-
 class AIProviderModel(Base):
     __tablename__ = "ai_provider"
 
@@ -307,7 +298,6 @@ class AIProviderModel(Base):
         nullable=True,
     )
 
-
 class AIModelModel(Base):
     __tablename__ = "ai_model"
 
@@ -318,7 +308,6 @@ class AIModelModel(Base):
         nullable=False,
     )
     purpose: Mapped[str] = mapped_column(String(250), nullable=False)
-
 
 class AIModelVersionModel(Base):
     __tablename__ = "ai_model_version"
@@ -351,14 +340,12 @@ class AIModelVersionModel(Base):
         nullable=True,
     )
 
-
 class PromptPolicyModel(Base):
     __tablename__ = "prompt_policy"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     purpose: Mapped[str] = mapped_column(String(150), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
-
 
 class PromptPolicyVersionModel(Base):
     __tablename__ = "prompt_policy_version"
@@ -387,7 +374,6 @@ class PromptPolicyVersionModel(Base):
         DateTime(timezone=True),
         nullable=True,
     )
-
 
 class EvaluationRunModel(Base):
     __tablename__ = "evaluation_run"
@@ -419,7 +405,6 @@ class EvaluationRunModel(Base):
         DateTime(timezone=True),
         nullable=True,
     )
-
 
 class ModelRoutingPolicyModel(Base):
     __tablename__ = "model_routing_policy"
