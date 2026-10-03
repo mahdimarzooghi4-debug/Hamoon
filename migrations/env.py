@@ -11,6 +11,7 @@ from hamoon.app.config.settings import get_settings
 from hamoon.infrastructure.db.base import Base
 
 from hamoon.domains.assessment.infrastructure import models as assessment_models  # noqa: F401
+from hamoon.domains.evidence.infrastructure import models as evidence_models  # noqa: F401
 from hamoon.domains.family_data.infrastructure import models as family_data_models  # noqa: F401
 from hamoon.domains.household.infrastructure import models as household_models  # noqa: F401
 from hamoon.domains.identity.infrastructure import models as identity_models  # noqa: F401
