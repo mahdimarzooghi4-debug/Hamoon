@@ -50,7 +50,8 @@ FORMULA=UUID("cccccccc-cccc-cccc-cccc-cccccccccccc")
 
 class Interventions:
     async def get(self,item_id):
-        if item_id != INT: return None
+        if item_id != INT:
+            return None
         return Intervention(INT,HH,UUID("dddddddd-dddd-dddd-dddd-dddddddddddd"),InterventionType.MARKET_LINKAGE,PGORVariableCode.O,InterventionStatus.ACTIVE,datetime.now(UTC),None,ACTOR)
 
 
@@ -73,15 +74,18 @@ class Snapshots:
     async def get(self,item_id): return None
     async def list_inputs(self,item_id): return []
     async def get_official_by_assessment(self,assessment_id):
-        if assessment_id == PRE_A: return snapshot(PRE_S,PRE_A,"0.8","0.7","0.2","0.6","0.46")
-        if assessment_id == POST_A: return snapshot(POST_S,POST_A,"0.82","0.72","0.35","0.61","0.53")
+        if assessment_id == PRE_A:
+            return snapshot(PRE_S, PRE_A, "0.8", "0.7", "0.2", "0.6", "0.46")
+        if assessment_id == POST_A:
+            return snapshot(POST_S, POST_A, "0.82", "0.72", "0.35", "0.61", "0.53")
         return None
 
 
 class Results:
     async def add(self,item): pass
     async def get(self,item_id):
-        if item_id != PR: return None
+        if item_id != PR:
+            return None
         return ProviderResult(PR,REF,PROVIDER,"COMPLETED","SERVICE_COMPLETION","done",None,None,None,datetime.now(UTC),"ext-r",None,"a"*64,())
     async def get_by_external_result(self,**kwargs): return None
     async def list_for_referral(self,item_id): return []
@@ -90,7 +94,8 @@ class Results:
 class Referrals:
     async def add(self,item): pass
     async def get(self,item_id):
-        if item_id != REF: return None
+        if item_id != REF:
+            return None
         return Referral(REF,HH,INT,UUID("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"),UUID("ffffffff-ffff-ffff-ffff-ffffffffffff"),PROVIDER,UUID("12121212-1212-1212-1212-121212121212"),ReferralStatus.COMPLETED,"NORMAL",3,None,datetime.now(UTC),datetime.now(UTC),datetime.now(UTC),None,"ext-ref","subject",ACTOR,datetime.now(UTC),())
     async def get_by_provider_reference(self,**kwargs): return None
     async def update(self,*args,**kwargs): pass
