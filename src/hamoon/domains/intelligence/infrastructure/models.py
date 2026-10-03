@@ -461,6 +461,14 @@ class EvaluationRunModel(Base):
         ForeignKey("learning_dataset_version.id", ondelete="RESTRICT"),
         nullable=True,
     )
+    dataset_manifest_digest: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+    report_digest: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
     started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
