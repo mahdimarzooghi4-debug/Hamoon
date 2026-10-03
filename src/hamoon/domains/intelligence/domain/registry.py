@@ -49,3 +49,28 @@ class ResolvedAIRoute:
     @property
     def task_class(self) -> AITaskClass:
         return self.routing_policy.task_class
+
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluationRunState:
+    id: UUID
+    task_class: AITaskClass
+    model_version_id: UUID
+    prompt_policy_version_id: UUID
+    evaluation_policy_version: str
+    status: EvaluationStatus
+    passed: bool
+    summary_metrics: dict[str, object]
+    completed_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class RoutingPromotionResult:
+    routing_policy_id: UUID
+    model_version_id: UUID
+    task_class: AITaskClass
+    routing_version: str
+    model_status: AIModelVersionStatus
+    routing_status: RoutingPolicyStatus
+    activated_at: datetime

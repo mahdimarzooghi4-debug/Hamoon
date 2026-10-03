@@ -1,6 +1,6 @@
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.infrastructure.ai.contracts import AIRoutingPolicy, AITaskClass
@@ -21,9 +21,11 @@ from hamoon.domains.intelligence.domain.registry import (
     AIModelVersionStatus,
     AIProviderStatus,
     EvaluationStatus,
+    EvaluationRunState,
     PromptPolicyVersionStatus,
     ResolvedAIRoute,
     RoutingPolicyStatus,
+    RoutingPromotionResult,
 )
 from hamoon.domains.intelligence.infrastructure.models import (
     AIDecisionModel,
@@ -452,3 +454,147 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             evaluation_run_id=evaluation.id,
             evaluation_completed_at=evaluation.completed_at,
         )
+
+    async def get_evaluation_run(
+        self,
+        evaluation_run_id: UUID,
+    ) -> EvaluationRunState | None:
+        model = await self._session.get(EvaluationRunModel, evaluation_run_id)
+        return None if model is None else _evaluation_run_state(model)
+
+    async def complete_evaluation_run(
+        self,
+        *,
+        evaluation_run_id: UUID,
+        passed: bool,
+        summary_metrics: dict[str, object],
+        completed_at,
+    ) -> EvaluationRunState:
+        result = await self._session.execute(
+            select(EvaluationRunModel)
+            .where(EvaluationRunModel.id == evaluation_run_id)
+            .with_for_update()
+        )
+        model = result.scalar_one_or_none()
+        if model is None:
+            raise LookupError("EVALUATION_RUN_NOT_FOUND")
+        if model.status not in {
+            EvaluationStatus.PENDING,
+            EvaluationStatus.RUNNING,
+        }:
+            raise ValueError("EVALUATION_RUN_ALREADY_COMPLETED")
+        structural_gate = summary_metrics.get("structural_gate_passed")
+        if passed and structural_gate is not True:
+            raise ValueError("EVALUATION_STRUCTURAL_GATE_NOT_PASSED")
+
+        model.status = EvaluationStatus.PASSED if passed else EvaluationStatus.FAILED
+        model.passed = passed
+        model.summary_metrics = summary_metrics
+        model.completed_at = completed_at
+        return _evaluation_run_state(model)
+
+    async def promote_routing_policy(
+        self,
+        *,
+        routing_policy_id: UUID,
+        activated_at,
+    ) -> RoutingPromotionResult:
+        result = await self._session.execute(
+            select(
+                ModelRoutingPolicyModel,
+                AIModelVersionModel,
+                AIProviderModel,
+                PromptPolicyVersionModel,
+                EvaluationRunModel,
+            )
+            .join(
+                AIModelVersionModel,
+                AIModelVersionModel.id
+                == ModelRoutingPolicyModel.model_version_id,
+            )
+            .join(
+                AIModelModel,
+                AIModelModel.id == AIModelVersionModel.ai_model_id,
+            )
+            .join(
+                AIProviderModel,
+                AIProviderModel.id == AIModelModel.provider_id,
+            )
+            .join(
+                PromptPolicyVersionModel,
+                PromptPolicyVersionModel.id
+                == ModelRoutingPolicyModel.prompt_policy_version_id,
+            )
+            .join(
+                EvaluationRunModel,
+                EvaluationRunModel.id
+                == ModelRoutingPolicyModel.evaluation_run_id,
+            )
+            .where(ModelRoutingPolicyModel.id == routing_policy_id)
+            .with_for_update()
+        )
+        row = result.one_or_none()
+        if row is None:
+            raise LookupError("ROUTING_POLICY_NOT_FOUND")
+
+        routing, model_version, provider, prompt, evaluation = row
+        if provider.status != AIProviderStatus.ACTIVE:
+            raise ValueError("AI_PROVIDER_NOT_ACTIVE")
+        if prompt.status != PromptPolicyVersionStatus.ACTIVE:
+            raise ValueError("PROMPT_POLICY_NOT_ACTIVE")
+        if evaluation.status != EvaluationStatus.PASSED or not evaluation.passed:
+            raise ValueError("EVALUATION_NOT_PASSED")
+        if evaluation.completed_at is None:
+            raise ValueError("EVALUATION_NOT_COMPLETED")
+        if evaluation.model_version_id != model_version.id:
+            raise ValueError("EVALUATION_MODEL_VERSION_MISMATCH")
+        if evaluation.prompt_policy_version_id != prompt.id:
+            raise ValueError("EVALUATION_PROMPT_VERSION_MISMATCH")
+        if model_version.status not in {
+            AIModelVersionStatus.CANDIDATE,
+            AIModelVersionStatus.APPROVED,
+        }:
+            raise ValueError("MODEL_VERSION_NOT_PROMOTABLE")
+        if routing.status != RoutingPolicyStatus.DRAFT:
+            raise ValueError("ROUTING_POLICY_NOT_DRAFT")
+
+        await self._session.execute(
+            update(ModelRoutingPolicyModel)
+            .where(
+                ModelRoutingPolicyModel.task_class == routing.task_class,
+                ModelRoutingPolicyModel.status == RoutingPolicyStatus.ACTIVE,
+                ModelRoutingPolicyModel.id != routing.id,
+            )
+            .values(status=RoutingPolicyStatus.RETIRED)
+        )
+
+        model_version.status = AIModelVersionStatus.PRODUCTION
+        model_version.approved_at = activated_at
+        model_version.deployed_at = activated_at
+        routing.status = RoutingPolicyStatus.ACTIVE
+        routing.approved_at = activated_at
+
+        return RoutingPromotionResult(
+            routing_policy_id=routing.id,
+            model_version_id=model_version.id,
+            task_class=routing.task_class,
+            routing_version=routing.version,
+            model_status=model_version.status,
+            routing_status=routing.status,
+            activated_at=activated_at,
+        )
+
+
+
+def _evaluation_run_state(model: EvaluationRunModel) -> EvaluationRunState:
+    return EvaluationRunState(
+        id=model.id,
+        task_class=model.task_class,
+        model_version_id=model.model_version_id,
+        prompt_policy_version_id=model.prompt_policy_version_id,
+        evaluation_policy_version=model.evaluation_policy_version,
+        status=model.status,
+        passed=model.passed,
+        summary_metrics=model.summary_metrics,
+        completed_at=model.completed_at,
+    )

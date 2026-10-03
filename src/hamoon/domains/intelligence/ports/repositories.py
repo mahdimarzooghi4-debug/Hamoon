@@ -10,7 +10,11 @@ from hamoon.domains.intelligence.domain.decisions import (
     LearningSignal,
 )
 from hamoon.domains.intelligence.domain.entities import FeaturePackage
-from hamoon.domains.intelligence.domain.registry import ResolvedAIRoute
+from hamoon.domains.intelligence.domain.registry import (
+    EvaluationRunState,
+    ResolvedAIRoute,
+    RoutingPromotionResult,
+)
 from hamoon.infrastructure.ai.contracts import AITaskClass
 
 
@@ -78,3 +82,24 @@ class AIRuntimeRegistryRepository(Protocol):
         self,
         task_class: AITaskClass,
     ) -> ResolvedAIRoute | None: ...
+
+    async def get_evaluation_run(
+        self,
+        evaluation_run_id: UUID,
+    ) -> EvaluationRunState | None: ...
+
+    async def complete_evaluation_run(
+        self,
+        *,
+        evaluation_run_id: UUID,
+        passed: bool,
+        summary_metrics: dict[str, object],
+        completed_at: datetime,
+    ) -> EvaluationRunState: ...
+
+    async def promote_routing_policy(
+        self,
+        *,
+        routing_policy_id: UUID,
+        activated_at: datetime,
+    ) -> RoutingPromotionResult: ...

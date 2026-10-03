@@ -1,0 +1,94 @@
+{
+  "outputs": [
+    {
+      "case_id": "p-bottleneck",
+      "output": {
+        "schema_version": "diagnosis-v1",
+        "summary": "Participation is the lowest PGOR variable and requires human review.",
+        "items": [
+          {
+            "code": "PGOR_BOTTLENECK_P",
+            "category": "NEED",
+            "title": "Participation constraint",
+            "rationale": "P is the current bottleneck in the supplied PGOR snapshot.",
+            "supporting_feature_refs": ["pgor.P", "pgor.bottleneck_variables"],
+            "uncertainty": "UNKNOWN"
+          }
+        ],
+        "review_flags": ["HUMAN_REVIEW_REQUIRED"]
+      }
+    },
+    {
+      "case_id": "g-bottleneck",
+      "output": {
+        "schema_version": "diagnosis-v1",
+        "summary": "Growth capacity is the lowest PGOR variable.",
+        "items": [
+          {
+            "code": "PGOR_BOTTLENECK_G",
+            "category": "CAPACITY",
+            "title": "Growth-capacity constraint",
+            "rationale": "G is the current bottleneck in the supplied PGOR snapshot.",
+            "supporting_feature_refs": ["pgor.G", "pgor.bottleneck_variables"],
+            "uncertainty": "UNKNOWN"
+          }
+        ],
+        "review_flags": ["HUMAN_REVIEW_REQUIRED"]
+      }
+    },
+    {
+      "case_id": "o-bottleneck",
+      "output": {
+        "schema_version": "diagnosis-v1",
+        "summary": "Opportunity is the lowest PGOR variable.",
+        "items": [
+          {
+            "code": "PGOR_BOTTLENECK_O",
+            "category": "CONSTRAINT",
+            "title": "Opportunity constraint",
+            "rationale": "O is the current bottleneck in the supplied PGOR snapshot.",
+            "supporting_feature_refs": ["pgor.O", "pgor.bottleneck_variables"],
+            "uncertainty": "UNKNOWN"
+          }
+        ],
+        "review_flags": ["HUMAN_REVIEW_REQUIRED"]
+      }
+    },
+    {
+      "case_id": "r-bottleneck",
+      "output": {
+        "schema_version": "diagnosis-v1",
+        "summary": "Resilience is the lowest PGOR variable.",
+        "items": [
+          {
+            "code": "PGOR_BOTTLENECK_R",
+            "category": "RISK",
+            "title": "Resilience constraint",
+            "rationale": "R is the current bottleneck in the supplied PGOR snapshot.",
+            "supporting_feature_refs": ["pgor.R", "pgor.bottleneck_variables"],
+            "uncertainty": "UNKNOWN"
+          }
+        ],
+        "review_flags": ["HUMAN_REVIEW_REQUIRED"]
+      }
+    },
+    {
+      "case_id": "tied-bottleneck",
+      "output": {
+        "schema_version": "diagnosis-v1",
+        "summary": "Participation and growth capacity are tied as the current bottlenecks.",
+        "items": [
+          {
+            "code": "PGOR_BOTTLENECK_P_G",
+            "category": "NEED",
+            "title": "Tied participation and growth constraints",
+            "rationale": "P and G are tied at the minimum PGOR value.",
+            "supporting_feature_refs": ["pgor.P", "pgor.G", "pgor.bottleneck_variables"],
+            "uncertainty": "UNKNOWN"
+          }
+        ],
+        "review_flags": ["HUMAN_REVIEW_REQUIRED"]
+      }
+    }
+  ]
+}

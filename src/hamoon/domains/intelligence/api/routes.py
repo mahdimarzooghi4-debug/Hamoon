@@ -1,5 +1,6 @@
+from datetime import UTC, datetime
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import JsonValue
@@ -13,6 +14,11 @@ from hamoon.app.security.resource_scope import require_household_assignment
 from hamoon.domains.intelligence.api.schemas import (
     AIDecisionData,
     AIDecisionResponse,
+    AIEvaluationRunData,
+    AIEvaluationRunResponse,
+    AIRoutingPromotionData,
+    AIRoutingPromotionResponse,
+    CompleteAIEvaluationRequest,
     ConfirmDiagnosisRequest,
     DecisionTraceData,
     DecisionTraceResponse,
@@ -66,6 +72,7 @@ from hamoon.infrastructure.ai.providers.openai import OpenAIProvider
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
+from hamoon.shared.contracts.records import AuditRecord
 
 router = APIRouter(tags=["intelligence"])
 
@@ -528,5 +535,140 @@ async def get_ai_decision_trace(
             human_decision_id=trace.human_decision_id,
             opened_at=trace.opened_at,
             closed_at=trace.closed_at,
+        )
+    )
+
+
+
+@router.post(
+    "/api/v1/admin/ai/evaluations/{evaluation_run_id}/complete",
+    response_model=AIEvaluationRunResponse,
+)
+async def complete_ai_evaluation(
+    evaluation_run_id: UUID,
+    body: CompleteAIEvaluationRequest,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.ADMIN)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> AIEvaluationRunResponse:
+    repository = SqlAlchemyAIRuntimeRegistryRepository(session)
+    now = datetime.now(UTC)
+    try:
+        async with session.begin():
+            evaluation = await repository.complete_evaluation_run(
+                evaluation_run_id=evaluation_run_id,
+                passed=body.passed,
+                summary_metrics=dict(body.summary_metrics),
+                completed_at=now,
+            )
+            await SqlAlchemyAuditRecorder(session).record(
+                AuditRecord(
+                    id=uuid4(),
+                    actor_id=context.actor_id,
+                    action="ai.evaluation.complete",
+                    resource_type="EVALUATION_RUN",
+                    resource_id=evaluation_run_id,
+                    request_id=current_request_id() or "unknown",
+                    correlation_id=current_correlation_id()
+                    or current_request_id()
+                    or "unknown",
+                    created_at=now,
+                    purpose="AI_MODEL_GOVERNANCE",
+                    metadata={
+                        "passed": body.passed,
+                        "evaluation_policy_version": (
+                            evaluation.evaluation_policy_version
+                        ),
+                    },
+                )
+            )
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": str(exc)},
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": str(exc)},
+        ) from exc
+
+    return AIEvaluationRunResponse(
+        data=AIEvaluationRunData(
+            id=evaluation.id,
+            task_class=evaluation.task_class.value,
+            model_version_id=evaluation.model_version_id,
+            prompt_policy_version_id=evaluation.prompt_policy_version_id,
+            evaluation_policy_version=evaluation.evaluation_policy_version,
+            status=evaluation.status.value,
+            passed=evaluation.passed,
+            summary_metrics=evaluation.summary_metrics,
+            completed_at=evaluation.completed_at,
+        )
+    )
+
+
+@router.post(
+    "/api/v1/admin/ai/routing-policies/{routing_policy_id}/promote",
+    response_model=AIRoutingPromotionResponse,
+)
+async def promote_ai_routing_policy(
+    routing_policy_id: UUID,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.ADMIN)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> AIRoutingPromotionResponse:
+    repository = SqlAlchemyAIRuntimeRegistryRepository(session)
+    now = datetime.now(UTC)
+    try:
+        async with session.begin():
+            promoted = await repository.promote_routing_policy(
+                routing_policy_id=routing_policy_id,
+                activated_at=now,
+            )
+            await SqlAlchemyAuditRecorder(session).record(
+                AuditRecord(
+                    id=uuid4(),
+                    actor_id=context.actor_id,
+                    action="ai.routing.promote",
+                    resource_type="MODEL_ROUTING_POLICY",
+                    resource_id=routing_policy_id,
+                    request_id=current_request_id() or "unknown",
+                    correlation_id=current_correlation_id()
+                    or current_request_id()
+                    or "unknown",
+                    created_at=now,
+                    purpose="AI_MODEL_GOVERNANCE",
+                    metadata={
+                        "model_version_id": str(promoted.model_version_id),
+                        "task_class": promoted.task_class.value,
+                        "routing_version": promoted.routing_version,
+                    },
+                )
+            )
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": str(exc)},
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": str(exc)},
+        ) from exc
+
+    return AIRoutingPromotionResponse(
+        data=AIRoutingPromotionData(
+            routing_policy_id=promoted.routing_policy_id,
+            model_version_id=promoted.model_version_id,
+            task_class=promoted.task_class.value,
+            routing_version=promoted.routing_version,
+            model_status=promoted.model_status.value,
+            routing_status=promoted.routing_status.value,
+            activated_at=promoted.activated_at,
         )
     )

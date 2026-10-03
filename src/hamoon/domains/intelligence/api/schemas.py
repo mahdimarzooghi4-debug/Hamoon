@@ -109,3 +109,39 @@ class DecisionTraceData(BaseModel):
 
 class DecisionTraceResponse(BaseModel):
     data: DecisionTraceData
+
+
+
+class CompleteAIEvaluationRequest(BaseModel):
+    passed: bool
+    summary_metrics: dict[str, JsonValue]
+
+
+class AIEvaluationRunData(BaseModel):
+    id: UUID
+    task_class: str
+    model_version_id: UUID
+    prompt_policy_version_id: UUID
+    evaluation_policy_version: str
+    status: str
+    passed: bool
+    summary_metrics: dict[str, JsonValue]
+    completed_at: datetime | None
+
+
+class AIEvaluationRunResponse(BaseModel):
+    data: AIEvaluationRunData
+
+
+class AIRoutingPromotionData(BaseModel):
+    routing_policy_id: UUID
+    model_version_id: UUID
+    task_class: str
+    routing_version: str
+    model_status: str
+    routing_status: str
+    activated_at: datetime
+
+
+class AIRoutingPromotionResponse(BaseModel):
+    data: AIRoutingPromotionData
