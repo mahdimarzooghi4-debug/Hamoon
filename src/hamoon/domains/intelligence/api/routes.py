@@ -93,12 +93,6 @@ async def generate_diagnosis(
     session: Annotated[AsyncSession, Depends(get_db_session)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> GenerateDiagnosisResponse:
-    await require_household_assignment(
-        session=session,
-        context=context,
-        household_id=household_id,
-    )
-
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
     ai_client = _local_ai_client(settings)
@@ -116,6 +110,11 @@ async def generate_diagnosis(
     )
     try:
         async with session.begin():
+            await require_household_assignment(
+                session=session,
+                context=context,
+                household_id=household_id,
+            )
             diagnosis, ai_decision = await handler.handle(
                 GenerateDiagnosisCommand(
                     household_id=household_id,
@@ -199,18 +198,6 @@ async def _review(
     context: AuthorizationContext,
     session: AsyncSession,
 ) -> ReviewDiagnosisResponse:
-    diagnosis = await SqlAlchemyDiagnosisRepository(session).get(diagnosis_id)
-    if diagnosis is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "RESOURCE_NOT_FOUND"},
-        )
-    await require_household_assignment(
-        session=session,
-        context=context,
-        household_id=diagnosis.household_id,
-    )
-
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
     handler = ReviewDiagnosisHandler(
@@ -226,6 +213,17 @@ async def _review(
     )
     try:
         async with session.begin():
+            diagnosis = await SqlAlchemyDiagnosisRepository(session).get(diagnosis_id)
+            if diagnosis is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"code": "RESOURCE_NOT_FOUND"},
+                )
+            await require_household_assignment(
+                session=session,
+                context=context,
+                household_id=diagnosis.household_id,
+            )
             updated, human_decision, signal = await handler.handle(
                 ReviewDiagnosisCommand(
                     diagnosis_id=diagnosis_id,
