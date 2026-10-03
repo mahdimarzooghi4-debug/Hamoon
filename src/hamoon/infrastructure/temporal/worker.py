@@ -36,16 +36,21 @@ async def _reconcile(client: Client, task_queue: str) -> None:
         ReassessmentPlanStatus.OUTCOME_REVIEW,
     )
     while True:
-        async with session_factory() as session:
-            repository = SqlAlchemyReassessmentPlanRepository(session)
-            active = await repository.list_by_status(
-                statuses=active_statuses,
-                limit=200,
-            )
-            completed = await repository.list_by_status(
-                statuses=(ReassessmentPlanStatus.COMPLETED,),
-                limit=200,
-            )
+        try:
+            async with session_factory() as session:
+                repository = SqlAlchemyReassessmentPlanRepository(session)
+                active = await repository.list_by_status(
+                    statuses=active_statuses,
+                    limit=200,
+                )
+                completed = await repository.list_by_status(
+                    statuses=(ReassessmentPlanStatus.COMPLETED,),
+                    limit=200,
+                )
+        except Exception:
+            logger.exception("Temporal reconciliation database read failed")
+            await asyncio.sleep(30)
+            continue
 
         for plan in active:
             try:
