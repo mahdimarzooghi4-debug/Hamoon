@@ -73,7 +73,6 @@ class LearningSignalRepository(Protocol):
     async def add(self, signal: LearningSignal) -> None: ...
 
 
-
 class AIRuntimeRegistryRepository(Protocol):
     async def resolve_active_route(
         self,
