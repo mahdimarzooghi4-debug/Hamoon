@@ -3,8 +3,6 @@ from decimal import Decimal
 from uuid import UUID
 
 import pytest
-from pydantic import JsonValue
-
 from hamoon.domains.intelligence.domain.decisions import (
     AIDecision,
     AIDecisionStatus,
