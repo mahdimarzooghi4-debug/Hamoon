@@ -375,7 +375,6 @@ class SqlAlchemyLearningSignalRepository:
         )
 
 
-
 class SqlAlchemyAIRuntimeRegistryRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -434,7 +433,9 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         if row is None:
             return None
 
-        routing, model_version, model, provider, prompt, evaluation = row
+        routing, model_version, _model, provider, prompt, evaluation = row
+        if evaluation.completed_at is None:
+            return None
         return ResolvedAIRoute(
             routing_policy=AIRoutingPolicy(
                 id=routing.id,
