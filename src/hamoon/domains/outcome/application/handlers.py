@@ -2,6 +2,8 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import uuid4
 
+from pydantic import JsonValue
+
 from hamoon.domains.assessment.domain.entities import AssessmentType
 from hamoon.domains.assessment.ports.repositories import AssessmentRepository
 from hamoon.domains.intelligence.domain.decisions import (
@@ -272,7 +274,7 @@ class ReviewOutcomeHandler:
         except ValueError as exc:
             raise OutcomeReviewError(str(exc)) from exc
 
-        accepted_payload = {
+        accepted_payload: dict[str, JsonValue] = {
             "outcome_id": str(outcome.id),
             "classification": command.classification.value,
             "observed_change_summary": summary,
