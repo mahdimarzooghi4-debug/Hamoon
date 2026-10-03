@@ -52,6 +52,8 @@ async def test_fake_provider_runs_through_schema_validating_gateway() -> None:
         output_schema=SCHEMA,
     )
 
+    assert result.feature_package_id == PACKAGE_ID
+    assert result.feature_schema_version == "diagnosis-input-v1"
     assert result.provider_code == "FAKE"
     assert result.model_alias == "hamoon.diagnosis.v1"
     assert result.output["schema_version"] == "diagnosis-v1"

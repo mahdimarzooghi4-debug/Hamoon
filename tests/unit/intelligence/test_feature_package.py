@@ -219,5 +219,7 @@ async def test_feature_package_is_grounded_in_official_pgor_snapshot() -> None:
     assert payload[
         "indicator.P.motivation.willingness_to_change.normalized"
     ] == "0.4"
+    assert payload["trace.engine_version"] == "1.0.0"
+    assert payload["trace.scoring_version"] == "raw-0-100-v1"
     assert "household.name" not in payload
     assert events.items[0].event_type == "FeaturePackageBuilt"

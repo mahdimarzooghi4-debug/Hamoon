@@ -1,4 +1,3 @@
-
 from pydantic import JsonValue
 
 from hamoon.infrastructure.ai.contracts import (

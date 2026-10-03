@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from uuid import UUID
 
-
 from pydantic import JsonValue
+
 
 class AITaskClass(StrEnum):
     DIAGNOSIS = "DIAGNOSIS"
@@ -45,6 +45,7 @@ class ProviderStructuredRequest:
     model_alias: str
     prompt_policy_version: str
     output_schema_version: str
+    feature_schema_version: str
     features: dict[str, JsonValue]
     correlation_id: str
 
@@ -58,6 +59,8 @@ class ProviderStructuredResponse:
 
 @dataclass(frozen=True, slots=True)
 class StructuredAIResult:
+    feature_package_id: UUID
+    feature_schema_version: str
     provider_code: str
     model_id: str
     model_alias: str

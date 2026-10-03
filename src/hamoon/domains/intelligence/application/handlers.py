@@ -95,6 +95,31 @@ class BuildDiagnosisFeaturePackageHandler:
                 list(snapshot.data_quality_flags),
                 (f"pgor_snapshot:{snapshot.id}",),
             ),
+            FeatureValue(
+                "trace.engine_version",
+                snapshot.engine_version,
+                (f"pgor_snapshot:{snapshot.id}",),
+            ),
+            FeatureValue(
+                "trace.scoring_version",
+                snapshot.scoring_version,
+                (f"pgor_snapshot:{snapshot.id}",),
+            ),
+            FeatureValue(
+                "trace.definition_version_id",
+                str(snapshot.definition_version_id),
+                (f"pgor_snapshot:{snapshot.id}",),
+            ),
+            FeatureValue(
+                "trace.formula_version_id",
+                str(snapshot.formula_version_id),
+                (f"pgor_snapshot:{snapshot.id}",),
+            ),
+            FeatureValue(
+                "trace.input_fingerprint",
+                snapshot.input_fingerprint,
+                (f"pgor_snapshot:{snapshot.id}",),
+            ),
         ]
 
         if snapshot.completeness_ratio is not None:

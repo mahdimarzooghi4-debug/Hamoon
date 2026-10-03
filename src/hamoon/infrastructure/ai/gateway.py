@@ -1,14 +1,13 @@
 from collections.abc import Mapping
 
 from jsonschema import ValidationError, validate
-
 from pydantic import JsonValue
 
 from hamoon.infrastructure.ai.contracts import (
     AIRoutingPolicy,
+    ProviderStructuredRequest,
     StructuredAIRequest,
     StructuredAIResult,
-    ProviderStructuredRequest,
 )
 from hamoon.infrastructure.ai.providers.base import AIProviderAdapter
 
@@ -52,6 +51,7 @@ class ProviderAIGateway:
                 model_alias=routing_policy.model_alias,
                 prompt_policy_version=routing_policy.prompt_policy_version,
                 output_schema_version=routing_policy.output_schema_version,
+                feature_schema_version=request.feature_schema_version,
                 features=request.features,
                 correlation_id=request.correlation_id,
             )
@@ -62,6 +62,8 @@ class ProviderAIGateway:
             raise AIOutputSchemaError("AI_OUTPUT_SCHEMA_INVALID") from exc
 
         return StructuredAIResult(
+            feature_package_id=request.feature_package_id,
+            feature_schema_version=request.feature_schema_version,
             provider_code=response.provider_code,
             model_id=response.model_id,
             model_alias=routing_policy.model_alias,
