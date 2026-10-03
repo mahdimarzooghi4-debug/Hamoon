@@ -47,6 +47,20 @@ services:
     volumes:
       - hamoon_minio:/data
 
+  outbox-worker:
+    build: .
+    command: ["python", "-m", "hamoon.infrastructure.events.outbox"]
+    restart: unless-stopped
+    environment:
+      HAMOON_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hamoon}:${POSTGRES_PASSWORD:-hamoon}@postgres:5432/${POSTGRES_DB:-hamoon}
+      HAMOON_NATS_URL: nats://nats:4222
+      HAMOON_OTEL_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+
   temporal:
     image: temporalio/auto-setup:latest
     depends_on:
