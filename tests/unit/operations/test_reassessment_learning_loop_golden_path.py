@@ -16,11 +16,20 @@ from hamoon.domains.intelligence.domain.decisions import (
     HumanDecision,
     HumanDecisionAction,
     LearningSignal,
+    LearningSignalQuality,
 )
 from hamoon.domains.intervention.domain.entities import (
     Intervention,
     InterventionStatus,
     InterventionType,
+)
+from hamoon.domains.learning.application.commands import (
+    CreateOutcomeDatasetCommand,
+    CurateLearningSignalCommand,
+)
+from hamoon.domains.learning.application.handlers import (
+    CreateOutcomeDatasetHandler,
+    CurateLearningSignalHandler,
 )
 from hamoon.domains.operations.application.handlers import (
     CreateOutcomeReviewWorkItemHandler,
@@ -370,6 +379,51 @@ class LearningSignals:
 
     async def add(self, item: LearningSignal) -> None:
         self.items.append(item)
+
+    async def get(self, signal_id):
+        return next((item for item in self.items if item.id == signal_id), None)
+
+    async def change_quality(
+        self,
+        *,
+        signal_id,
+        expected_quality,
+        new_quality,
+    ):
+        for index, item in enumerate(self.items):
+            if item.id != signal_id:
+                continue
+            assert item.quality_status is expected_quality
+            updated = replace(item, quality_status=new_quality)
+            self.items[index] = updated
+            return updated
+        raise AssertionError("learning signal not found")
+
+
+class LearningDatasets:
+    def __init__(self) -> None:
+        self.dataset = None
+        self.items = ()
+
+    async def get_by_key_version(self, **_kwargs):
+        return None
+
+    async def add(self, dataset, items) -> None:
+        self.dataset = dataset
+        self.items = items
+
+    async def get(self, dataset_id):
+        if self.dataset is not None and self.dataset.id == dataset_id:
+            return self.dataset
+        return None
+
+    async def list_items(self, dataset_id):
+        if self.dataset is None or self.dataset.id != dataset_id:
+            return []
+        return list(self.items)
+
+    async def approve(self, dataset) -> None:
+        self.dataset = dataset
 
 
 def _snapshot(
@@ -756,6 +810,55 @@ async def test_reassessment_learning_loop_golden_path() -> None:
     assert work_items.items[reassessment_item.id].status is WorkItemStatus.COMPLETED
     assert work_items.items[outcome_review_item.id].status is WorkItemStatus.COMPLETED
 
+    curated_signal = await CurateLearningSignalHandler(
+        signals=learning,
+        events=events,
+        audits=audits,
+    ).handle(
+        CurateLearningSignalCommand(
+            signal_id=learning_signal.id,
+            expected_quality_status=LearningSignalQuality.RAW,
+            to_quality_status=LearningSignalQuality.CURATED,
+            reason_code="HUMAN_OUTCOME_REVIEW_VERIFIED",
+            actor_id=ACTOR,
+            request_id="curate-learning-signal",
+            correlation_id="golden-loop",
+        )
+    )
+    assert curated_signal.quality_status is LearningSignalQuality.CURATED
+
+    datasets = LearningDatasets()
+    dataset, dataset_items = await CreateOutcomeDatasetHandler(
+        signals=learning,
+        datasets=datasets,
+        outcomes=outcomes,
+        snapshots=snapshots,
+        interventions=interventions,
+        provider_results=results,
+        events=events,
+        audits=audits,
+    ).handle(
+        CreateOutcomeDatasetCommand(
+            dataset_key="hamoon.outcome.learning",
+            version="golden-v1",
+            selection_policy_version="outcome-selection-v1",
+            signal_ids=(curated_signal.id,),
+            actor_id=ACTOR,
+            request_id="build-learning-dataset",
+            correlation_id="golden-loop",
+        )
+    )
+    assert len(dataset.manifest_digest) == 64
+    assert len(dataset_items) == 1
+    dataset_item = dataset_items[0]
+    assert dataset_item.learning_signal_id == learning_signal.id
+    assert dataset_item.target_payload["classification"] == "NO_SIGNIFICANT_CHANGE"
+    assert dataset_item.input_payload["causal_claim_allowed"] is False
+    assert "Provider free-text" not in str(dataset_item.input_payload)
+    assert f"human_decision:{human.id}" in dataset_item.source_refs
+    assert f"ai_decision:{ai_decision.id}" in dataset_item.source_refs
+    assert f"provider_result:{provider_result.id}" in dataset_item.source_refs
+
     event_types = [item.event_type for item in events.items]
     for expected in (
         "ProviderResultReceived",
@@ -770,5 +873,7 @@ async def test_reassessment_learning_loop_golden_path() -> None:
         "OutcomeConfirmed",
         "LearningSignalCreated",
         "ReassessmentLoopCompleted",
+        "LearningSignalQualityChanged",
+        "DatasetVersionCreated",
     ):
         assert expected in event_types

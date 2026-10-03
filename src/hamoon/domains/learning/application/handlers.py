@@ -200,8 +200,21 @@ class CreateOutcomeDatasetHandler:
                 raise LearningDatasetError("OUTCOME_REFERENCE_REQUIRED")
 
             outcome = await self._outcomes.get(signal.outcome_id)
-            if outcome is None or outcome.classification is None:
+            if (
+                outcome is None
+                or outcome.classification is None
+                or outcome.latest_human_decision_id is None
+                or outcome.reviewed_at is None
+            ):
                 raise LearningDatasetError("REVIEWED_OUTCOME_REQUIRED")
+            if (
+                signal.household_id != outcome.household_id
+                or signal.human_decision_id != outcome.latest_human_decision_id
+                or signal.signal_label != outcome.classification.value
+                or signal.intervention_id != outcome.intervention_id
+                or signal.provider_result_id != outcome.provider_result_id
+            ):
+                raise LearningDatasetError("OUTCOME_SIGNAL_PROVENANCE_MISMATCH")
             pre = await self._snapshots.get(outcome.pre_pgor_snapshot_id)
             post = await self._snapshots.get(outcome.post_pgor_snapshot_id)
             intervention = await self._interventions.get(outcome.intervention_id)
@@ -253,13 +266,21 @@ class CreateOutcomeDatasetHandler:
                 "classification": outcome.classification.value,
                 "human_review_required": True,
             }
-            source_refs = (
+            source_refs_list = [
                 f"learning_signal:{signal.id}",
                 f"outcome:{outcome.id}",
+                f"human_decision:{signal.human_decision_id}",
                 f"pgor_snapshot:{pre.id}",
                 f"pgor_snapshot:{post.id}",
                 f"intervention:{intervention.id}",
-            )
+            ]
+            if signal.ai_decision_id is not None:
+                source_refs_list.append(f"ai_decision:{signal.ai_decision_id}")
+            if outcome.provider_result_id is not None:
+                source_refs_list.append(
+                    f"provider_result:{outcome.provider_result_id}"
+                )
+            source_refs = tuple(source_refs_list)
             raw_item: dict[str, JsonValue] = {
                 "learning_signal_id": str(signal.id),
                 "signal_type": signal.signal_type.value,
