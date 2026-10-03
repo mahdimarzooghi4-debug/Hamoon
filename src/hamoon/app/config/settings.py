@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     oidc_jwks_url: str | None = None
     oidc_clock_skew_seconds: int = 30
 
+    openai_api_key: str | None = None
+    openai_base_url: str = "https://api.openai.com/v1"
+    openai_timeout_seconds: float = 60.0
+
 
 @lru_cache
 def get_settings() -> Settings:

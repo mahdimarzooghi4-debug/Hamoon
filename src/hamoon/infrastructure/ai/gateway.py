@@ -34,6 +34,7 @@ class ProviderAIGateway:
         request: StructuredAIRequest,
         routing_policy: AIRoutingPolicy,
         output_schema: dict[str, JsonValue],
+        instructions: str = "",
     ) -> StructuredAIResult:
         if routing_policy.task_class is not request.task_class:
             raise AIRoutingError("Routing policy task does not match request task.")
@@ -52,6 +53,8 @@ class ProviderAIGateway:
                 prompt_policy_version=routing_policy.prompt_policy_version,
                 output_schema_version=routing_policy.output_schema_version,
                 feature_schema_version=request.feature_schema_version,
+                instructions=instructions,
+                output_schema=output_schema,
                 features=request.features,
                 correlation_id=request.correlation_id,
             )

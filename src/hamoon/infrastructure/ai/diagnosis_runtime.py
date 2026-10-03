@@ -76,9 +76,11 @@ class GatewayDiagnosisAIClient(DiagnosisAIClient):
         *,
         gateway: ProviderAIGateway,
         routing_policy: AIRoutingPolicy,
+        instructions: str = "",
     ) -> None:
         self._gateway = gateway
         self._routing_policy = routing_policy
+        self._instructions = instructions
 
     async def generate_diagnosis(
         self,
@@ -97,6 +99,7 @@ class GatewayDiagnosisAIClient(DiagnosisAIClient):
                 ),
                 routing_policy=self._routing_policy,
                 output_schema=DIAGNOSIS_V1_SCHEMA,
+                instructions=self._instructions,
             )
         except AIOutputSchemaError as exc:
             raise DiagnosisGenerationError("AI_OUTPUT_SCHEMA_INVALID") from exc

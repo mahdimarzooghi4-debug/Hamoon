@@ -46,6 +46,8 @@ class ProviderStructuredRequest:
     prompt_policy_version: str
     output_schema_version: str
     feature_schema_version: str
+    instructions: str
+    output_schema: dict[str, JsonValue]
     features: dict[str, JsonValue]
     correlation_id: str
 
