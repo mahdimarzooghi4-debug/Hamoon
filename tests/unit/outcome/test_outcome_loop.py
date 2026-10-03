@@ -108,6 +108,10 @@ class Outcomes:
     def __init__(self): self.item=None
     async def add(self,item): self.item=item
     async def get(self,item_id): return self.item if self.item and self.item.id == item_id else None
+    async def get_by_post_assessment(self,post_assessment_id):
+        if self.item and self.item.post_assessment_id == post_assessment_id:
+            return self.item
+        return None
     async def update(self,item,*,expected_version):
         assert self.item.version == expected_version
         self.item=item
