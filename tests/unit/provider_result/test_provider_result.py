@@ -5,7 +5,10 @@ import pytest
 
 from hamoon.domains.provider_result.application.commands import SubmitProviderResultCommand
 from hamoon.domains.provider_result.application.handlers import SubmitProviderResultHandler
-from hamoon.domains.provider_result.domain.errors import ProviderResultIdempotencyConflictError
+from hamoon.domains.provider_result.domain.errors import (
+    ProviderResultIdempotencyConflictError,
+    ProviderResultScopeError,
+)
 from hamoon.domains.referral.domain.entities import Referral, ReferralStatus
 
 ACTOR=UUID("11111111-1111-1111-1111-111111111111")
@@ -90,3 +93,34 @@ async def test_provider_result_is_idempotent_and_not_hamoon_outcome() -> None:
     )
     with pytest.raises(ProviderResultIdempotencyConflictError):
         await handler.handle(changed)
+
+
+
+@pytest.mark.asyncio
+async def test_provider_cannot_submit_result_for_another_provider_referral() -> None:
+    results = Results()
+    handler = SubmitProviderResultHandler(
+        referrals=Referrals(),
+        results=results,
+        events=Recorder(),
+        audits=Recorder(),
+    )
+    with pytest.raises(ProviderResultScopeError, match="RESOURCE_NOT_FOUND"):
+        await handler.handle(
+            SubmitProviderResultCommand(
+                provider_id=UUID("99999999-9999-9999-9999-999999999999"),
+                actor_id=ACTOR,
+                external_referral_id="ext-ref",
+                external_result_id="cross-provider-result",
+                result_status="COMPLETED",
+                result_type="SERVICE_COMPLETION",
+                result_summary="Must be hidden from the wrong provider.",
+                result_payload=None,
+                service_started_at=None,
+                service_completed_at=datetime.now(UTC),
+                evidence_ids=(),
+                provider_reference=None,
+                correlation_id="corr-provider-isolation",
+            )
+        )
+    assert results.item is None
