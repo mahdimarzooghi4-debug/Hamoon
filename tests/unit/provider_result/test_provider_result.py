@@ -15,7 +15,8 @@ REF=UUID("33333333-3333-3333-3333-333333333333")
 
 class Referrals:
     async def get_by_provider_reference(self,*,provider_id,external_referral_id):
-        if provider_id != PROVIDER or external_referral_id != "ext-ref": return None
+        if provider_id != PROVIDER or external_referral_id != "ext-ref":
+            return None
         return Referral(REF,UUID("44444444-4444-4444-4444-444444444444"),UUID("55555555-5555-5555-5555-555555555555"),UUID("66666666-6666-6666-6666-666666666666"),UUID("77777777-7777-7777-7777-777777777777"),PROVIDER,UUID("88888888-8888-8888-8888-888888888888"),ReferralStatus.IN_PROGRESS,"NORMAL",3,None,datetime.now(UTC),datetime.now(UTC),None,None,"ext-ref","subject",ACTOR,datetime.now(UTC),())
     async def get(self,item_id): return None
     async def add(self,item): pass
@@ -30,7 +31,12 @@ class Results:
     async def add(self,item): self.item=item
     async def get(self,item_id): return self.item if self.item and self.item.id == item_id else None
     async def get_by_external_result(self,*,provider_id,external_result_id):
-        if self.item and self.item.provider_id == provider_id and self.item.external_result_id == external_result_id: return self.item
+        if (
+            self.item
+            and self.item.provider_id == provider_id
+            and self.item.external_result_id == external_result_id
+        ):
+            return self.item
         return None
     async def list_for_referral(self,item_id): return []
 
