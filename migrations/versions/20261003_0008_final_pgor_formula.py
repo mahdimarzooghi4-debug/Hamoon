@@ -11,6 +11,7 @@ from uuid import UUID
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "20261003_0008"
 down_revision: str | Sequence[str] | None = "20261003_0007"
@@ -21,7 +22,7 @@ FINAL_PGOR_FORMULA_V1_ID = UUID("00000000-0000-0000-0000-000000000501")
 
 
 def upgrade() -> None:
-    formula_status = sa.Enum(
+    formula_status = postgresql.ENUM(
         "DRAFT",
         "APPROVED",
         "ACTIVE",
@@ -66,6 +67,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute(
         sa.text(
-            "DELETE FROM pgor_formula_version WHERE id = :formula_id"
+            "DELETE FROM pgor_formula_version "
+            "WHERE id = CAST(:formula_id AS uuid)"
         ).bindparams(formula_id=str(FINAL_PGOR_FORMULA_V1_ID))
     )

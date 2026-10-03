@@ -14,6 +14,7 @@ from hamoon.domains.pgor.domain.definitions import (
     PGORVariableDefinition,
 )
 from hamoon.domains.pgor.domain.engine import (
+    FormulaStatus,
     FormulaVersion,
     PGORCalculationResult,
     PGORSnapshotStatus,
@@ -290,7 +291,7 @@ class SqlAlchemyPGORFormulaRepository:
         result = await self._session.execute(
             select(PGORFormulaVersionModel)
             .where(
-                PGORFormulaVersionModel.status == "ACTIVE",
+                PGORFormulaVersionModel.status == FormulaStatus.ACTIVE,
                 PGORFormulaVersionModel.production_eligible.is_(True),
             )
             .order_by(PGORFormulaVersionModel.effective_from.desc())
