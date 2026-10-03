@@ -88,7 +88,7 @@ class Evidence:
         scan_status: EvidenceScanStatus,
         finalized_at: datetime,
         scan_detail: str | None = None,
-    ) -> "Evidence":
+    ) -> Evidence:
         if self.lifecycle_status is not EvidenceLifecycleStatus.UPLOADED:
             raise ValueError("EVIDENCE_NOT_UPLOADED")
         if scan_status is EvidenceScanStatus.CLEAN:
