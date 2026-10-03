@@ -10,6 +10,8 @@ from hamoon.domains.intelligence.domain.decisions import (
     LearningSignal,
 )
 from hamoon.domains.intelligence.domain.entities import FeaturePackage
+from hamoon.domains.intelligence.domain.registry import ResolvedAIRoute
+from hamoon.infrastructure.ai.contracts import AITaskClass
 
 
 class FeaturePackageRepository(Protocol):
@@ -69,3 +71,11 @@ class DecisionTraceRepository(Protocol):
 
 class LearningSignalRepository(Protocol):
     async def add(self, signal: LearningSignal) -> None: ...
+
+
+
+class AIRuntimeRegistryRepository(Protocol):
+    async def resolve_active_route(
+        self,
+        task_class: AITaskClass,
+    ) -> ResolvedAIRoute | None: ...

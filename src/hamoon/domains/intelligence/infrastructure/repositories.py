@@ -3,6 +3,8 @@ from uuid import UUID, uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from hamoon.infrastructure.ai.contracts import AIRoutingPolicy, AITaskClass
+
 from hamoon.domains.intelligence.domain.decisions import (
     AIDecision,
     DecisionTrace,
@@ -15,6 +17,14 @@ from hamoon.domains.intelligence.domain.entities import (
     FeatureValue,
     SensitivityClass,
 )
+from hamoon.domains.intelligence.domain.registry import (
+    AIModelVersionStatus,
+    AIProviderStatus,
+    EvaluationStatus,
+    PromptPolicyVersionStatus,
+    ResolvedAIRoute,
+    RoutingPolicyStatus,
+)
 from hamoon.domains.intelligence.infrastructure.models import (
     AIDecisionModel,
     DecisionTraceModel,
@@ -23,6 +33,12 @@ from hamoon.domains.intelligence.infrastructure.models import (
     FeatureValueModel,
     HumanDecisionModel,
     LearningSignalModel,
+    AIModelModel,
+    AIModelVersionModel,
+    AIProviderModel,
+    EvaluationRunModel,
+    ModelRoutingPolicyModel,
+    PromptPolicyVersionModel,
 )
 
 
@@ -356,4 +372,82 @@ class SqlAlchemyLearningSignalRepository:
                 created_at=signal.created_at,
                 created_by=signal.created_by,
             )
+        )
+
+
+
+class SqlAlchemyAIRuntimeRegistryRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def resolve_active_route(
+        self,
+        task_class: AITaskClass,
+    ) -> ResolvedAIRoute | None:
+        result = await self._session.execute(
+            select(
+                ModelRoutingPolicyModel,
+                AIModelVersionModel,
+                AIModelModel,
+                AIProviderModel,
+                PromptPolicyVersionModel,
+                EvaluationRunModel,
+            )
+            .join(
+                AIModelVersionModel,
+                AIModelVersionModel.id
+                == ModelRoutingPolicyModel.model_version_id,
+            )
+            .join(
+                AIModelModel,
+                AIModelModel.id == AIModelVersionModel.ai_model_id,
+            )
+            .join(
+                AIProviderModel,
+                AIProviderModel.id == AIModelModel.provider_id,
+            )
+            .join(
+                PromptPolicyVersionModel,
+                PromptPolicyVersionModel.id
+                == ModelRoutingPolicyModel.prompt_policy_version_id,
+            )
+            .join(
+                EvaluationRunModel,
+                EvaluationRunModel.id
+                == ModelRoutingPolicyModel.evaluation_run_id,
+            )
+            .where(
+                ModelRoutingPolicyModel.task_class == task_class,
+                ModelRoutingPolicyModel.status == RoutingPolicyStatus.ACTIVE,
+                AIModelVersionModel.status == AIModelVersionStatus.PRODUCTION,
+                AIProviderModel.status == AIProviderStatus.ACTIVE,
+                PromptPolicyVersionModel.status == PromptPolicyVersionStatus.ACTIVE,
+                EvaluationRunModel.status == EvaluationStatus.PASSED,
+                EvaluationRunModel.passed.is_(True),
+                EvaluationRunModel.completed_at.is_not(None),
+                ModelRoutingPolicyModel.approved_at.is_not(None),
+            )
+            .order_by(ModelRoutingPolicyModel.approved_at.desc())
+            .limit(1)
+        )
+        row = result.one_or_none()
+        if row is None:
+            return None
+
+        routing, model_version, model, provider, prompt, evaluation = row
+        return ResolvedAIRoute(
+            routing_policy=AIRoutingPolicy(
+                id=routing.id,
+                version=routing.version,
+                task_class=routing.task_class,
+                provider_code=provider.code,
+                model_alias=routing.model_alias,
+                concrete_model_id=model_version.concrete_model_id,
+                prompt_policy_version=prompt.version,
+                output_schema_version=prompt.output_schema_version,
+                structured_output_required=routing.structured_output_required,
+            ),
+            instructions=prompt.instructions,
+            evaluation_run_id=evaluation.id,
+            evaluation_completed_at=evaluation.completed_at,
         )

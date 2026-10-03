@@ -16,6 +16,14 @@ from hamoon.domains.intelligence.domain.entities import (
     FeaturePackageType,
     SensitivityClass,
 )
+from hamoon.domains.intelligence.domain.registry import (
+    AIModelVersionStatus,
+    AIProviderStatus,
+    EvaluationStatus,
+    PromptPolicyVersionStatus,
+    RoutingPolicyStatus,
+)
+from hamoon.infrastructure.ai.contracts import AITaskClass
 from hamoon.infrastructure.db.base import Base
 
 
@@ -280,4 +288,178 @@ class LearningSignalModel(Base):
     created_by: Mapped[UUID] = mapped_column(
         ForeignKey("actor.id", ondelete="RESTRICT"),
         nullable=False,
+    )
+
+
+
+class AIProviderModel(Base):
+    __tablename__ = "ai_provider"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    code: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    status: Mapped[AIProviderStatus] = mapped_column(
+        Enum(AIProviderStatus, name="ai_provider_status"),
+        nullable=False,
+    )
+    adapter_type: Mapped[str] = mapped_column(String(150), nullable=False)
+    data_processing_policy_ref: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+
+class AIModelModel(Base):
+    __tablename__ = "ai_model"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    model_key: Mapped[str] = mapped_column(String(150), nullable=False, unique=True)
+    provider_id: Mapped[UUID] = mapped_column(
+        ForeignKey("ai_provider.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    purpose: Mapped[str] = mapped_column(String(250), nullable=False)
+
+
+class AIModelVersionModel(Base):
+    __tablename__ = "ai_model_version"
+    __table_args__ = (
+        UniqueConstraint(
+            "ai_model_id",
+            "version",
+            name="uq_ai_model_version_model_version",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    ai_model_id: Mapped[UUID] = mapped_column(
+        ForeignKey("ai_model.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    version: Mapped[str] = mapped_column(String(100), nullable=False)
+    concrete_model_id: Mapped[str] = mapped_column(String(250), nullable=False)
+    status: Mapped[AIModelVersionStatus] = mapped_column(
+        Enum(AIModelVersionStatus, name="ai_model_version_status"),
+        nullable=False,
+    )
+    limitations: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    deployed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
+class PromptPolicyModel(Base):
+    __tablename__ = "prompt_policy"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    purpose: Mapped[str] = mapped_column(String(150), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
+
+
+class PromptPolicyVersionModel(Base):
+    __tablename__ = "prompt_policy_version"
+    __table_args__ = (
+        UniqueConstraint(
+            "prompt_policy_id",
+            "version",
+            name="uq_prompt_policy_version_policy_version",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    prompt_policy_id: Mapped[UUID] = mapped_column(
+        ForeignKey("prompt_policy.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    version: Mapped[str] = mapped_column(String(100), nullable=False)
+    instructions: Mapped[str] = mapped_column(String(8000), nullable=False)
+    output_schema_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    guardrail_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[PromptPolicyVersionStatus] = mapped_column(
+        Enum(PromptPolicyVersionStatus, name="prompt_policy_version_status"),
+        nullable=False,
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
+class EvaluationRunModel(Base):
+    __tablename__ = "evaluation_run"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    task_class: Mapped[AITaskClass] = mapped_column(
+        Enum(AITaskClass, name="ai_task_class"),
+        nullable=False,
+    )
+    model_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("ai_model_version.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    prompt_policy_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("prompt_policy_version.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    evaluation_policy_version: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+    status: Mapped[EvaluationStatus] = mapped_column(
+        Enum(EvaluationStatus, name="ai_evaluation_status"),
+        nullable=False,
+    )
+    passed: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    summary_metrics: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
+class ModelRoutingPolicyModel(Base):
+    __tablename__ = "model_routing_policy"
+    __table_args__ = (
+        UniqueConstraint(
+            "task_class",
+            "version",
+            name="uq_model_routing_policy_task_version",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    task_class: Mapped[AITaskClass] = mapped_column(
+        Enum(AITaskClass, name="ai_task_class"),
+        nullable=False,
+    )
+    version: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_alias: Mapped[str] = mapped_column(String(150), nullable=False)
+    model_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("ai_model_version.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    prompt_policy_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("prompt_policy_version.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    evaluation_run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("evaluation_run.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    structured_output_required: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+    )
+    status: Mapped[RoutingPolicyStatus] = mapped_column(
+        Enum(RoutingPolicyStatus, name="model_routing_policy_status"),
+        nullable=False,
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
