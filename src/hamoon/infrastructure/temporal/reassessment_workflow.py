@@ -1,4 +1,5 @@
 from datetime import timedelta
+from uuid import UUID
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
@@ -65,8 +66,6 @@ class ReassessmentWorkflow:
             retry_policy=_ACTIVITY_RETRY,
             result_type=str,
         )
-
-        from uuid import UUID
 
         outcome_id = UUID(self._outcome_id)
         await workflow.execute_activity(
