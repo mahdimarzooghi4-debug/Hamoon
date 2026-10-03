@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, JSON, DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from hamoon.domains.intelligence.domain.decisions import (
