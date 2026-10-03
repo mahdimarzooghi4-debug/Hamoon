@@ -4,6 +4,8 @@ from uuid import UUID
 from pydantic import BaseModel, Field, JsonValue
 
 from hamoon.domains.intelligence.domain.decisions import (
+    AIDecisionStatus,
+    AIDecisionType,
     DiagnosisStatus,
     HumanDecisionAction,
 )
@@ -65,3 +67,45 @@ class ReviewDiagnosisData(BaseModel):
 
 class ReviewDiagnosisResponse(BaseModel):
     data: ReviewDiagnosisData
+
+
+
+class AIDecisionData(BaseModel):
+    id: UUID
+    household_id: UUID
+    assessment_id: UUID
+    feature_package_id: UUID
+    pgor_snapshot_id: UUID
+    decision_type: AIDecisionType
+    status: AIDecisionStatus
+    provider_code: str
+    model_id: str
+    model_alias: str
+    routing_policy_id: UUID
+    routing_policy_version: str
+    prompt_policy_version: str
+    output_schema_version: str
+    structured_output: dict[str, JsonValue]
+    trace_id: UUID
+    generated_at: datetime
+
+
+class AIDecisionResponse(BaseModel):
+    data: AIDecisionData
+
+
+class DecisionTraceData(BaseModel):
+    id: UUID
+    household_id: UUID
+    trace_type: AIDecisionType
+    state_fingerprint: str
+    pgor_snapshot_id: UUID
+    feature_package_id: UUID
+    ai_decision_id: UUID
+    human_decision_id: UUID | None
+    opened_at: datetime
+    closed_at: datetime | None
+
+
+class DecisionTraceResponse(BaseModel):
+    data: DecisionTraceData
