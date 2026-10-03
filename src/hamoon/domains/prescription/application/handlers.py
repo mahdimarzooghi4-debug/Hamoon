@@ -5,9 +5,7 @@ import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from uuid import uuid4
-
-from pydantic import JsonValue
+from uuid import UUID, uuid4
 
 from hamoon.domains.intelligence.domain.decisions import (
     AIDecision,
@@ -51,7 +49,7 @@ PRESCRIPTION_FEATURE_SCHEMA_VERSION = "prescription-input-v1"
 class PreparedPrescriptionGeneration:
     snapshot: PGORSnapshot
     feature_package: FeaturePackage
-    diagnosis_id: object
+    diagnosis_id: UUID
 
 
 def _accepted_diagnosis_status(status: DiagnosisStatus) -> bool:
@@ -265,7 +263,7 @@ class GeneratePrescriptionHandler:
         validate_prescription_output(
             output=result.output,
             feature_package=prepared.feature_package,
-            diagnosis_id=command.diagnosis_id,
+            diagnosis_id=prepared.diagnosis_id,
         )
         return result
 
