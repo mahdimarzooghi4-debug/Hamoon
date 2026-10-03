@@ -1,0 +1,51 @@
+name: AI Diagnosis Evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      model_id:
+        description: Concrete candidate model ID to evaluate
+        required: true
+        default: gpt-6.1-sol
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  diagnosis-evaluation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run real candidate evaluation
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          uv run python -m hamoon.evaluation.diagnosis_candidate \
+            --dataset evaluation/diagnosis/v1/dataset.json \
+            --policy evaluation/diagnosis/v1/policy.json \
+            --instructions evaluation/diagnosis/v1/instructions.txt \
+            --model-id "${{ inputs.model_id }}" \
+            --outputs artifacts/diagnosis-candidate-outputs.json \
+            --report artifacts/diagnosis-evaluation-report.json
+
+      - name: Upload evaluation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnosis-evaluation-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30

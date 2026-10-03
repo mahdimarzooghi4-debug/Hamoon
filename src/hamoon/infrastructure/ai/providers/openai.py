@@ -37,6 +37,7 @@ class OpenAIProvider:
     ) -> ProviderStructuredResponse:
         payload: dict[str, JsonValue] = {
             "model": request.model_id,
+            "store": False,
             "instructions": request.instructions,
             "input": [
                 {

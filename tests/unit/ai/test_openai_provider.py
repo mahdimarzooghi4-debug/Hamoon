@@ -83,6 +83,7 @@ async def test_openai_provider_uses_responses_structured_output_contract() -> No
     assert captured["path"] == "/v1/responses"
     assert captured["authorization"] == "Bearer test-key"
     assert payload["model"] == "deployment-model-id"
+    assert payload["store"] is False
     assert payload["text"]["format"]["type"] == "json_schema"
     assert payload["text"]["format"]["strict"] is True
     assert result.output["schema_version"] == "diagnosis-v1"

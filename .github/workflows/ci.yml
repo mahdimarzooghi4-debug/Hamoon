@@ -30,6 +30,15 @@ jobs:
       - name: Unit tests
         run: uv run pytest tests/unit
 
+      - name: Diagnosis evaluation replay gate
+        run: |
+          uv run python -m hamoon.evaluation.diagnosis \
+            --dataset evaluation/diagnosis/v1/dataset.json \
+            --outputs evaluation/diagnosis/v1/replay_outputs.json \
+            --policy evaluation/diagnosis/v1/policy.json \
+            --report /tmp/diagnosis-evaluation-report.json
+          uv run python -c 'import json; r=json.load(open("/tmp/diagnosis-evaluation-report.json")); assert r["structural_gate_passed"] is True'
+
       - name: Alembic topology
         run: uv run alembic heads
 
