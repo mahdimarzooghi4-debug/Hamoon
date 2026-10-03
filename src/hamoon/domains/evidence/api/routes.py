@@ -159,19 +159,19 @@ async def init_evidence_upload(
     session: Annotated[AsyncSession, Depends(get_db_session)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> InitEvidenceUploadResponse:
-    await require_household_assignment(
-        session=session,
-        context=context,
-        household_id=household_id,
-    )
-    _ensure_sensitivity_access(
-        context=context,
-        sensitivity=body.sensitivity_class,
-    )
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
     try:
         async with session.begin():
+            await require_household_assignment(
+                session=session,
+                context=context,
+                household_id=household_id,
+            )
+            _ensure_sensitivity_access(
+                context=context,
+                sensitivity=body.sensitivity_class,
+            )
             result = await InitEvidenceUploadHandler(
                 repository=SqlAlchemyEvidenceRepository(session),
                 events=SqlAlchemyDomainEventRecorder(session),
@@ -280,25 +280,25 @@ async def finalize_evidence(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> EvidenceResponse:
     repository = SqlAlchemyEvidenceRepository(session)
-    evidence = await repository.get(evidence_id)
-    if evidence is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "RESOURCE_NOT_FOUND"},
-        )
-    await require_household_assignment(
-        session=session,
-        context=context,
-        household_id=evidence.household_id,
-    )
-    _ensure_sensitivity_access(
-        context=context,
-        sensitivity=evidence.sensitivity_class,
-    )
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
     try:
         async with session.begin():
+            evidence = await repository.get(evidence_id)
+            if evidence is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"code": "RESOURCE_NOT_FOUND"},
+                )
+            await require_household_assignment(
+                session=session,
+                context=context,
+                household_id=evidence.household_id,
+            )
+            _ensure_sensitivity_access(
+                context=context,
+                sensitivity=evidence.sensitivity_class,
+            )
             updated = await FinalizeEvidenceHandler(
                 repository=repository,
                 storage=_storage(settings),
@@ -334,25 +334,25 @@ async def issue_evidence_download(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> EvidenceDownloadResponse:
     repository = SqlAlchemyEvidenceRepository(session)
-    evidence = await repository.get(evidence_id)
-    if evidence is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "RESOURCE_NOT_FOUND"},
-        )
-    await require_household_assignment(
-        session=session,
-        context=context,
-        household_id=evidence.household_id,
-    )
-    _ensure_sensitivity_access(
-        context=context,
-        sensitivity=evidence.sensitivity_class,
-    )
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
     try:
         async with session.begin():
+            evidence = await repository.get(evidence_id)
+            if evidence is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"code": "RESOURCE_NOT_FOUND"},
+                )
+            await require_household_assignment(
+                session=session,
+                context=context,
+                household_id=evidence.household_id,
+            )
+            _ensure_sensitivity_access(
+                context=context,
+                sensitivity=evidence.sensitivity_class,
+            )
             evidence, target = await IssueEvidenceDownloadHandler(
                 repository=repository,
                 signer=_signer(settings),
