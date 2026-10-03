@@ -13,6 +13,8 @@ from hamoon.domains.assessment.infrastructure.repositories import (
 )
 from hamoon.domains.intelligence.domain.decisions import HumanDecisionAction
 from hamoon.domains.intelligence.infrastructure.repositories import (
+    SqlAlchemyAIDecisionRepository,
+    SqlAlchemyDecisionTraceRepository,
     SqlAlchemyHumanDecisionRepository,
     SqlAlchemyLearningSignalRepository,
 )
@@ -45,6 +47,7 @@ from hamoon.domains.outcome.domain.errors import (
     OutcomeVersionConflictError,
 )
 from hamoon.domains.outcome.infrastructure.repositories import (
+    SqlAlchemyOutcomeInterpretationProposalRepository,
     SqlAlchemyOutcomeRepository,
 )
 from hamoon.domains.pgor.infrastructure.repositories import (
@@ -188,6 +191,9 @@ async def _review(
                 learning_signals=SqlAlchemyLearningSignalRepository(session),
                 events=SqlAlchemyDomainEventRecorder(session),
                 audits=SqlAlchemyAuditRecorder(session),
+                proposals=SqlAlchemyOutcomeInterpretationProposalRepository(session),
+                ai_decisions=SqlAlchemyAIDecisionRepository(session),
+                traces=SqlAlchemyDecisionTraceRepository(session),
             ).handle(
                 ReviewOutcomeCommand(
                     outcome_id=outcome_id,

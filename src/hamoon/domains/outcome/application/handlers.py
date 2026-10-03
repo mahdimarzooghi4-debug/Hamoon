@@ -15,6 +15,8 @@ from hamoon.domains.intelligence.domain.decisions import (
     LearningSignalType,
 )
 from hamoon.domains.intelligence.ports.repositories import (
+    AIDecisionRepository,
+    DecisionTraceRepository,
     HumanDecisionRepository,
     LearningSignalRepository,
 )
@@ -33,7 +35,10 @@ from hamoon.domains.outcome.domain.errors import (
     OutcomeReviewError,
     OutcomeVersionConflictError,
 )
-from hamoon.domains.outcome.ports.repositories import OutcomeRepository
+from hamoon.domains.outcome.ports.repositories import (
+    OutcomeInterpretationProposalRepository,
+    OutcomeRepository,
+)
 from hamoon.domains.pgor.domain.engine import PGORSnapshotStatus
 from hamoon.domains.pgor.ports.repositories import PGORSnapshotRepository
 from hamoon.domains.provider_result.ports.repositories import ProviderResultRepository
@@ -217,12 +222,18 @@ class ReviewOutcomeHandler:
         learning_signals: LearningSignalRepository,
         events: DomainEventRecorder,
         audits: AuditRecorder,
+        proposals: OutcomeInterpretationProposalRepository | None = None,
+        ai_decisions: AIDecisionRepository | None = None,
+        traces: DecisionTraceRepository | None = None,
     ) -> None:
         self._outcomes = outcomes
         self._human_decisions = human_decisions
         self._learning_signals = learning_signals
         self._events = events
         self._audits = audits
+        self._proposals = proposals
+        self._ai_decisions = ai_decisions
+        self._traces = traces
 
     async def handle(
         self,
@@ -252,10 +263,44 @@ class ReviewOutcomeHandler:
         ):
             raise OutcomeReviewError("OUTCOME_MODIFICATION_REASON_REQUIRED")
 
+        ai_decision_id = None
+        machine_summary: str | None = None
+        if self._proposals is not None:
+            proposal = await self._proposals.get_by_outcome(outcome.id)
+            if proposal is not None:
+                ai_decision_id = proposal.ai_decision_id
+                if self._ai_decisions is None:
+                    raise OutcomeReviewError("AI_DECISION_REPOSITORY_REQUIRED")
+                ai_decision = await self._ai_decisions.get(proposal.ai_decision_id)
+                if ai_decision is None:
+                    raise OutcomeReviewError("OUTCOME_AI_DECISION_NOT_FOUND")
+                raw_classification = ai_decision.structured_output.get("classification")
+                raw_summary = ai_decision.structured_output.get(
+                    "observed_change_summary"
+                )
+                if not isinstance(raw_classification, str) or not isinstance(
+                    raw_summary,
+                    str,
+                ):
+                    raise OutcomeReviewError("OUTCOME_AI_PROPOSAL_INVALID")
+                machine_summary = raw_summary
+                if action is HumanDecisionAction.CONFIRM:
+                    if raw_classification != command.classification.value:
+                        raise OutcomeReviewError(
+                            "OUTCOME_CONFIRM_MUST_MATCH_AI_PROPOSAL"
+                        )
+                    if (
+                        command.observed_change_summary is not None
+                        and command.observed_change_summary.strip() != raw_summary
+                    ):
+                        raise OutcomeReviewError(
+                            "OUTCOME_CONFIRM_MUST_MATCH_AI_PROPOSAL"
+                        )
+
         summary = (
             command.observed_change_summary.strip()
             if command.observed_change_summary
-            else outcome.observed_change_summary
+            else machine_summary or outcome.observed_change_summary
         )
         if not summary:
             raise OutcomeReviewError("OUTCOME_SUMMARY_REQUIRED")
@@ -289,7 +334,7 @@ class ReviewOutcomeHandler:
         human = HumanDecision(
             id=human_id,
             household_id=outcome.household_id,
-            ai_decision_id=None,
+            ai_decision_id=ai_decision_id,
             actor_id=command.actor_id,
             action=action,
             reason_code=command.reason_code,
@@ -306,7 +351,7 @@ class ReviewOutcomeHandler:
             id=uuid4(),
             household_id=outcome.household_id,
             signal_type=LearningSignalType.OUTCOME_OBSERVED,
-            ai_decision_id=None,
+            ai_decision_id=ai_decision_id,
             human_decision_id=human.id,
             diagnosis_id=None,
             signal_label=command.classification.value,
@@ -320,6 +365,12 @@ class ReviewOutcomeHandler:
         await self._human_decisions.add(human)
         await self._outcomes.update(updated, expected_version=command.expected_version)
         await self._learning_signals.add(signal)
+        if ai_decision_id is not None and self._traces is not None:
+            await self._traces.attach_human_decision(
+                ai_decision_id=ai_decision_id,
+                human_decision_id=human.id,
+                closed_at=now,
+            )
 
         event_type = {
             OutcomeStatus.CONFIRMED: "OutcomeConfirmed",
@@ -351,6 +402,9 @@ class ReviewOutcomeHandler:
                     "e_delta": str(outcome.e_delta),
                     "reviewed_by": str(command.actor_id),
                     "human_decision_id": str(human.id),
+                    "ai_decision_id": (
+                        None if ai_decision_id is None else str(ai_decision_id)
+                    ),
                     "learning_signal_id": str(signal.id),
                     "causal_claim": False,
                 },
@@ -374,6 +428,11 @@ class ReviewOutcomeHandler:
                     "household_id": str(signal.household_id),
                     "signal_type": signal.signal_type.value,
                     "human_decision_id": str(signal.human_decision_id),
+                    "ai_decision_id": (
+                        None
+                        if signal.ai_decision_id is None
+                        else str(signal.ai_decision_id)
+                    ),
                     "provider_result_id": (
                         None
                         if signal.provider_result_id is None
@@ -398,6 +457,9 @@ class ReviewOutcomeHandler:
                 metadata={
                     "event_id": str(event_id),
                     "human_decision_id": str(human.id),
+                    "ai_decision_id": (
+                        None if ai_decision_id is None else str(ai_decision_id)
+                    ),
                     "learning_signal_id": str(signal.id),
                     "classification": command.classification.value,
                     "version": updated.version,
