@@ -41,7 +41,10 @@ from hamoon.shared.contracts.records import AuditRecord, DomainEventRecord
 from hamoon.shared.ports.recorders import AuditRecorder, DomainEventRecorder
 
 
-_ALLOWED_QUALITY_TRANSITIONS = {
+_ALLOWED_QUALITY_TRANSITIONS: dict[
+    LearningSignalQuality,
+    set[LearningSignalQuality],
+] = {
     LearningSignalQuality.RAW: {
         LearningSignalQuality.CURATED,
         LearningSignalQuality.EXCLUDED,
