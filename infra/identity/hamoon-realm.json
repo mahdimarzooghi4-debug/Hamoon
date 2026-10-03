@@ -1,0 +1,47 @@
+{
+  "realm": "hamoon-local",
+  "enabled": true,
+  "displayName": "Hamoon Local",
+  "roles": {
+    "realm": [
+      {"name": "CASEWORKER"},
+      {"name": "MANAGER"},
+      {"name": "ADMIN"},
+      {"name": "SECURITY_AUDITOR"}
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "hamoon-api",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "bearerOnly": true
+    },
+    {
+      "clientId": "hamoon-web",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["http://localhost:3000"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "hamoon-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "hamoon-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ]
+}

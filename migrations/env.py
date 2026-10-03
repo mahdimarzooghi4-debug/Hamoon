@@ -12,6 +12,8 @@ from hamoon.infrastructure.db.base import Base
 
 from hamoon.domains.household.infrastructure import models as household_models  # noqa: F401
 from hamoon.domains.identity.infrastructure import models as identity_models  # noqa: F401
+from hamoon.infrastructure.audit import models as audit_models  # noqa: F401
+from hamoon.infrastructure.events import models as event_models  # noqa: F401
 
 config = context.config
 

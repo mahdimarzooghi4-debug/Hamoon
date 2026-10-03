@@ -26,12 +26,14 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:latest
-    command: ["start-dev"]
+    command: ["start-dev", "--import-realm"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
     ports:
       - "8081:8080"
+    volumes:
+      - ./infra/identity/hamoon-realm.json:/opt/keycloak/data/import/hamoon-realm.json:ro
 
   minio:
     image: minio/minio:latest

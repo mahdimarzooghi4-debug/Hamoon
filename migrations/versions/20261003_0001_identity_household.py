@@ -40,11 +40,6 @@ def upgrade() -> None:
         name="case_assignment_type",
     )
 
-    actor_type.create(op.get_bind(), checkfirst=True)
-    actor_status.create(op.get_bind(), checkfirst=True)
-    household_status.create(op.get_bind(), checkfirst=True)
-    assignment_type.create(op.get_bind(), checkfirst=True)
-
     op.create_table(
         "actor",
         sa.Column("id", sa.Uuid(), nullable=False),
