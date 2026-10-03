@@ -1,0 +1,33 @@
+name: Generate dependency lock
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate and commit lock when missing
+        run: |
+          if [ -f uv.lock ]; then
+            echo "uv.lock already exists"
+            exit 0
+          fi
+          uv lock
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uv.lock
+          git commit -m "build: lock Python dependencies"
+          git push
