@@ -27,6 +27,15 @@ class Settings(BaseSettings):
     metrics_enabled: bool = True
     structured_logging: bool = True
 
+    evidence_local_root: str = ".hamoon/evidence"
+    evidence_signing_secret: str = "hamoon-local-evidence-secret"
+    evidence_upload_ttl_seconds: int = 300
+    evidence_download_ttl_seconds: int = 300
+    evidence_max_upload_bytes: int = 10 * 1024 * 1024
+    evidence_allowed_media_types: str = (
+        "application/pdf,image/jpeg,image/png,text/plain"
+    )
+
     oidc_issuer_url: str = "http://localhost:8081/realms/hamoon-local"
     oidc_audience: str = "hamoon-api"
     oidc_jwks_url: str | None = None
