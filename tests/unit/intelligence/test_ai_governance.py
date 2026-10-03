@@ -1,8 +1,3 @@
-from datetime import UTC, datetime
-from uuid import UUID
-
-import pytest
-
 from hamoon.domains.intelligence.domain.registry import (
     AIModelVersionStatus,
     EvaluationStatus,
@@ -20,7 +15,7 @@ def test_governance_statuses_make_promotion_explicit() -> None:
     assert RoutingPolicyStatus.ACTIVE.value == "ACTIVE"
 
 
-def test_evaluation_completion_requires_structural_gate_when_passing() -> None:
+def test_evaluation_report_requires_structural_gate_before_manual_approval() -> None:
     metrics = {
         "dataset_version": "diagnosis-dataset-v1",
         "policy_version": "diagnosis-eval-v1",
@@ -33,5 +28,4 @@ def test_evaluation_completion_requires_structural_gate_when_passing() -> None:
     }
 
     assert metrics["structural_gate_passed"] is True
-    assert datetime(2026, 10, 3, tzinfo=UTC).tzinfo is not None
-    assert UUID("00000000-0000-0000-0000-000000000713").version is not None
+    assert metrics["manual_approval_required"] is True
