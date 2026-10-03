@@ -18,8 +18,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Verify dependency lock
+        run: uv lock --check
+
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: uv sync --frozen --all-extras
 
       - name: Lint
         run: uv run ruff check .
@@ -86,8 +89,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Verify dependency lock
+        run: uv lock --check
+
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: uv sync --frozen --all-extras
 
       - name: Start local integration infrastructure
         run: docker compose up -d postgres nats
