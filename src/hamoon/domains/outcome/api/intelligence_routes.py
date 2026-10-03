@@ -11,7 +11,6 @@ from hamoon.app.security.dependencies import require_roles
 from hamoon.app.security.resource_scope import require_household_assignment
 from hamoon.domains.intelligence.infrastructure.repositories import (
     SqlAlchemyAIDecisionRepository,
-    SqlAlchemyAIRuntimeRegistryRepository,
     SqlAlchemyDecisionTraceRepository,
     SqlAlchemyFeaturePackageRepository,
 )
@@ -39,14 +38,11 @@ from hamoon.domains.pgor.infrastructure.repositories import (
 from hamoon.domains.provider_result.infrastructure.repositories import (
     SqlAlchemyProviderResultRepository,
 )
-from hamoon.infrastructure.ai.contracts import AITaskClass
-from hamoon.infrastructure.ai.gateway import ProviderAIGateway
-from hamoon.infrastructure.ai.outcome_runtime import (
-    GatewayOutcomeAIClient,
-    local_fake_outcome_policy,
+from hamoon.infrastructure.ai.outcome_factory import (
+    OutcomeAIRuntimeConfigurationError,
+    build_outcome_ai_client,
 )
-from hamoon.infrastructure.ai.providers.fake import FakeAIProvider
-from hamoon.infrastructure.ai.providers.openai import OpenAIProvider
+from hamoon.infrastructure.ai.outcome_runtime import GatewayOutcomeAIClient
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
@@ -59,35 +55,16 @@ async def _resolve_ai_client(
     session: AsyncSession,
     settings: Settings,
 ) -> GatewayOutcomeAIClient:
-    if settings.environment.lower() in {"local", "test", "development"}:
-        return GatewayOutcomeAIClient(
-            gateway=ProviderAIGateway(providers={"FAKE": FakeAIProvider()}),
-            routing_policy=local_fake_outcome_policy(),
+    try:
+        return await build_outcome_ai_client(
+            session=session,
+            settings=settings,
         )
-
-    route = await SqlAlchemyAIRuntimeRegistryRepository(session).resolve_active_route(
-        AITaskClass.OUTCOME_INTERPRETATION
-    )
-    if route is None:
+    except OutcomeAIRuntimeConfigurationError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"code": "AI_ROUTING_POLICY_NOT_FOUND"},
-        )
-    if route.routing_policy.provider_code != "OPENAI" or not settings.openai_api_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"code": "AI_PROVIDER_UNAVAILABLE"},
-        )
-    provider = OpenAIProvider(
-        api_key=settings.openai_api_key,
-        base_url=settings.openai_base_url,
-        timeout_seconds=settings.openai_timeout_seconds,
-    )
-    return GatewayOutcomeAIClient(
-        gateway=ProviderAIGateway(providers={"OPENAI": provider}),
-        routing_policy=route.routing_policy,
-        instructions=route.instructions,
-    )
+            detail={"code": str(exc)},
+        ) from exc
 
 
 @router.post(
