@@ -524,6 +524,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
                 EvaluationRunModel.status == EvaluationStatus.PASSED,
                 EvaluationRunModel.passed.is_(True),
                 EvaluationRunModel.completed_at.is_not(None),
+                EvaluationRunModel.dataset_manifest_digest.is_not(None),
+                EvaluationRunModel.report_digest.is_not(None),
                 ModelRoutingPolicyModel.approved_at.is_not(None),
             )
             .order_by(ModelRoutingPolicyModel.approved_at.desc())
@@ -560,6 +562,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         model_version_id: UUID,
         prompt_policy_version_id: UUID,
         dataset_version_id: UUID,
+        dataset_manifest_digest: str,
         evaluation_policy_version: str,
         started_at: datetime,
     ) -> EvaluationRunState:
@@ -579,6 +582,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             prompt_policy_version_id=prompt_policy_version_id,
             evaluation_policy_version=evaluation_policy_version,
             dataset_version_id=dataset_version_id,
+            dataset_manifest_digest=dataset_manifest_digest,
+            report_digest=None,
             started_at=started_at,
             status=EvaluationStatus.PENDING,
             passed=False,
@@ -599,6 +604,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         self,
         *,
         evaluation_run_id: UUID,
+        dataset_manifest_digest: str,
+        report_digest: str,
         passed: bool,
         summary_metrics: dict[str, JsonValue],
         completed_at: datetime,
@@ -616,6 +623,12 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             EvaluationStatus.RUNNING,
         }:
             raise ValueError("EVALUATION_RUN_ALREADY_COMPLETED")
+        if model.dataset_manifest_digest is None:
+            raise ValueError("EVALUATION_DATASET_DIGEST_REQUIRED")
+        if model.dataset_manifest_digest != dataset_manifest_digest:
+            raise ValueError("EVALUATION_DATASET_DIGEST_MISMATCH")
+        if len(report_digest) != 64:
+            raise ValueError("EVALUATION_REPORT_DIGEST_INVALID")
         structural_gate = summary_metrics.get("structural_gate_passed")
         if passed and structural_gate is not True:
             raise ValueError("EVALUATION_STRUCTURAL_GATE_NOT_PASSED")
@@ -623,6 +636,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         model.status = EvaluationStatus.PASSED if passed else EvaluationStatus.FAILED
         model.passed = passed
         model.summary_metrics = summary_metrics
+        model.report_digest = report_digest
         model.completed_at = completed_at
         for metric_key, metric_value in summary_metrics.items():
             if isinstance(metric_value, (str, int, float, bool)) or metric_value is None:
@@ -665,6 +679,13 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             raise ValueError("EVALUATION_NOT_PASSED")
         if evaluation.dataset_version_id is None:
             raise ValueError("EVALUATION_DATASET_REQUIRED")
+        if (
+            evaluation.dataset_manifest_digest is None
+            or evaluation.report_digest is None
+        ):
+            raise ValueError("EVALUATION_ATTESTATION_REQUIRED")
+        if evaluation.summary_metrics.get("structural_gate_passed") is not True:
+            raise ValueError("EVALUATION_STRUCTURAL_GATE_NOT_PASSED")
         if evaluation.task_class is not task_class:
             raise ValueError("EVALUATION_TASK_CLASS_MISMATCH")
         if evaluation.model_version_id != model_version_id:
@@ -779,6 +800,14 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             raise ValueError("EVALUATION_NOT_PASSED")
         if evaluation.completed_at is None:
             raise ValueError("EVALUATION_NOT_COMPLETED")
+        if (
+            evaluation.dataset_version_id is None
+            or evaluation.dataset_manifest_digest is None
+            or evaluation.report_digest is None
+        ):
+            raise ValueError("EVALUATION_ATTESTATION_REQUIRED")
+        if evaluation.summary_metrics.get("structural_gate_passed") is not True:
+            raise ValueError("EVALUATION_STRUCTURAL_GATE_NOT_PASSED")
         if evaluation.model_version_id != model_version.id:
             raise ValueError("EVALUATION_MODEL_VERSION_MISMATCH")
         if evaluation.prompt_policy_version_id != prompt.id:
@@ -825,6 +854,8 @@ def _evaluation_run_state(model: EvaluationRunModel) -> EvaluationRunState:
         prompt_policy_version_id=model.prompt_policy_version_id,
         evaluation_policy_version=model.evaluation_policy_version,
         dataset_version_id=model.dataset_version_id,
+        dataset_manifest_digest=model.dataset_manifest_digest,
+        report_digest=model.report_digest,
         status=model.status,
         passed=model.passed,
         summary_metrics=model.summary_metrics,
