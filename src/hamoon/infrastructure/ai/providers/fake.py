@@ -61,6 +61,7 @@ class FakeAIProvider:
             ],
             "review_flags": ["FAKE_PROVIDER", "HUMAN_REVIEW_REQUIRED"],
         }
+        return output
 
     @staticmethod
     def _prescription(request: ProviderStructuredRequest) -> dict[str, JsonValue]:
@@ -130,7 +131,7 @@ class FakeAIProvider:
         ]
         if not refs:
             refs = ["policy.causal_claim_allowed"]
-        return {
+        output: dict[str, JsonValue] = {
             "schema_version": "outcome-interpretation-v1",
             "classification": "NO_SIGNIFICANT_CHANGE",
             "observed_change_summary": (
