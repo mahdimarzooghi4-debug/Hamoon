@@ -61,7 +61,6 @@ class FakeAIProvider:
             ],
             "review_flags": ["FAKE_PROVIDER", "HUMAN_REVIEW_REQUIRED"],
         }
-        return output
 
     @staticmethod
     def _prescription(request: ProviderStructuredRequest) -> dict[str, JsonValue]:
@@ -141,3 +140,4 @@ class FakeAIProvider:
             "supporting_feature_refs": refs,
             "review_flags": ["FAKE_PROVIDER", "HUMAN_REVIEW_REQUIRED"],
         }
+        return output
