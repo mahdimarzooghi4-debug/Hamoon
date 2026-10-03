@@ -6,6 +6,13 @@ from hamoon.infrastructure.ai.contracts import (
     ProviderStructuredResponse,
 )
 
+_FAKE_INTERVENTION_BY_TARGET = {
+    "P": "COUNSELING",
+    "G": "TRAINING",
+    "O": "MARKET_LINKAGE",
+    "R": "SOCIAL_SUPPORT",
+}
+
 
 class FakeAIProvider:
     code = "FAKE"
@@ -14,14 +21,26 @@ class FakeAIProvider:
         self,
         request: ProviderStructuredRequest,
     ) -> ProviderStructuredResponse:
-        if request.task_class is not AITaskClass.DIAGNOSIS:
-            raise ValueError("Fake provider currently supports DIAGNOSIS only.")
+        if request.task_class is AITaskClass.DIAGNOSIS:
+            output = self._diagnosis(request)
+        elif request.task_class is AITaskClass.PRESCRIPTION:
+            output = self._prescription(request)
+        else:
+            raise ValueError("Fake provider does not support this task class.")
 
+        return ProviderStructuredResponse(
+            provider_code=self.code,
+            model_id=request.model_id,
+            output=output,
+        )
+
+    @staticmethod
+    def _diagnosis(request: ProviderStructuredRequest) -> dict[str, JsonValue]:
         bottlenecks = request.features.get("pgor.bottleneck_variables", [])
         if not isinstance(bottlenecks, list):
             bottlenecks = []
 
-        output: dict[str, JsonValue] = {
+        return {
             "schema_version": "diagnosis-v1",
             "summary": "Test-only structured diagnosis proposal.",
             "items": [
@@ -40,8 +59,56 @@ class FakeAIProvider:
             ],
             "review_flags": ["FAKE_PROVIDER", "HUMAN_REVIEW_REQUIRED"],
         }
-        return ProviderStructuredResponse(
-            provider_code=self.code,
-            model_id=request.model_id,
-            output=output,
-        )
+
+    @staticmethod
+    def _prescription(request: ProviderStructuredRequest) -> dict[str, JsonValue]:
+        bottlenecks = request.features.get("pgor.bottleneck_variables", [])
+        intensity = request.features.get("prescription.intensity_score")
+        diagnosis_id = request.features.get("diagnosis.id")
+        if not isinstance(bottlenecks, list):
+            bottlenecks = []
+        if not isinstance(intensity, str):
+            intensity = "0"
+        if not isinstance(diagnosis_id, str):
+            diagnosis_id = "unknown"
+
+        items: list[JsonValue] = []
+        rank = 1
+        for value in bottlenecks:
+            if not isinstance(value, str):
+                continue
+            intervention = _FAKE_INTERVENTION_BY_TARGET.get(value)
+            if intervention is None:
+                continue
+            items.append(
+                {
+                    "code": f"PGOR_{value}_{intervention}",
+                    "target_variable": value,
+                    "intervention_type": intervention,
+                    "priority_rank": rank,
+                    "title": f"Source-matrix intervention for {value}",
+                    "rationale": "Targets a current PGOR bottleneck.",
+                    "success_criteria": [
+                        f"Reassess PGOR variable {value} after intervention."
+                    ],
+                    "review_schedule": {
+                        "review_after_days": 90,
+                        "rationale": "Test-only review schedule proposal.",
+                    },
+                    "diagnosis_refs": [f"diagnosis:{diagnosis_id}"],
+                    "supporting_feature_refs": [
+                        "pgor.bottleneck_variables",
+                        "prescription.intensity_score",
+                        "diagnosis.accepted_payload",
+                    ],
+                }
+            )
+            rank += 1
+
+        return {
+            "schema_version": "prescription-v1",
+            "summary": "Test-only source-matrix prescription proposal.",
+            "intensity_score": intensity,
+            "items": items,
+            "review_flags": ["FAKE_PROVIDER", "HUMAN_REVIEW_REQUIRED"],
+        }

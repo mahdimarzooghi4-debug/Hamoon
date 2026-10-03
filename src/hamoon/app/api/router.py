@@ -6,6 +6,7 @@ from hamoon.domains.family_data.api.routes import router as family_data_router
 from hamoon.domains.household.api.routes import router as household_router
 from hamoon.domains.intelligence.api.routes import router as intelligence_router
 from hamoon.domains.pgor.api.routes import router as pgor_router
+from hamoon.domains.prescription.api.routes import router as prescription_router
 
 api_router = APIRouter()
 api_router.include_router(health_router)
@@ -14,3 +15,4 @@ api_router.include_router(family_data_router)
 api_router.include_router(assessment_router)
 api_router.include_router(pgor_router)
 api_router.include_router(intelligence_router)
+api_router.include_router(prescription_router)

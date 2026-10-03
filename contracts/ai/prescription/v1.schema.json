@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hamoon://contracts/ai/prescription/v1",
+  "title": "Hamoon Prescription Proposal v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "summary", "intensity_score", "items", "review_flags"],
+  "properties": {
+    "schema_version": {"const": "prescription-v1"},
+    "summary": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "intensity_score": {
+      "type": "string",
+      "pattern": "^(0(?:\\.\\d+)?|1(?:\\.0+)?)$"
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code", "target_variable", "intervention_type", "priority_rank",
+          "title", "rationale", "success_criteria", "review_schedule",
+          "diagnosis_refs", "supporting_feature_refs"
+        ],
+        "properties": {
+          "code": {"type": "string", "minLength": 1, "maxLength": 150},
+          "target_variable": {"enum": ["P", "G", "O", "R"]},
+          "intervention_type": {
+            "enum": [
+              "COUNSELING", "MOTIVATION", "PSYCHOLOGICAL_EMPOWERMENT", "COACHING",
+              "TRAINING", "SKILLS_TRAINING", "VOCATIONAL_TRAINING",
+              "MARKET_LINKAGE", "EMPLOYMENT", "FINANCING_FACILITIES", "NETWORKING",
+              "SOCIAL_SUPPORT", "TREATMENT", "RISK_REDUCTION", "STABILIZATION"
+            ]
+          },
+          "priority_rank": {"type": "integer", "minimum": 1, "maximum": 20},
+          "title": {"type": "string", "minLength": 1, "maxLength": 300},
+          "rationale": {"type": "string", "minLength": 1, "maxLength": 2000},
+          "success_criteria": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {"type": "string", "minLength": 1, "maxLength": 500}
+          },
+          "review_schedule": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["review_after_days", "rationale"],
+            "properties": {
+              "review_after_days": {"type": "integer", "minimum": 1, "maximum": 730},
+              "rationale": {"type": "string", "minLength": 1, "maxLength": 1000}
+            }
+          },
+          "diagnosis_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string", "minLength": 1, "maxLength": 200},
+            "uniqueItems": true
+          },
+          "supporting_feature_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string", "minLength": 1, "maxLength": 300},
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "review_flags": {
+      "type": "array",
+      "contains": {"const": "HUMAN_REVIEW_REQUIRED"},
+      "items": {"type": "string", "minLength": 1, "maxLength": 150},
+      "uniqueItems": true
+    }
+  }
+}

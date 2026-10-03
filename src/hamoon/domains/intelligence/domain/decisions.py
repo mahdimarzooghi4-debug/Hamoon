@@ -8,6 +8,7 @@ from pydantic import JsonValue
 
 class AIDecisionType(StrEnum):
     DIAGNOSIS = "DIAGNOSIS"
+    PRESCRIPTION = "PRESCRIPTION"
 
 
 class AIDecisionStatus(StrEnum):
