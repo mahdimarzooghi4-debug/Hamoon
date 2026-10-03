@@ -103,7 +103,8 @@ class DispatchRepo:
 
 class Registry:
     async def get_service(self,service_id):
-        if service_id != SERVICE: return None
+        if service_id != SERVICE:
+            return None
         return ProviderService(
             id=SERVICE,
             provider_id=PROVIDER,
