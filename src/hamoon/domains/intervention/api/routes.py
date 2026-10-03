@@ -62,22 +62,21 @@ async def activate_intervention(
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> InterventionResponse:
     prescriptions = SqlAlchemyPrescriptionRepository(session)
-    prescription = await prescriptions.get(prescription_id)
-    if prescription is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "RESOURCE_NOT_FOUND"},
-        )
-    await require_household_assignment(
-        session=session,
-        context=context,
-        household_id=prescription.household_id,
-    )
-
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
     try:
         async with session.begin():
+            prescription = await prescriptions.get(prescription_id)
+            if prescription is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"code": "RESOURCE_NOT_FOUND"},
+                )
+            await require_household_assignment(
+                session=session,
+                context=context,
+                household_id=prescription.household_id,
+            )
             intervention = await ActivateInterventionHandler(
                 prescriptions=prescriptions,
                 interventions=SqlAlchemyInterventionRepository(session),
