@@ -2,6 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import JsonValue
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.app.config.settings import Settings, get_settings
@@ -42,6 +43,7 @@ from hamoon.domains.prescription.application.review import (
     PrescriptionVersionConflictError,
     ReviewPrescriptionHandler,
 )
+from hamoon.domains.prescription.domain.entities import PrescriptionItem
 from hamoon.domains.prescription.domain.errors import PrescriptionGenerationError
 from hamoon.domains.prescription.infrastructure.repositories import (
     SqlAlchemyPrescriptionRepository,
@@ -223,7 +225,7 @@ async def get_prescription(
 
 
 
-def _item_data(item) -> PrescriptionItemData:
+def _item_data(item: PrescriptionItem) -> PrescriptionItemData:
     return PrescriptionItemData(
         id=item.id,
         source_code=item.source_code,
@@ -245,7 +247,7 @@ async def _review_prescription(
     prescription_id: UUID,
     action: HumanDecisionAction,
     body: PrescriptionReviewRequest,
-    modified_payload: dict | None,
+    modified_payload: dict[str, JsonValue] | None,
     context: AuthorizationContext,
     session: AsyncSession,
 ) -> PrescriptionReviewResponse:
