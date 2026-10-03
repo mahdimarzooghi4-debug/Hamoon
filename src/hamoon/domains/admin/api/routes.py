@@ -51,7 +51,7 @@ router = APIRouter(tags=["admin-health"])
 
 async def _scalar_count(
     session: AsyncSession,
-    statement: Select[tuple[int]],
+    statement: Select[int],
 ) -> int:
     value = await session.scalar(statement)
     return int(value or 0)
