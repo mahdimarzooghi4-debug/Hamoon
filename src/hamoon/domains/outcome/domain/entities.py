@@ -72,3 +72,12 @@ class HamoonOutcome:
             reviewed_by=actor_id,
             version=self.version + 1,
         )
+
+
+
+@dataclass(frozen=True, slots=True)
+class OutcomeInterpretationProposal:
+    id: UUID
+    outcome_id: UUID
+    ai_decision_id: UUID
+    created_at: datetime

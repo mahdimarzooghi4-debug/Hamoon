@@ -9,6 +9,7 @@ from pydantic import JsonValue
 class FeaturePackageType(StrEnum):
     DIAGNOSIS = "DIAGNOSIS"
     PRESCRIPTION = "PRESCRIPTION"
+    OUTCOME = "OUTCOME"
 
 
 class SensitivityClass(StrEnum):

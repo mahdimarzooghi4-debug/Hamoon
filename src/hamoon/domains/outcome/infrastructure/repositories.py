@@ -3,9 +3,15 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from hamoon.domains.outcome.domain.entities import HamoonOutcome
+from hamoon.domains.outcome.domain.entities import (
+    HamoonOutcome,
+    OutcomeInterpretationProposal,
+)
 from hamoon.domains.outcome.domain.errors import OutcomeVersionConflictError
-from hamoon.domains.outcome.infrastructure.models import HamoonOutcomeModel
+from hamoon.domains.outcome.infrastructure.models import (
+    HamoonOutcomeModel,
+    OutcomeInterpretationProposalModel,
+)
 
 
 def _outcome(model: HamoonOutcomeModel) -> HamoonOutcome:
@@ -100,3 +106,52 @@ class SqlAlchemyOutcomeRepository:
         model.latest_human_decision_id = outcome.latest_human_decision_id
         model.reviewed_at = outcome.reviewed_at
         model.reviewed_by = outcome.reviewed_by
+
+
+
+class SqlAlchemyOutcomeInterpretationProposalRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    @staticmethod
+    def _hydrate(
+        model: OutcomeInterpretationProposalModel,
+    ) -> OutcomeInterpretationProposal:
+        return OutcomeInterpretationProposal(
+            id=model.id,
+            outcome_id=model.outcome_id,
+            ai_decision_id=model.ai_decision_id,
+            created_at=model.created_at,
+        )
+
+    async def add(self, proposal: OutcomeInterpretationProposal) -> None:
+        self._session.add(
+            OutcomeInterpretationProposalModel(
+                id=proposal.id,
+                outcome_id=proposal.outcome_id,
+                ai_decision_id=proposal.ai_decision_id,
+                created_at=proposal.created_at,
+            )
+        )
+
+    async def get(
+        self,
+        proposal_id: UUID,
+    ) -> OutcomeInterpretationProposal | None:
+        model = await self._session.get(
+            OutcomeInterpretationProposalModel,
+            proposal_id,
+        )
+        return None if model is None else self._hydrate(model)
+
+    async def get_by_outcome(
+        self,
+        outcome_id: UUID,
+    ) -> OutcomeInterpretationProposal | None:
+        result = await self._session.execute(
+            select(OutcomeInterpretationProposalModel).where(
+                OutcomeInterpretationProposalModel.outcome_id == outcome_id
+            )
+        )
+        model = result.scalar_one_or_none()
+        return None if model is None else self._hydrate(model)

@@ -86,3 +86,22 @@ class HamoonOutcomeModel(Base):
         ForeignKey("actor.id", ondelete="RESTRICT"),
         nullable=True,
     )
+
+
+
+class OutcomeInterpretationProposalModel(Base):
+    __tablename__ = "outcome_interpretation_proposal"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    outcome_id: Mapped[UUID] = mapped_column(
+        ForeignKey("hamoon_outcome.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    ai_decision_id: Mapped[UUID] = mapped_column(
+        ForeignKey("ai_decision.id", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

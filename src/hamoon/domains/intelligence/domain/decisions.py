@@ -9,6 +9,7 @@ from pydantic import JsonValue
 class AIDecisionType(StrEnum):
     DIAGNOSIS = "DIAGNOSIS"
     PRESCRIPTION = "PRESCRIPTION"
+    OUTCOME_INTERPRETATION = "OUTCOME_INTERPRETATION"
 
 
 class AIDecisionStatus(StrEnum):
@@ -176,6 +177,9 @@ class DecisionTrace:
     closed_at: datetime | None = None
     prescription_id: UUID | None = None
     intervention_id: UUID | None = None
+    referral_id: UUID | None = None
+    provider_result_id: UUID | None = None
+    outcome_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
