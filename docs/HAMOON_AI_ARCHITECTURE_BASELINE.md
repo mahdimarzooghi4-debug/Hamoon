@@ -580,3 +580,133 @@ Intervention / Outcome / Learning
 
 این اصول باید در طراحی Domain Model، Data Architecture، API Integration، Security، Audit Log و AI Guardrails رعایت شوند.
 
+## 24. اصل AI-First — هامون یک سیستم هوشمند تصمیم‌یار است
+
+از این مرحله به بعد، تمام تصمیم‌های فنی Hamoon باید بر این اصل استوار باشند:
+
+> **Hamoon یک نرم‌افزار معمولی نیست که بعداً AI به آن اضافه شود؛ Hamoon از ابتدا یک سیستم هوشمند تصمیم‌یار و یادگیرنده است و UI، داده، Workflow و Integrationها برای تغذیه، کنترل و بهبود حلقه هوشمندی آن طراحی می‌شوند.**
+
+معماری پایه باید این زنجیره را پشتیبانی کند:
+
+```text
+Data Sources
+    ↓
+Temporal Household State
+    ↓
+Feature / Evidence Layer
+    ↓
+PGOR Engine
+    ↓
+Intelligence Layer
+ ├─ Diagnosis
+ ├─ Prediction
+ ├─ Simulation
+ ├─ Prescription
+ ├─ Provider Matching
+ └─ Outcome Intelligence
+    ↓
+Human Decision
+    ↓
+Action / Referral
+    ↓
+Observed Result
+    ↓
+Re-assessment
+    ↓
+Learning Signal
+    ↺
+```
+
+### 24.1 تفکیک موتور قطعی از AI
+
+همه اجزای هوشمندی از یک جنس نیستند:
+
+- **PGOR Engine و محاسبه E باید Deterministic، Versioned و Reproducible باشند.**
+- LLM یا مدل‌های مولد نباید P/G/O/R/E را حدس بزنند.
+- Diagnosis، Prediction، Simulation، Prescription، Provider Matching و Outcome Intelligence می‌توانند از AI/ML استفاده کنند، اما باید Evidence-aware، Versioned، قابل ارزیابی و قابل Override باشند.
+- هر خروجی AI مؤثر در تصمیم باید حداقل Model Version، Input State Version، Evidence، Confidence/Uncertainty در صورت کاربرد، و Human Decision بعدی را قابل ردیابی کند.
+
+### 24.2 اجزای فنی AI که از V1 باید جزو معماری باشند
+
+Technical Architecture Hamoon باید از ابتدا برای این اجزا جای مشخص داشته باشد:
+
+- **Temporal Household State / Feature Layer**
+- **PGOR Engine**
+- **AI Gateway / Intelligence Orchestrator**
+- **Model Registry**
+- **Prompt / Policy Registry** برای اجزای LLM-based
+- **Decision Trace**
+- **Evaluation Framework**
+- **Feedback & Learning Store**
+- **Model / Data Monitoring**
+- **Guardrails & Human Override**
+- **Model and Feature Versioning**
+
+این اجزا Feature جانبی یا فاز تزئینی آینده نیستند؛ بخشی از Platform Architecture هامون هستند.
+
+### 24.3 Human Decision به‌عنوان داده یادگیری
+
+تصمیم انسان فقط Audit Log نیست؛ در صورت تعریف صحیح، یکی از Learning Signalهای اصلی Hamoon است.
+
+نمونه:
+
+```text
+AI Diagnosis
+→ Human Review
+→ Confirm / Modify / Replace
+→ Reason
+→ Intervention
+→ Outcome Later
+→ Learning Signal
+```
+
+همین الگو باید برای موارد زیر نیز قابل ثبت باشد:
+
+- Diagnosis
+- Prescription
+- Provider Matching / Selection
+- Referral decisions
+- Outcome interpretation
+- Data conflict resolution
+
+### 24.4 یادگیری به معنی Retrain خودکار نیست
+
+ثبت Learning Signal به معنی تغییر فوری مدل Production نیست.
+
+چرخه صحیح:
+
+```text
+Production Signals
+→ Curated Learning Dataset
+→ Offline Evaluation
+→ Model / Rule Candidate
+→ Validation
+→ Approval
+→ Versioned Deployment
+→ Monitoring
+```
+
+هر تغییر در مدل، Rule، Prompt یا وزن‌های تصمیم‌گیری باید قابل نسخه‌بندی، ارزیابی، Rollback و Audit باشد.
+
+### 24.5 نتیجه برای Technical Architecture
+
+سند Technical Architecture نباید فقط شامل Backend، Database و API باشد. ساختار آن باید حداقل این لایه‌ها را پوشش دهد:
+
+```text
+System Architecture
+→ Intelligence Architecture
+→ Temporal Data Architecture
+→ PGOR Engine
+→ AI Engines
+→ Human-in-the-loop
+→ Learning Architecture
+→ Model Evaluation
+→ APIs / Events
+→ Security
+→ Deployment
+→ Observability
+```
+
+اصل نهایی:
+
+> **We are building an empowerment decision-and-learning machine, not a CRUD system with AI features.**
