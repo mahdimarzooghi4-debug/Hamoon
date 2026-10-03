@@ -21,7 +21,7 @@ class ReassessmentWorkflow:
         if delay.total_seconds() > 0:
             await workflow.sleep(delay)
 
-        self._work_item_id = await workflow.execute_activity(
+        work_item_id = await workflow.execute_activity(
             "materialize_reassessment_work_item",
             MaterializeReassessmentInput(
                 plan_id=data.plan_id,
@@ -36,8 +36,9 @@ class ReassessmentWorkflow:
             ),
             result_type=str,
         )
+        self._work_item_id = work_item_id
         await workflow.wait_condition(lambda: self._completed)
-        return self._work_item_id
+        return work_item_id
 
     @workflow.signal(name="ReassessmentCompleted")
     async def reassessment_completed(self) -> None:
