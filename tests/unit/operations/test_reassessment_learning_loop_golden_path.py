@@ -67,7 +67,6 @@ from hamoon.domains.prescription.domain.entities import (
 )
 from hamoon.domains.provider_result.application.commands import SubmitProviderResultCommand
 from hamoon.domains.provider_result.application.handlers import SubmitProviderResultHandler
-from hamoon.domains.provider_result.domain.entities import ProviderResult
 from hamoon.domains.referral.domain.entities import Referral, ReferralStatus
 from hamoon.infrastructure.ai.gateway import ProviderAIGateway
 from hamoon.infrastructure.ai.outcome_runtime import (
