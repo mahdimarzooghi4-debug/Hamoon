@@ -9,6 +9,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "20261003_0014"
 down_revision: str | Sequence[str] | None = "20261003_0013"
@@ -150,7 +151,7 @@ def upgrade() -> None:
         sa.Column("eligibility", match_eligibility, nullable=False),
         sa.Column(
             "capacity_status",
-            sa.Enum(
+            postgresql.ENUM(
                 "AVAILABLE", "FULL", "UNAVAILABLE", "UNKNOWN",
                 name="provider_capacity_status",
                 create_type=False,
