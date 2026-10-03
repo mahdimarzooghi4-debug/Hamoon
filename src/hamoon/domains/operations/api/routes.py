@@ -17,7 +17,7 @@ from hamoon.domains.operations.api.schemas import (
     WorkItemResponse,
     WorkQueueResponse,
 )
-from hamoon.domains.operations.domain.entities import WorkItemStatus
+from hamoon.domains.operations.domain.entities import WorkItem, WorkItemStatus
 from hamoon.domains.operations.infrastructure.repositories import (
     SqlAlchemyWorkItemRepository,
 )
@@ -28,7 +28,7 @@ from hamoon.infrastructure.events.models import DomainEventModel
 router = APIRouter(tags=["operations"])
 
 
-def _work_item_data(item) -> WorkItemData:
+def _work_item_data(item: WorkItem) -> WorkItemData:
     return WorkItemData(
         id=item.id,
         household_id=item.household_id,
