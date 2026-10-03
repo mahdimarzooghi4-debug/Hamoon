@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -56,7 +57,7 @@ def _data(
     *,
     duplicate: bool = False,
     reassessment_plan_id: UUID | None = None,
-    reassessment_due_at=None,
+    reassessment_due_at: datetime | None = None,
     workflow_id: str | None = None,
 ) -> ProviderResultData:
     return ProviderResultData(
