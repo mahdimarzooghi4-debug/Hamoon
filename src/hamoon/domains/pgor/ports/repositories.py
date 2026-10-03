@@ -8,6 +8,12 @@ from hamoon.domains.pgor.domain.definitions import (
     PGORDefinitionVersion,
     PGORIndicatorDefinition,
 )
+from hamoon.domains.pgor.domain.engine import (
+    FormulaVersion,
+    PGORCalculationResult,
+    PGORSnapshotStatus,
+)
+from hamoon.domains.pgor.domain.snapshots import PGORSnapshot
 
 
 class PGORDefinitionRepository(Protocol):
@@ -18,7 +24,10 @@ class PGORDefinitionRepository(Protocol):
         definition_version_id: UUID,
     ) -> PGORDefinitionBundle | None: ...
 
-    async def get_version(self, definition_version_id: UUID) -> PGORDefinitionVersion | None: ...
+    async def get_version(
+        self,
+        definition_version_id: UUID,
+    ) -> PGORDefinitionVersion | None: ...
 
     async def list_indicators(
         self,
@@ -31,9 +40,6 @@ class PGORDefinitionRepository(Protocol):
         definition_version_id: UUID,
         indicator_id: UUID,
     ) -> PGORIndicatorDefinition | None: ...
-
-from hamoon.domains.pgor.domain.engine import FormulaVersion, PGORCalculationResult, PGORSnapshotStatus
-from hamoon.domains.pgor.domain.snapshots import PGORSnapshot
 
 
 class PGORFormulaRepository(Protocol):

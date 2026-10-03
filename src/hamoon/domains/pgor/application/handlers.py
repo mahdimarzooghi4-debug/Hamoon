@@ -24,6 +24,7 @@ from hamoon.domains.pgor.domain.errors import (
     FormulaVersionNotFoundError,
     PGORCalculationBlockedError,
 )
+from hamoon.domains.pgor.domain.snapshots import PGORSnapshot
 from hamoon.domains.pgor.ports.repositories import (
     PGORDefinitionRepository,
     PGORFormulaRepository,
@@ -59,7 +60,7 @@ class CalculateOfficialPGORHandler:
         self._events = events
         self._audits = audits
 
-    async def handle(self, command: CalculateOfficialPGORCommand):
+    async def handle(self, command: CalculateOfficialPGORCommand) -> PGORSnapshot:
         assessment = await self._assessments.get(command.assessment_id)
         if assessment is None:
             raise AssessmentNotFoundError(str(command.assessment_id))
@@ -78,10 +79,12 @@ class CalculateOfficialPGORHandler:
         formula = await self._formulas.get(command.formula_version_id)
         if formula is None:
             raise FormulaVersionNotFoundError(str(command.formula_version_id))
+        now = datetime.now(UTC)
         if (
             formula.status is not FormulaStatus.ACTIVE
             or formula.approved_at is None
             or formula.effective_from is None
+            or formula.effective_from > now
             or not formula.production_eligible
         ):
             raise PGORCalculationBlockedError("FORMULA_NOT_PRODUCTION_ACTIVE")
@@ -133,7 +136,11 @@ class CalculateOfficialPGORHandler:
             engine_version=ENGINE_VERSION,
         )
 
-        now = datetime.now(UTC)
+        data_quality_flags = (
+            ("HAS_DISPUTE",)
+            if readiness.unresolved_validation_count > 0
+            else ()
+        )
         snapshot = await self._snapshots.create(
             household_id=assessment.household_id,
             assessment_id=assessment.id,
@@ -143,7 +150,7 @@ class CalculateOfficialPGORHandler:
             status=PGORSnapshotStatus.OFFICIAL,
             result=result,
             completeness_ratio=readiness.completeness_ratio,
-            data_quality_flags=(),
+            data_quality_flags=data_quality_flags,
             calculated_at=now,
             calculated_by=command.actor_id,
         )

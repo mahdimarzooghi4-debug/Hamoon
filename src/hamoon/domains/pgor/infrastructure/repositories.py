@@ -13,7 +13,11 @@ from hamoon.domains.pgor.domain.definitions import (
     PGORIndicatorDefinition,
     PGORVariableDefinition,
 )
-from hamoon.domains.pgor.domain.engine import FormulaVersion, PGORCalculationResult, PGORSnapshotStatus
+from hamoon.domains.pgor.domain.engine import (
+    FormulaVersion,
+    PGORCalculationResult,
+    PGORSnapshotStatus,
+)
 from hamoon.domains.pgor.domain.snapshots import PGORSnapshot
 from hamoon.domains.pgor.infrastructure.models import (
     PGORDefinitionVersionModel,
@@ -117,7 +121,6 @@ class SqlAlchemyPGORDefinitionRepository:
             dimensions=tuple(_dimension(model) for model in dimension_models),
             indicators=tuple(_indicator(model) for model in indicator_models),
         )
-
 
     async def get_bundle(
         self,

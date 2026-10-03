@@ -33,8 +33,8 @@ from hamoon.domains.pgor.domain.definitions import (
 from hamoon.domains.pgor.domain.errors import (
     FormulaVersionNotFoundError,
     PGORCalculationBlockedError,
-    PGORSnapshotNotFoundError,
 )
+from hamoon.domains.pgor.domain.snapshots import PGORSnapshot
 from hamoon.domains.pgor.infrastructure.repositories import (
     SqlAlchemyPGORDefinitionRepository,
     SqlAlchemyPGORFormulaRepository,
@@ -44,10 +44,10 @@ from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
 
-router = APIRouter(prefix="/api/v1/pgor", tags=["pgor"])
+router = APIRouter(tags=["pgor"])
 
 
-def _snapshot_data(snapshot) -> PGORSnapshotData:
+def _snapshot_data(snapshot: PGORSnapshot) -> PGORSnapshotData:
     return PGORSnapshotData(
         id=snapshot.id,
         household_id=snapshot.household_id,
@@ -72,7 +72,7 @@ def _snapshot_data(snapshot) -> PGORSnapshotData:
 
 
 @router.get(
-    "/definitions/active",
+    "/api/v1/pgor/definitions/active",
     response_model=PGORDefinitionResponse,
 )
 async def get_active_definition(
@@ -155,7 +155,7 @@ async def get_active_definition(
 
 
 @router.post(
-    "/../assessments/{assessment_id}/calculate-pgor",
+    "/api/v1/assessments/{assessment_id}/calculate-pgor",
     response_model=PGORSnapshotResponse,
 )
 async def calculate_official_pgor(
@@ -218,7 +218,7 @@ async def calculate_official_pgor(
 
 
 @router.get(
-    "/snapshots/{snapshot_id}",
+    "/api/v1/pgor/snapshots/{snapshot_id}",
     response_model=PGORSnapshotResponse,
 )
 async def get_snapshot(

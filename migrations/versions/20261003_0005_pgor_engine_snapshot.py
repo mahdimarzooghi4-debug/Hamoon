@@ -9,6 +9,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "20261003_0005"
 down_revision: str | Sequence[str] | None = "20261003_0004"
@@ -129,7 +130,18 @@ def upgrade() -> None:
         sa.Column("observation_version", sa.Integer(), nullable=False),
         sa.Column("indicator_definition_id", sa.Uuid(), nullable=False),
         sa.Column("dimension_definition_id", sa.Uuid(), nullable=False),
-        sa.Column("variable_code", sa.Enum("P", "G", "O", "R", name="pgor_variable_code"), nullable=False),
+        sa.Column(
+            "variable_code",
+            postgresql.ENUM(
+                "P",
+                "G",
+                "O",
+                "R",
+                name="pgor_variable_code",
+                create_type=False,
+            ),
+            nullable=False,
+        ),
         sa.Column("raw_score_0_100", sa.Numeric(5, 2), nullable=False),
         sa.Column("normalized_score", sa.Numeric(20, 16), nullable=False),
         sa.ForeignKeyConstraint(
