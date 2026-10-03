@@ -57,6 +57,30 @@ class TemporalReassessmentStarter:
         await handle.signal("OutcomeReviewed")
 
 
+async def start_reassessment_best_effort(
+    *,
+    plan: ReassessmentPlan,
+    settings: Settings,
+) -> bool:
+    try:
+        client = await Client.connect(
+            settings.temporal_address,
+            namespace=settings.temporal_namespace,
+        )
+        starter = TemporalReassessmentStarter(
+            client=client,
+            task_queue=settings.temporal_core_task_queue,
+        )
+        await starter.start(plan)
+        return True
+    except Exception:
+        logger.exception(
+            "Temporal reassessment start failed; reconciliation will retry",
+            extra={"workflow_id": plan.workflow_id},
+        )
+        return False
+
+
 async def signal_post_pgor_best_effort(
     *,
     plan: ReassessmentPlan,

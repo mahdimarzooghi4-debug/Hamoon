@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from hamoon.app.config.settings import get_settings
 from hamoon.app.observability.request_context import current_correlation_id
 from hamoon.app.security.context import AuthorizationContext, Role
 from hamoon.app.security.dependencies import (
@@ -48,6 +49,9 @@ from hamoon.domains.referral.infrastructure.repositories import (
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
+from hamoon.infrastructure.temporal.reassessment_starter import (
+    start_reassessment_best_effort,
+)
 
 router = APIRouter(tags=["provider-result"])
 
@@ -146,6 +150,12 @@ async def submit_provider_result(
         ) from exc
 
     plan = result.reassessment_plan
+    if plan is not None:
+        await start_reassessment_best_effort(
+            plan=plan,
+            settings=get_settings(),
+        )
+
     return ProviderResultResponse(
         data=_data(
             result.result,
