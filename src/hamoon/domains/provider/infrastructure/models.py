@@ -178,3 +178,31 @@ class ProviderSelectionModel(Base):
         nullable=False,
     )
     selected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+
+class ProviderIdentityModel(Base):
+    __tablename__ = "provider_identity"
+    __table_args__ = (
+        UniqueConstraint(
+            "issuer",
+            "external_identity_subject",
+            name="uq_provider_identity_issuer_subject",
+        ),
+        UniqueConstraint("actor_id", name="uq_provider_identity_actor"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    provider_id: Mapped[UUID] = mapped_column(
+        ForeignKey("provider.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    actor_id: Mapped[UUID] = mapped_column(
+        ForeignKey("actor.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    issuer: Mapped[str] = mapped_column(String(500), nullable=False)
+    external_identity_subject: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

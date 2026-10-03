@@ -5,6 +5,7 @@ from hamoon.domains.provider.domain.entities import (
     Provider,
     ProviderCapacitySnapshot,
     ProviderEligibilityRule,
+    ProviderIdentity,
     ProviderMatch,
     ProviderMatchCandidate,
     ProviderSelection,
@@ -13,6 +14,13 @@ from hamoon.domains.provider.domain.entities import (
 
 
 class ProviderRegistryRepository(Protocol):
+    async def resolve_identity(
+        self,
+        *,
+        issuer: str,
+        subject: str,
+    ) -> ProviderIdentity | None: ...
+
     async def get_provider(self, provider_id: UUID) -> Provider | None: ...
 
     async def list_providers(self) -> list[Provider]: ...

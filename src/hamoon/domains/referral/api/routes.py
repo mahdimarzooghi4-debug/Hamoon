@@ -1,12 +1,15 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.app.observability.request_context import current_correlation_id, current_request_id
 from hamoon.app.security.context import AuthorizationContext, Role
-from hamoon.app.security.dependencies import require_roles
+from hamoon.app.security.dependencies import (
+    get_provider_authorization_context,
+    require_roles,
+)
 from hamoon.app.security.resource_scope import require_household_assignment
 from hamoon.domains.family_data.infrastructure.repositories import (
     SqlAlchemyAcceptedStateRepository,
@@ -26,18 +29,43 @@ from hamoon.domains.provider.infrastructure.repositories import (
 )
 from hamoon.domains.referral.api.schemas import (
     CreateReferralRequest,
+    ProviderCallbackData,
+    ProviderCallbackResponse,
+    ProviderStatusCallbackRequest,
     ReferralData,
     ReferralDataItemData,
+    ReferralEventData,
     ReferralResponse,
+    ReferralTimelineResponse,
+    SendReferralData,
+    SendReferralRequest,
+    SendReferralResponse,
+    TransitionReferralRequest,
 )
 from hamoon.domains.referral.application.commands import (
     CreateReferralCommand,
+    ProviderStatusCallbackCommand,
+    SendReferralCommand,
     SharedFactInput,
+    TransitionReferralCommand,
 )
 from hamoon.domains.referral.application.handlers import CreateReferralHandler
+from hamoon.domains.referral.application.lifecycle import (
+    ProviderStatusCallbackHandler,
+    SendReferralHandler,
+    TransitionReferralHandler,
+)
 from hamoon.domains.referral.domain.entities import Referral
-from hamoon.domains.referral.domain.errors import ReferralCreationError
+from hamoon.domains.referral.domain.errors import (
+    ReferralCreationError,
+    ReferralIdempotencyConflictError,
+    ReferralProviderScopeError,
+    ReferralTransitionError,
+    ReferralVersionConflictError,
+)
 from hamoon.domains.referral.infrastructure.repositories import (
+    SqlAlchemyProviderCallbackInboxRepository,
+    SqlAlchemyReferralDispatchRepository,
     SqlAlchemyReferralRepository,
 )
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
@@ -67,6 +95,7 @@ def _data(
         priority=item.priority,
         version=item.version,
         response_due_at=item.response_due_at,
+        external_referral_id=item.external_referral_id,
         created_at=item.created_at,
         data_items=[
             ReferralDataItemData(
@@ -75,10 +104,33 @@ def _data(
                 source_fact_id=data_item.source_fact_id,
                 snapshot_value=data_item.snapshot_value,
                 purpose=data_item.purpose,
+                authorization_basis=data_item.authorization_basis,
                 shared_at=data_item.shared_at,
             )
             for data_item in item.data_items
         ],
+    )
+
+
+def _map_lifecycle_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, ReferralVersionConflictError):
+        return HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "VERSION_CONFLICT"},
+        )
+    if isinstance(exc, ReferralIdempotencyConflictError):
+        return HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": str(exc)},
+        )
+    if isinstance(exc, ReferralProviderScopeError):
+        return HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RESOURCE_NOT_FOUND"},
+        )
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail={"code": str(exc)},
     )
 
 
@@ -159,6 +211,125 @@ async def create_referral(
     )
 
 
+@router.post(
+    "/api/v1/referrals/{referral_id}/send",
+    response_model=SendReferralResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def send_referral(
+    referral_id: UUID,
+    body: SendReferralRequest,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key")],
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> SendReferralResponse:
+    request_id = current_request_id() or "unknown"
+    correlation_id = current_correlation_id() or request_id
+    referrals = SqlAlchemyReferralRepository(session)
+
+    try:
+        async with session.begin():
+            referral = await referrals.get(referral_id)
+            if referral is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"code": "RESOURCE_NOT_FOUND"},
+                )
+            await require_household_assignment(
+                session=session,
+                context=context,
+                household_id=referral.household_id,
+            )
+            result = await SendReferralHandler(
+                referrals=referrals,
+                dispatches=SqlAlchemyReferralDispatchRepository(session),
+                registry=SqlAlchemyProviderRegistryRepository(session),
+                events=SqlAlchemyDomainEventRecorder(session),
+                audits=SqlAlchemyAuditRecorder(session),
+            ).handle(
+                SendReferralCommand(
+                    referral_id=referral_id,
+                    expected_version=body.expected_version,
+                    idempotency_key=idempotency_key,
+                    actor_id=context.actor_id,
+                    request_id=request_id,
+                    correlation_id=correlation_id,
+                )
+            )
+    except (
+        ReferralTransitionError,
+        ReferralVersionConflictError,
+        ReferralIdempotencyConflictError,
+    ) as exc:
+        raise _map_lifecycle_error(exc) from exc
+
+    return SendReferralResponse(
+        data=SendReferralData(
+            referral_id=result.referral.id,
+            dispatch_id=result.dispatch.id,
+            status=result.referral.status,
+            version=result.referral.version,
+            dispatch_status=result.dispatch.status,
+            replayed=result.replayed,
+        )
+    )
+
+
+@router.post(
+    "/api/v1/referrals/{referral_id}/transition",
+    response_model=ReferralResponse,
+)
+async def transition_referral(
+    referral_id: UUID,
+    body: TransitionReferralRequest,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ReferralResponse:
+    request_id = current_request_id() or "unknown"
+    correlation_id = current_correlation_id() or request_id
+    referrals = SqlAlchemyReferralRepository(session)
+
+    try:
+        async with session.begin():
+            current = await referrals.get(referral_id)
+            if current is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"code": "RESOURCE_NOT_FOUND"},
+                )
+            await require_household_assignment(
+                session=session,
+                context=context,
+                household_id=current.household_id,
+            )
+            updated = await TransitionReferralHandler(
+                referrals=referrals,
+                events=SqlAlchemyDomainEventRecorder(session),
+                audits=SqlAlchemyAuditRecorder(session),
+            ).handle(
+                TransitionReferralCommand(
+                    referral_id=referral_id,
+                    expected_version=body.expected_version,
+                    to_status=body.to_status,
+                    reason_code=body.reason_code,
+                    occurred_at=body.occurred_at,
+                    actor_id=context.actor_id,
+                    request_id=request_id,
+                    correlation_id=correlation_id,
+                )
+            )
+    except (ReferralTransitionError, ReferralVersionConflictError) as exc:
+        raise _map_lifecycle_error(exc) from exc
+
+    return ReferralResponse(data=_data(updated))
+
+
 @router.get("/api/v1/referrals/{referral_id}", response_model=ReferralResponse)
 async def get_referral(
     referral_id: UUID,
@@ -180,3 +351,104 @@ async def get_referral(
         household_id=item.household_id,
     )
     return ReferralResponse(data=_data(item))
+
+
+@router.get(
+    "/api/v1/referrals/{referral_id}/events",
+    response_model=ReferralTimelineResponse,
+)
+async def get_referral_events(
+    referral_id: UUID,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ReferralTimelineResponse:
+    referrals = SqlAlchemyReferralRepository(session)
+    item = await referrals.get(referral_id)
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RESOURCE_NOT_FOUND"},
+        )
+    await require_household_assignment(
+        session=session,
+        context=context,
+        household_id=item.household_id,
+    )
+    events = await referrals.list_events(referral_id)
+    return ReferralTimelineResponse(
+        data=[
+            ReferralEventData(
+                id=event.id,
+                referral_version=event.referral_version,
+                from_status=event.from_status,
+                to_status=event.to_status,
+                occurred_at=event.occurred_at,
+                recorded_at=event.recorded_at,
+                source=event.source.value,
+                reason_code=event.reason_code,
+                external_event_id=event.external_event_id,
+            )
+            for event in events
+        ]
+    )
+
+
+@router.post(
+    "/api/v1/provider-integrations/referrals/{external_referral_id}/status",
+    response_model=ProviderCallbackResponse,
+)
+async def provider_status_callback(
+    external_referral_id: str,
+    body: ProviderStatusCallbackRequest,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(get_provider_authorization_context),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ProviderCallbackResponse:
+    if context.provider_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "FORBIDDEN"},
+        )
+    correlation_id = current_correlation_id() or body.external_event_id
+
+    try:
+        async with session.begin():
+            result = await ProviderStatusCallbackHandler(
+                referrals=SqlAlchemyReferralRepository(session),
+                inbox=SqlAlchemyProviderCallbackInboxRepository(session),
+                events=SqlAlchemyDomainEventRecorder(session),
+                audits=SqlAlchemyAuditRecorder(session),
+            ).handle(
+                ProviderStatusCallbackCommand(
+                    provider_id=context.provider_id,
+                    actor_id=context.actor_id,
+                    external_referral_id=external_referral_id,
+                    external_event_id=body.external_event_id,
+                    to_status=body.status,
+                    occurred_at=body.occurred_at,
+                    reason_code=body.reason_code,
+                    schema_version=body.schema_version,
+                    correlation_id=correlation_id,
+                )
+            )
+    except (
+        ReferralTransitionError,
+        ReferralVersionConflictError,
+        ReferralIdempotencyConflictError,
+        ReferralProviderScopeError,
+    ) as exc:
+        raise _map_lifecycle_error(exc) from exc
+
+    return ProviderCallbackResponse(
+        data=ProviderCallbackData(
+            referral_id=result.referral.id,
+            status=result.referral.status,
+            version=result.referral.version,
+            duplicate=result.duplicate,
+        )
+    )

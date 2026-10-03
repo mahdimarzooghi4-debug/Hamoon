@@ -171,6 +171,7 @@ class CreateReferralHandler:
             completed_at=None,
             cancelled_at=None,
             external_referral_id=None,
+            subject_reference=None,
             created_by=command.actor_id,
             created_at=now,
             data_items=tuple(data_items),

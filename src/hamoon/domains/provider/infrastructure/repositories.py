@@ -8,6 +8,7 @@ from hamoon.domains.provider.domain.entities import (
     Provider,
     ProviderCapacitySnapshot,
     ProviderEligibilityRule,
+    ProviderIdentity,
     ProviderMatch,
     ProviderMatchCandidate,
     ProviderSelection,
@@ -15,6 +16,7 @@ from hamoon.domains.provider.domain.entities import (
 )
 from hamoon.domains.provider.infrastructure.models import (
     ProviderCapacitySnapshotModel,
+    ProviderIdentityModel,
     ProviderMatchCandidateModel,
     ProviderMatchModel,
     ProviderModel,
@@ -82,6 +84,30 @@ def _candidate(model: ProviderMatchCandidateModel) -> ProviderMatchCandidate:
 class SqlAlchemyProviderRegistryRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+
+    async def resolve_identity(
+        self,
+        *,
+        issuer: str,
+        subject: str,
+    ) -> ProviderIdentity | None:
+        result = await self._session.execute(
+            select(ProviderIdentityModel).where(
+                ProviderIdentityModel.issuer == issuer,
+                ProviderIdentityModel.external_identity_subject == subject,
+            )
+        )
+        model = result.scalar_one_or_none()
+        if model is None:
+            return None
+        return ProviderIdentity(
+            id=model.id,
+            provider_id=model.provider_id,
+            actor_id=model.actor_id,
+            issuer=model.issuer,
+            external_identity_subject=model.external_identity_subject,
+            created_at=model.created_at,
+        )
 
     async def get_provider(self, provider_id: UUID) -> Provider | None:
         model = await self._session.get(ProviderModel, provider_id)

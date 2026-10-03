@@ -7,6 +7,9 @@
       {"name": "CASEWORKER"},
       {"name": "MANAGER"},
       {"name": "ADMIN"},
+      {"name": "SYSTEM_INTEGRATION"},
+      {"name": "PROVIDER_INTEGRATION"},
+      {"name": "AI_RUNTIME"},
       {"name": "SECURITY_AUDITOR"}
     ]
   },

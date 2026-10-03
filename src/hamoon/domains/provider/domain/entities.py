@@ -112,3 +112,14 @@ class ProviderSelection:
     human_decision_id: UUID
     selected_by: UUID
     selected_at: datetime
+
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderIdentity:
+    id: UUID
+    provider_id: UUID
+    actor_id: UUID
+    issuer: str
+    external_identity_subject: str
+    created_at: datetime
