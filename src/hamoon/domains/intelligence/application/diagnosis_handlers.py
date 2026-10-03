@@ -25,6 +25,7 @@ from hamoon.domains.intelligence.domain.decisions import (
     DiagnosisStatus,
     HumanDecision,
     HumanDecisionAction,
+    HumanDecisionContext,
     LearningSignal,
     LearningSignalQuality,
     LearningSignalType,
@@ -370,7 +371,6 @@ class ReviewDiagnosisHandler:
             id=human_decision_id,
             household_id=diagnosis.household_id,
             ai_decision_id=diagnosis.ai_decision_id,
-            diagnosis_id=diagnosis.id,
             actor_id=command.actor_id,
             action=command.action,
             reason_code=command.reason_code,
@@ -378,6 +378,8 @@ class ReviewDiagnosisHandler:
             accepted_payload=payload,
             modified_payload=command.modified_payload,
             decided_at=now,
+            decision_context=HumanDecisionContext.DIAGNOSIS,
+            diagnosis_id=diagnosis.id,
         )
         signal = LearningSignal(
             id=uuid4(),

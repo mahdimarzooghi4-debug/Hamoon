@@ -24,6 +24,11 @@ class DiagnosisStatus(StrEnum):
     DEFERRED = "DEFERRED"
 
 
+class HumanDecisionContext(StrEnum):
+    DIAGNOSIS = "DIAGNOSIS"
+    PRESCRIPTION = "PRESCRIPTION"
+
+
 class HumanDecisionAction(StrEnum):
     CONFIRM = "CONFIRM"
     MODIFY = "MODIFY"
@@ -38,6 +43,10 @@ class LearningSignalType(StrEnum):
     DIAGNOSIS_REPLACED = "DIAGNOSIS_REPLACED"
     DIAGNOSIS_REJECTED = "DIAGNOSIS_REJECTED"
     DIAGNOSIS_DEFERRED = "DIAGNOSIS_DEFERRED"
+    PRESCRIPTION_CONFIRMED = "PRESCRIPTION_CONFIRMED"
+    PRESCRIPTION_MODIFIED = "PRESCRIPTION_MODIFIED"
+    PRESCRIPTION_REPLACED = "PRESCRIPTION_REPLACED"
+    PRESCRIPTION_DEFERRED = "PRESCRIPTION_DEFERRED"
 
 
 class LearningSignalQuality(StrEnum):
@@ -135,7 +144,6 @@ class HumanDecision:
     id: UUID
     household_id: UUID
     ai_decision_id: UUID
-    diagnosis_id: UUID
     actor_id: UUID
     action: HumanDecisionAction
     reason_code: str | None
@@ -143,6 +151,9 @@ class HumanDecision:
     accepted_payload: dict[str, JsonValue] | None
     modified_payload: dict[str, JsonValue] | None
     decided_at: datetime
+    decision_context: HumanDecisionContext = HumanDecisionContext.DIAGNOSIS
+    diagnosis_id: UUID | None = None
+    prescription_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +168,8 @@ class DecisionTrace:
     opened_at: datetime
     human_decision_id: UUID | None = None
     closed_at: datetime | None = None
+    prescription_id: UUID | None = None
+    intervention_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,8 +179,10 @@ class LearningSignal:
     signal_type: LearningSignalType
     ai_decision_id: UUID
     human_decision_id: UUID
-    diagnosis_id: UUID
+    diagnosis_id: UUID | None
     signal_label: str
     quality_status: LearningSignalQuality
     created_at: datetime
     created_by: UUID
+    prescription_id: UUID | None = None
+    intervention_id: UUID | None = None

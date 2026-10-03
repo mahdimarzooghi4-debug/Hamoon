@@ -164,7 +164,6 @@ def _human_decision(model: HumanDecisionModel) -> HumanDecision:
         id=model.id,
         household_id=model.household_id,
         ai_decision_id=model.ai_decision_id,
-        diagnosis_id=model.diagnosis_id,
         actor_id=model.actor_id,
         action=model.action,
         reason_code=model.reason_code,
@@ -172,6 +171,9 @@ def _human_decision(model: HumanDecisionModel) -> HumanDecision:
         accepted_payload=model.accepted_payload,
         modified_payload=model.modified_payload,
         decided_at=model.decided_at,
+        decision_context=model.decision_context,
+        diagnosis_id=model.diagnosis_id,
+        prescription_id=model.prescription_id,
     )
 
 def _trace(model: DecisionTraceModel) -> DecisionTrace:
@@ -186,6 +188,8 @@ def _trace(model: DecisionTraceModel) -> DecisionTrace:
         human_decision_id=model.human_decision_id,
         opened_at=model.opened_at,
         closed_at=model.closed_at,
+        prescription_id=model.prescription_id,
+        intervention_id=model.intervention_id,
     )
 
 class SqlAlchemyAIDecisionRepository:
@@ -282,6 +286,8 @@ class SqlAlchemyHumanDecisionRepository:
                 household_id=decision.household_id,
                 ai_decision_id=decision.ai_decision_id,
                 diagnosis_id=decision.diagnosis_id,
+                prescription_id=decision.prescription_id,
+                decision_context=decision.decision_context,
                 actor_id=decision.actor_id,
                 action=decision.action,
                 reason_code=decision.reason_code,
@@ -311,6 +317,8 @@ class SqlAlchemyDecisionTraceRepository:
                 feature_package_id=trace.feature_package_id,
                 ai_decision_id=trace.ai_decision_id,
                 human_decision_id=trace.human_decision_id,
+                prescription_id=trace.prescription_id,
+                intervention_id=trace.intervention_id,
                 opened_at=trace.opened_at,
                 closed_at=trace.closed_at,
             )
@@ -346,6 +354,23 @@ class SqlAlchemyDecisionTraceRepository:
         model.human_decision_id = human_decision_id
         model.closed_at = closed_at
 
+    async def attach_intervention(
+        self,
+        *,
+        ai_decision_id: UUID,
+        intervention_id: UUID,
+    ) -> None:
+        result = await self._session.execute(
+            select(DecisionTraceModel)
+            .where(DecisionTraceModel.ai_decision_id == ai_decision_id)
+            .with_for_update()
+        )
+        model = result.scalar_one_or_none()
+        if model is None:
+            raise RuntimeError("Decision trace is missing.")
+        model.intervention_id = intervention_id
+
+
 class SqlAlchemyLearningSignalRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -359,6 +384,8 @@ class SqlAlchemyLearningSignalRepository:
                 ai_decision_id=signal.ai_decision_id,
                 human_decision_id=signal.human_decision_id,
                 diagnosis_id=signal.diagnosis_id,
+                prescription_id=signal.prescription_id,
+                intervention_id=signal.intervention_id,
                 signal_label=signal.signal_label,
                 quality_status=signal.quality_status,
                 created_at=signal.created_at,

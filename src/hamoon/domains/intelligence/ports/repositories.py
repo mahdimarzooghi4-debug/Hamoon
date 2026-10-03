@@ -74,6 +74,13 @@ class DecisionTraceRepository(Protocol):
         closed_at: datetime | None,
     ) -> None: ...
 
+    async def attach_intervention(
+        self,
+        *,
+        ai_decision_id: UUID,
+        intervention_id: UUID,
+    ) -> None: ...
+
 
 class LearningSignalRepository(Protocol):
     async def add(self, signal: LearningSignal) -> None: ...

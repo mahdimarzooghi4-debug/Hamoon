@@ -39,47 +39,13 @@ from hamoon.domains.prescription.domain.entities import (
     PrescriptionStatus,
 )
 from hamoon.domains.prescription.domain.errors import PrescriptionGenerationError
+from hamoon.domains.prescription.domain.policy import validate_prescription_output
 from hamoon.domains.prescription.ports.ai import PrescriptionAIClient
 from hamoon.domains.prescription.ports.repositories import PrescriptionRepository
 from hamoon.shared.contracts.records import AuditRecord, DomainEventRecord
 from hamoon.shared.ports.recorders import AuditRecorder, DomainEventRecorder
 
 PRESCRIPTION_FEATURE_SCHEMA_VERSION = "prescription-input-v1"
-
-INTERVENTIONS_BY_TARGET: dict[str, frozenset[str]] = {
-    "P": frozenset(
-        {
-            "COUNSELING",
-            "MOTIVATION",
-            "PSYCHOLOGICAL_EMPOWERMENT",
-            "COACHING",
-        }
-    ),
-    "G": frozenset(
-        {
-            "TRAINING",
-            "SKILLS_TRAINING",
-            "VOCATIONAL_TRAINING",
-        }
-    ),
-    "O": frozenset(
-        {
-            "MARKET_LINKAGE",
-            "EMPLOYMENT",
-            "FINANCING_FACILITIES",
-            "NETWORKING",
-        }
-    ),
-    "R": frozenset(
-        {
-            "SOCIAL_SUPPORT",
-            "TREATMENT",
-            "RISK_REDUCTION",
-            "STABILIZATION",
-        }
-    ),
-}
-
 
 @dataclass(frozen=True, slots=True)
 class PreparedPrescriptionGeneration:
@@ -94,76 +60,6 @@ def _accepted_diagnosis_status(status: DiagnosisStatus) -> bool:
         DiagnosisStatus.MODIFIED,
         DiagnosisStatus.REPLACED,
     }
-
-
-def _validate_prescription_output(
-    *,
-    output: dict[str, JsonValue],
-    feature_package: FeaturePackage,
-    diagnosis_id: object,
-) -> None:
-    payload = feature_package.provider_payload()
-    bottlenecks_raw = payload.get("pgor.bottleneck_variables")
-    if not isinstance(bottlenecks_raw, list):
-        raise PrescriptionGenerationError("PRESCRIPTION_BOTTLENECKS_MISSING")
-    bottlenecks = {
-        value
-        for value in bottlenecks_raw
-        if isinstance(value, str) and value in INTERVENTIONS_BY_TARGET
-    }
-    if not bottlenecks:
-        raise PrescriptionGenerationError("PRESCRIPTION_BOTTLENECKS_INVALID")
-
-    expected_intensity = payload.get("prescription.intensity_score")
-    if not isinstance(expected_intensity, str):
-        raise PrescriptionGenerationError("PRESCRIPTION_INTENSITY_MISSING")
-    if output.get("intensity_score") != expected_intensity:
-        raise PrescriptionGenerationError("PRESCRIPTION_INTENSITY_MISMATCH")
-
-    available_feature_keys = set(payload)
-    expected_diagnosis_ref = f"diagnosis:{diagnosis_id}"
-    items = output.get("items")
-    if not isinstance(items, list) or not items:
-        raise PrescriptionGenerationError("PRESCRIPTION_ITEMS_INVALID")
-
-    ranks: set[int] = set()
-    for raw_item in items:
-        if not isinstance(raw_item, dict):
-            raise PrescriptionGenerationError("PRESCRIPTION_ITEM_INVALID")
-        item = raw_item
-        target = item.get("target_variable")
-        intervention = item.get("intervention_type")
-        rank = item.get("priority_rank")
-        feature_refs = item.get("supporting_feature_refs")
-        diagnosis_refs = item.get("diagnosis_refs")
-
-        if not isinstance(target, str) or target not in bottlenecks:
-            raise PrescriptionGenerationError("PRESCRIPTION_TARGET_NOT_BOTTLENECK")
-        if (
-            not isinstance(intervention, str)
-            or intervention not in INTERVENTIONS_BY_TARGET[target]
-        ):
-            raise PrescriptionGenerationError("PRESCRIPTION_INTERVENTION_NOT_SOURCE_MATRIX")
-        if not isinstance(rank, int) or isinstance(rank, bool) or rank < 1:
-            raise PrescriptionGenerationError("PRESCRIPTION_PRIORITY_INVALID")
-        if rank in ranks:
-            raise PrescriptionGenerationError("PRESCRIPTION_PRIORITY_DUPLICATE")
-        ranks.add(rank)
-
-        if (
-            not isinstance(feature_refs, list)
-            or not feature_refs
-            or any(
-                not isinstance(ref, str) or ref not in available_feature_keys
-                for ref in feature_refs
-            )
-        ):
-            raise PrescriptionGenerationError("PRESCRIPTION_GROUNDING_FAILED")
-        if (
-            not isinstance(diagnosis_refs, list)
-            or expected_diagnosis_ref not in diagnosis_refs
-        ):
-            raise PrescriptionGenerationError("PRESCRIPTION_DIAGNOSIS_REF_MISSING")
 
 
 class GeneratePrescriptionHandler:
@@ -366,10 +262,10 @@ class GeneratePrescriptionHandler:
             feature_package=prepared.feature_package,
             correlation_id=correlation_id,
         )
-        _validate_prescription_output(
+        validate_prescription_output(
             output=result.output,
             feature_package=prepared.feature_package,
-            diagnosis_id=prepared.diagnosis_id,
+            diagnosis_id=command.diagnosis_id,
         )
         return result
 
@@ -422,6 +318,7 @@ class GeneratePrescriptionHandler:
             feature_package_id=prepared.feature_package.id,
             ai_decision_id=ai_decision.id,
             opened_at=now,
+            prescription_id=prescription.id,
         )
         await self._ai_decisions.add(ai_decision)
         await self._prescriptions.add(prescription)

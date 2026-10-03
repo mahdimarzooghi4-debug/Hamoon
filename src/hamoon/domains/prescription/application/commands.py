@@ -10,3 +10,21 @@ class GeneratePrescriptionCommand:
     actor_id: UUID
     request_id: str
     correlation_id: str
+
+
+from pydantic import JsonValue
+
+from hamoon.domains.intelligence.domain.decisions import HumanDecisionAction
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewPrescriptionCommand:
+    prescription_id: UUID
+    actor_id: UUID
+    action: HumanDecisionAction
+    expected_version: int
+    reason_code: str | None
+    reason_text: str | None
+    modified_payload: dict[str, JsonValue] | None
+    request_id: str
+    correlation_id: str

@@ -10,6 +10,7 @@ from hamoon.domains.intelligence.domain.decisions import (
     AIDecisionType,
     DiagnosisStatus,
     HumanDecisionAction,
+    HumanDecisionContext,
     LearningSignalQuality,
     LearningSignalType,
 )
@@ -190,8 +191,16 @@ class HumanDecisionModel(Base):
         nullable=False,
         index=True,
     )
-    diagnosis_id: Mapped[UUID] = mapped_column(
+    diagnosis_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("diagnosis.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    prescription_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("prescription.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    decision_context: Mapped[HumanDecisionContext] = mapped_column(
+        Enum(HumanDecisionContext, name="human_decision_context"),
         nullable=False,
     )
     actor_id: Mapped[UUID] = mapped_column(
@@ -241,6 +250,14 @@ class DecisionTraceModel(Base):
         ForeignKey("human_decision.id", ondelete="SET NULL"),
         nullable=True,
     )
+    prescription_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("prescription.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    intervention_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("intervention.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     closed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
@@ -269,9 +286,17 @@ class LearningSignalModel(Base):
         ForeignKey("human_decision.id", ondelete="RESTRICT"),
         nullable=False,
     )
-    diagnosis_id: Mapped[UUID] = mapped_column(
+    diagnosis_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("diagnosis.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
+    )
+    prescription_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("prescription.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    intervention_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("intervention.id", ondelete="RESTRICT"),
+        nullable=True,
     )
     signal_label: Mapped[str] = mapped_column(String(100), nullable=False)
     quality_status: Mapped[LearningSignalQuality] = mapped_column(

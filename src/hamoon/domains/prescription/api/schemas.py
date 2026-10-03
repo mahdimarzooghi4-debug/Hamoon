@@ -3,7 +3,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, JsonValue
 
-from hamoon.domains.prescription.domain.entities import PrescriptionStatus
+from hamoon.domains.intelligence.domain.decisions import HumanDecisionAction
+from hamoon.domains.prescription.domain.entities import (
+    PrescriptionItemStatus,
+    PrescriptionStatus,
+)
 
 
 class GeneratePrescriptionRequest(BaseModel):
@@ -39,3 +43,45 @@ class PrescriptionData(BaseModel):
 
 class PrescriptionResponse(BaseModel):
     data: PrescriptionData
+
+
+
+class PrescriptionItemData(BaseModel):
+    id: UUID
+    source_code: str
+    intervention_type: str
+    target_pgor_variable: str
+    priority: int
+    success_criteria: list[str]
+    review_after_days: int
+    review_rationale: str
+    rationale: str
+    title: str
+    status: PrescriptionItemStatus
+    machine_proposed: bool
+
+
+class PrescriptionReviewRequest(BaseModel):
+    expected_version: int
+    reason_code: str | None = None
+    reason_text: str | None = None
+
+
+class StructuredPrescriptionReviewRequest(PrescriptionReviewRequest):
+    modified_payload: dict[str, JsonValue]
+
+
+class PrescriptionReviewData(BaseModel):
+    prescription_id: UUID
+    ai_decision_id: UUID
+    human_decision_id: UUID
+    learning_signal_id: UUID
+    action: HumanDecisionAction
+    status: PrescriptionStatus
+    version: int
+    accepted_payload: dict[str, JsonValue] | None
+    accepted_items: list[PrescriptionItemData]
+
+
+class PrescriptionReviewResponse(BaseModel):
+    data: PrescriptionReviewData
