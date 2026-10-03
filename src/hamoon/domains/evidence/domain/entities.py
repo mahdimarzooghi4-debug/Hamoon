@@ -69,7 +69,7 @@ class Evidence:
         self,
         *,
         size_bytes: int,
-    ) -> "Evidence":
+    ) -> Evidence:
         if self.lifecycle_status is not EvidenceLifecycleStatus.PENDING_UPLOAD:
             raise ValueError("EVIDENCE_NOT_PENDING_UPLOAD")
         if size_bytes != self.expected_size_bytes:
