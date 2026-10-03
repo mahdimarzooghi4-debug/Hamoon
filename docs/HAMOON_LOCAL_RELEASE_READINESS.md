@@ -93,16 +93,18 @@ docker compose down -v
 
 UI/Figma work may start only when the current main commit has:
 
-1. lint green;
-2. strict type-check green;
-3. unit tests green;
-4. contract tests green;
-5. security regression gate green;
-6. closed-loop Golden Path green;
-7. diagnosis and outcome evaluation replay gates green;
-8. Alembic topology green;
-9. container build green;
-10. PostgreSQL-to-JetStream integration gate green.
+1. committed dependency lock is current and frozen install succeeds;
+2. lint green;
+3. strict type-check green;
+4. unit tests green;
+5. contract tests green;
+6. security regression gate green;
+7. closed-loop Golden Path green;
+8. diagnosis and outcome evaluation replay gates green;
+9. Alembic topology and fresh-database migration green;
+10. container build green;
+11. PostgreSQL-to-JetStream integration gate green;
+12. complete local Docker Compose stack smoke green.
 
 A red gate means the backend contract is not considered frozen for UI work.
 
