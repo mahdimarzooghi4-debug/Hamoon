@@ -247,6 +247,7 @@ class ReviewDiagnosisHandler:
         diagnoses: DiagnosisRepository,
         ai_decisions: AIDecisionRepository,
         human_decisions: HumanDecisionRepository,
+        feature_packages: FeaturePackageRepository,
         traces: DecisionTraceRepository,
         learning_signals: LearningSignalRepository,
         events: DomainEventRecorder,
@@ -256,6 +257,7 @@ class ReviewDiagnosisHandler:
         self._diagnoses = diagnoses
         self._ai_decisions = ai_decisions
         self._human_decisions = human_decisions
+        self._feature_packages = feature_packages
         self._traces = traces
         self._learning_signals = learning_signals
         self._events = events
@@ -291,6 +293,16 @@ class ReviewDiagnosisHandler:
                 raise InvalidDiagnosisReviewError(
                     "HUMAN_DIAGNOSIS_SCHEMA_INVALID"
                 ) from exc
+            package = await self._feature_packages.get(ai_decision.feature_package_id)
+            if package is None:
+                raise InvalidDiagnosisReviewError("FEATURE_PACKAGE_NOT_FOUND")
+            try:
+                _validate_grounding(
+                    output=command.modified_payload,
+                    available_feature_keys=set(package.provider_payload().keys()),
+                )
+            except DiagnosisGenerationError as exc:
+                raise InvalidDiagnosisReviewError(str(exc)) from exc
             payload = command.modified_payload
         else:
             payload = None
