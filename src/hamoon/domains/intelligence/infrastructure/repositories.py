@@ -145,6 +145,22 @@ def _diagnosis(model: DiagnosisModel) -> Diagnosis:
     )
 
 
+def _human_decision(model: HumanDecisionModel) -> HumanDecision:
+    return HumanDecision(
+        id=model.id,
+        household_id=model.household_id,
+        ai_decision_id=model.ai_decision_id,
+        diagnosis_id=model.diagnosis_id,
+        actor_id=model.actor_id,
+        action=model.action,
+        reason_code=model.reason_code,
+        reason_text=model.reason_text,
+        accepted_payload=model.accepted_payload,
+        modified_payload=model.modified_payload,
+        decided_at=model.decided_at,
+    )
+
+
 def _trace(model: DecisionTraceModel) -> DecisionTrace:
     return DecisionTrace(
         id=model.id,
@@ -265,6 +281,10 @@ class SqlAlchemyHumanDecisionRepository:
                 decided_at=decision.decided_at,
             )
         )
+
+    async def get(self, decision_id: UUID) -> HumanDecision | None:
+        model = await self._session.get(HumanDecisionModel, decision_id)
+        return None if model is None else _human_decision(model)
 
 
 class SqlAlchemyDecisionTraceRepository:
