@@ -30,6 +30,20 @@ jobs:
       - name: Unit tests
         run: uv run pytest tests/unit
 
+      - name: Contract tests
+        run: uv run pytest tests/contract
+
+      - name: Security regression gate
+        run: |
+          uv run pytest tests/unit/security
+          uv run pytest tests/unit/provider_result/test_provider_result.py
+
+      - name: Closed-loop golden path gate
+        run: uv run pytest tests/unit/operations/test_reassessment_learning_loop_golden_path.py
+
+      - name: Docker Compose contract
+        run: docker compose config --quiet
+
       - name: Diagnosis evaluation replay gate
         run: |
           uv run python -m hamoon.evaluation.diagnosis \
