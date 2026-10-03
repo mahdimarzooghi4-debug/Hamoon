@@ -10,10 +10,8 @@ from hamoon.domains.intelligence.domain.decisions import (
     HumanDecisionAction,
 )
 
-
 class GenerateDiagnosisRequest(BaseModel):
     pgor_snapshot_id: UUID
-
 
 class GenerateDiagnosisData(BaseModel):
     diagnosis_id: UUID
@@ -22,10 +20,8 @@ class GenerateDiagnosisData(BaseModel):
     version: int
     trace_id: UUID
 
-
 class GenerateDiagnosisResponse(BaseModel):
     data: GenerateDiagnosisData
-
 
 class DiagnosisData(BaseModel):
     id: UUID
@@ -39,20 +35,16 @@ class DiagnosisData(BaseModel):
     reviewed_at: datetime | None
     reviewed_by: UUID | None
 
-
 class DiagnosisResponse(BaseModel):
     data: DiagnosisData
-
 
 class ConfirmDiagnosisRequest(BaseModel):
     expected_version: int = Field(ge=1)
     reason_code: str | None = Field(default=None, max_length=100)
     reason_text: str | None = Field(default=None, max_length=1000)
 
-
 class StructuredDiagnosisReviewRequest(ConfirmDiagnosisRequest):
     modified_payload: dict[str, JsonValue]
-
 
 class ReviewDiagnosisData(BaseModel):
     diagnosis_id: UUID
@@ -64,11 +56,8 @@ class ReviewDiagnosisData(BaseModel):
     version: int
     accepted_payload: dict[str, JsonValue] | None
 
-
 class ReviewDiagnosisResponse(BaseModel):
     data: ReviewDiagnosisData
-
-
 
 class AIDecisionData(BaseModel):
     id: UUID
@@ -89,10 +78,8 @@ class AIDecisionData(BaseModel):
     trace_id: UUID
     generated_at: datetime
 
-
 class AIDecisionResponse(BaseModel):
     data: AIDecisionData
-
 
 class DecisionTraceData(BaseModel):
     id: UUID
@@ -106,16 +93,12 @@ class DecisionTraceData(BaseModel):
     opened_at: datetime
     closed_at: datetime | None
 
-
 class DecisionTraceResponse(BaseModel):
     data: DecisionTraceData
-
-
 
 class CompleteAIEvaluationRequest(BaseModel):
     passed: bool
     summary_metrics: dict[str, JsonValue]
-
 
 class AIEvaluationRunData(BaseModel):
     id: UUID
@@ -128,10 +111,8 @@ class AIEvaluationRunData(BaseModel):
     summary_metrics: dict[str, JsonValue]
     completed_at: datetime | None
 
-
 class AIEvaluationRunResponse(BaseModel):
     data: AIEvaluationRunData
-
 
 class AIRoutingPromotionData(BaseModel):
     routing_policy_id: UUID
@@ -141,7 +122,6 @@ class AIRoutingPromotionData(BaseModel):
     model_status: str
     routing_status: str
     activated_at: datetime
-
 
 class AIRoutingPromotionResponse(BaseModel):
     data: AIRoutingPromotionData
