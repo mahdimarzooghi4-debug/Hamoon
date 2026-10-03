@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import cast
 from uuid import UUID
 
@@ -134,7 +135,7 @@ def materialize_prescription_items(
     prescription_id: UUID,
     output: dict[str, JsonValue],
     machine_proposed: bool,
-    id_factory,
+    id_factory: Callable[[], UUID],
 ) -> tuple[PrescriptionItem, ...]:
     raw_items = output.get("items")
     if not isinstance(raw_items, list):
@@ -154,13 +155,22 @@ def materialize_prescription_items(
         priority = item.get("priority_rank")
         criteria = item.get("success_criteria")
         schedule = item.get("review_schedule")
-        if not all(isinstance(value, str) for value in (code, title, rationale, target, intervention)):
+        if not isinstance(code, str):
+            raise PrescriptionGenerationError("PRESCRIPTION_ITEM_INVALID")
+        if not isinstance(title, str):
+            raise PrescriptionGenerationError("PRESCRIPTION_ITEM_INVALID")
+        if not isinstance(rationale, str):
+            raise PrescriptionGenerationError("PRESCRIPTION_ITEM_INVALID")
+        if not isinstance(target, str):
+            raise PrescriptionGenerationError("PRESCRIPTION_ITEM_INVALID")
+        if not isinstance(intervention, str):
             raise PrescriptionGenerationError("PRESCRIPTION_ITEM_INVALID")
         if not isinstance(priority, int) or isinstance(priority, bool):
             raise PrescriptionGenerationError("PRESCRIPTION_PRIORITY_INVALID")
         if not isinstance(criteria, list) or not isinstance(schedule, dict):
             raise PrescriptionGenerationError("PRESCRIPTION_ITEM_INVALID")
 
+        criteria_objects = cast(list[object], criteria)
         schedule_object = cast(dict[str, object], schedule)
         review_after_days = schedule_object.get("review_after_days")
         review_rationale = schedule_object.get("rationale")
@@ -172,26 +182,26 @@ def materialize_prescription_items(
             raise PrescriptionGenerationError("PRESCRIPTION_REVIEW_SCHEDULE_INVALID")
 
         criteria_values = tuple(
-            value for value in cast(list[object], criteria) if isinstance(value, str)
+            value for value in criteria_objects if isinstance(value, str)
         )
-        if len(criteria_values) != len(criteria):
+        if len(criteria_values) != len(criteria_objects):
             raise PrescriptionGenerationError("PRESCRIPTION_SUCCESS_CRITERIA_INVALID")
 
         items.append(
             PrescriptionItem(
                 id=id_factory(),
                 prescription_id=prescription_id,
-                source_code=cast(str, code),
-                intervention_type=InterventionType(cast(str, intervention)),
-                target_pgor_variable=PGORVariableCode(cast(str, target)),
+                source_code=code,
+                intervention_type=InterventionType(intervention),
+                target_pgor_variable=PGORVariableCode(target),
                 priority=priority,
                 current_value=None,
                 target_value=None,
                 success_criteria=criteria_values,
                 review_after_days=review_after_days,
                 review_rationale=review_rationale,
-                rationale=cast(str, rationale),
-                title=cast(str, title),
+                rationale=rationale,
+                title=title,
                 status=PrescriptionItemStatus.ACCEPTED,
                 machine_proposed=machine_proposed,
             )
