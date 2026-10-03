@@ -5,11 +5,9 @@ from uuid import UUID
 
 from hamoon.infrastructure.ai.contracts import AIRoutingPolicy, AITaskClass
 
-
 class AIProviderStatus(StrEnum):
     ACTIVE = "ACTIVE"
     DISABLED = "DISABLED"
-
 
 class AIModelVersionStatus(StrEnum):
     EXPERIMENT = "EXPERIMENT"
@@ -18,26 +16,22 @@ class AIModelVersionStatus(StrEnum):
     PRODUCTION = "PRODUCTION"
     RETIRED = "RETIRED"
 
-
 class PromptPolicyVersionStatus(StrEnum):
     DRAFT = "DRAFT"
     APPROVED = "APPROVED"
     ACTIVE = "ACTIVE"
     RETIRED = "RETIRED"
 
-
 class RoutingPolicyStatus(StrEnum):
     DRAFT = "DRAFT"
     ACTIVE = "ACTIVE"
     RETIRED = "RETIRED"
-
 
 class EvaluationStatus(StrEnum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     PASSED = "PASSED"
     FAILED = "FAILED"
-
 
 @dataclass(frozen=True, slots=True)
 class ResolvedAIRoute:
@@ -50,8 +44,6 @@ class ResolvedAIRoute:
     def task_class(self) -> AITaskClass:
         return self.routing_policy.task_class
 
-
-
 @dataclass(frozen=True, slots=True)
 class EvaluationRunState:
     id: UUID
@@ -63,7 +55,6 @@ class EvaluationRunState:
     passed: bool
     summary_metrics: dict[str, object]
     completed_at: datetime | None
-
 
 @dataclass(frozen=True, slots=True)
 class RoutingPromotionResult:
