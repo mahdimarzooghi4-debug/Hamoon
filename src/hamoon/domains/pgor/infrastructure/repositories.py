@@ -18,7 +18,7 @@ from hamoon.domains.pgor.domain.engine import (
     PGORCalculationResult,
     PGORSnapshotStatus,
 )
-from hamoon.domains.pgor.domain.snapshots import PGORSnapshot
+from hamoon.domains.pgor.domain.snapshots import PGORSnapshot, PGORSnapshotInput
 from hamoon.domains.pgor.infrastructure.models import (
     PGORDefinitionVersionModel,
     PGORDimensionDefinitionModel,
@@ -353,3 +353,23 @@ class SqlAlchemyPGORSnapshotRepository:
     async def get(self, snapshot_id: UUID) -> PGORSnapshot | None:
         model = await self._session.get(PGORSnapshotModel, snapshot_id)
         return None if model is None else _snapshot(model)
+
+    async def list_inputs(self, snapshot_id: UUID) -> list[PGORSnapshotInput]:
+        result = await self._session.execute(
+            select(PGORSnapshotInputModel)
+            .where(PGORSnapshotInputModel.snapshot_id == snapshot_id)
+            .order_by(PGORSnapshotInputModel.indicator_definition_id)
+        )
+        return [
+            PGORSnapshotInput(
+                snapshot_id=model.snapshot_id,
+                observation_id=model.observation_id,
+                observation_version=model.observation_version,
+                indicator_definition_id=model.indicator_definition_id,
+                dimension_definition_id=model.dimension_definition_id,
+                variable_code=model.variable_code,
+                raw_score_0_100=model.raw_score_0_100,
+                normalized_score=model.normalized_score,
+            )
+            for model in result.scalars().all()
+        ]

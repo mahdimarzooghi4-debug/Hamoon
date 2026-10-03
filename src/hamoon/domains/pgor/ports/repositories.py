@@ -13,7 +13,7 @@ from hamoon.domains.pgor.domain.engine import (
     PGORCalculationResult,
     PGORSnapshotStatus,
 )
-from hamoon.domains.pgor.domain.snapshots import PGORSnapshot
+from hamoon.domains.pgor.domain.snapshots import PGORSnapshot, PGORSnapshotInput
 
 
 class PGORDefinitionRepository(Protocol):
@@ -64,3 +64,5 @@ class PGORSnapshotRepository(Protocol):
     ) -> PGORSnapshot: ...
 
     async def get(self, snapshot_id: UUID) -> PGORSnapshot | None: ...
+
+    async def list_inputs(self, snapshot_id: UUID) -> list[PGORSnapshotInput]: ...

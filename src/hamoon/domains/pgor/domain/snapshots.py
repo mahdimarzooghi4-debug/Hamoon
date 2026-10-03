@@ -30,3 +30,15 @@ class PGORSnapshot:
     input_fingerprint: str
     calculated_at: datetime
     calculated_by: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class PGORSnapshotInput:
+    snapshot_id: UUID
+    observation_id: UUID
+    observation_version: int
+    indicator_definition_id: UUID
+    dimension_definition_id: UUID
+    variable_code: PGORVariableCode
+    raw_score_0_100: Decimal
+    normalized_score: Decimal

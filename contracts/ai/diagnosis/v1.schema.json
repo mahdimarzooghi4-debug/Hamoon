@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hamoon://contracts/ai/diagnosis/v1",
+  "title": "Hamoon Diagnosis Proposal v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "summary", "items", "review_flags"],
+  "properties": {
+    "schema_version": {
+      "const": "diagnosis-v1"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "category",
+          "title",
+          "rationale",
+          "supporting_feature_refs",
+          "uncertainty"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150
+          },
+          "category": {
+            "enum": ["NEED", "RISK", "CAPACITY", "CONSTRAINT"]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "supporting_feature_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "uniqueItems": true
+          },
+          "uncertainty": {
+            "enum": ["LOW", "MEDIUM", "HIGH", "UNKNOWN"]
+          }
+        }
+      }
+    },
+    "review_flags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 150
+      },
+      "uniqueItems": true
+    }
+  }
+}
