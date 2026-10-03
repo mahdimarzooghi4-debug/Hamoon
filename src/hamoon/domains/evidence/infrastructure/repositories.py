@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -132,7 +133,7 @@ class SqlAlchemyEvidenceRepository:
         self,
         *,
         session_id: UUID,
-        used_at,
+        used_at: datetime,
     ) -> None:
         result = await self._session.execute(
             select(EvidenceUploadSessionModel)
