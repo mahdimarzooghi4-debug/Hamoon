@@ -9,6 +9,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "20261003_0009"
 down_revision: str | Sequence[str] | None = "20261003_0008"
@@ -18,6 +19,11 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     ai_decision_type = sa.Enum("DIAGNOSIS", name="ai_decision_type")
+    existing_ai_decision_type = postgresql.ENUM(
+        "DIAGNOSIS",
+        name="ai_decision_type",
+        create_type=False,
+    )
     ai_decision_status = sa.Enum("GENERATED", name="ai_decision_status")
     diagnosis_status = sa.Enum(
         "UNDER_REVIEW",
@@ -158,7 +164,7 @@ def upgrade() -> None:
         "decision_trace",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("household_id", sa.Uuid(), nullable=False),
-        sa.Column("trace_type", ai_decision_type, nullable=False),
+        sa.Column("trace_type", existing_ai_decision_type, nullable=False),
         sa.Column("state_fingerprint", sa.String(length=64), nullable=False),
         sa.Column("pgor_snapshot_id", sa.Uuid(), nullable=False),
         sa.Column("feature_package_id", sa.Uuid(), nullable=False),
