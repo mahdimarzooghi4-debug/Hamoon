@@ -1,17 +1,18 @@
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
 
 RUN pip install --no-cache-dir uv
 
-COPY pyproject.toml README.md alembic.ini ./
+COPY pyproject.toml uv.lock README.md alembic.ini ./
 COPY migrations ./migrations
 COPY src ./src
 
-RUN uv pip install --system .
+RUN uv sync --frozen --no-dev --no-editable
 
 EXPOSE 8000
 
