@@ -101,9 +101,15 @@ async def list_learning_signals(
         Depends(require_roles(Role.ADMIN, Role.SECURITY_AUDITOR)),
     ],
     session: Annotated[AsyncSession, Depends(get_db_session)],
-    quality_status: LearningSignalQuality | None = Query(default=None),
-    signal_type: LearningSignalType | None = Query(default=None),
-    limit: int = Query(default=100, ge=1, le=500),
+    quality_status: Annotated[
+        LearningSignalQuality | None,
+        Query(),
+    ] = None,
+    signal_type: Annotated[
+        LearningSignalType | None,
+        Query(),
+    ] = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
 ) -> LearningSignalListResponse:
     _ = context
     values = await SqlAlchemyLearningSignalRepository(session).list(
