@@ -61,7 +61,7 @@ class ProviderAIGateway:
                 instructions=instructions,
                 output_schema=output_schema,
                 features=request.features,
-                    correlation_id=request.correlation_id,
+                correlation_id=request.correlation_id,
                 )
             )
         except Exception as exc:
