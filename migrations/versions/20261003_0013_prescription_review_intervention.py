@@ -28,18 +28,20 @@ def upgrade() -> None:
             f"ALTER TYPE learning_signal_type ADD VALUE IF NOT EXISTS '{value}'"
         )
 
-    decision_context = sa.Enum(
+    decision_context = postgresql.ENUM(
         "DIAGNOSIS",
         "PRESCRIPTION",
         name="human_decision_context",
+        create_type=False,
     )
-    item_status = sa.Enum(
+    item_status = postgresql.ENUM(
         "ACCEPTED",
         "ACTIVATED",
         "SUPERSEDED",
         name="prescription_item_status",
+        create_type=False,
     )
-    intervention_type = sa.Enum(
+    intervention_type = postgresql.ENUM(
         "COUNSELING",
         "MOTIVATION",
         "PSYCHOLOGICAL_EMPOWERMENT",
@@ -56,8 +58,9 @@ def upgrade() -> None:
         "RISK_REDUCTION",
         "STABILIZATION",
         name="intervention_type",
+        create_type=False,
     )
-    intervention_status = sa.Enum(
+    intervention_status = postgresql.ENUM(
         "PLANNED",
         "READY_FOR_REFERRAL",
         "REFERRED",
@@ -65,7 +68,16 @@ def upgrade() -> None:
         "COMPLETED",
         "CANCELLED",
         name="intervention_status",
+        create_type=False,
     )
+
+    for enum_type in (
+        decision_context,
+        item_status,
+        intervention_type,
+        intervention_status,
+    ):
+        enum_type.create(op.get_bind(), checkfirst=True)
 
     op.alter_column("human_decision", "diagnosis_id", nullable=True)
     op.add_column(
