@@ -4,6 +4,10 @@ from uuid import UUID
 from pydantic import BaseModel, Field, JsonValue
 
 
+def _empty_uuid_list() -> list[UUID]:
+    return []
+
+
 class SubmitProviderResultRequest(BaseModel):
     external_result_id: str = Field(min_length=1, max_length=250)
     result_status: str = Field(min_length=1, max_length=100)
@@ -12,7 +16,7 @@ class SubmitProviderResultRequest(BaseModel):
     result_payload: dict[str, JsonValue] | None = None
     service_started_at: datetime | None = None
     service_completed_at: datetime | None = None
-    evidence: list[UUID] = Field(default_factory=list)
+    evidence: list[UUID] = Field(default_factory=_empty_uuid_list)
     provider_reference: str | None = Field(default=None, max_length=500)
 
 
