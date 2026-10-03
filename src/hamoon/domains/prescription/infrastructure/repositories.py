@@ -140,6 +140,10 @@ class SqlAlchemyPrescriptionRepository:
         model = result.scalar_one_or_none()
         return None if model is None else _item(model)
 
+    async def get_item_by_id(self, item_id: UUID) -> PrescriptionItem | None:
+        model = await self._session.get(PrescriptionItemModel, item_id)
+        return None if model is None else _item(model)
+
     async def list_items(self, prescription_id: UUID) -> list[PrescriptionItem]:
         result = await self._session.execute(
             select(PrescriptionItemModel)

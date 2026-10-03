@@ -6,6 +6,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from hamoon.domains.intervention.ports.repositories import InterventionRepository
+from hamoon.domains.operations.application.handlers import ScheduleReassessmentHandler
+from hamoon.domains.operations.domain.entities import ReassessmentPlan
+from hamoon.domains.operations.ports import ReassessmentPlanRepository
+from hamoon.domains.prescription.ports.repositories import PrescriptionRepository
+
 from hamoon.domains.provider_result.application.commands import (
     SubmitProviderResultCommand,
 )
@@ -48,6 +54,7 @@ def _request_hash(command: SubmitProviderResultCommand) -> str:
 class SubmitProviderResultResult:
     result: ProviderResult
     duplicate: bool
+    reassessment_plan: ReassessmentPlan | None = None
 
 
 class SubmitProviderResultHandler:
@@ -58,11 +65,17 @@ class SubmitProviderResultHandler:
         results: ProviderResultRepository,
         events: DomainEventRecorder,
         audits: AuditRecorder,
+        interventions: InterventionRepository | None = None,
+        prescriptions: PrescriptionRepository | None = None,
+        reassessment_plans: ReassessmentPlanRepository | None = None,
     ) -> None:
         self._referrals = referrals
         self._results = results
         self._events = events
         self._audits = audits
+        self._interventions = interventions
+        self._prescriptions = prescriptions
+        self._reassessment_plans = reassessment_plans
 
     async def handle(
         self,
@@ -91,7 +104,16 @@ class SubmitProviderResultHandler:
                 raise ProviderResultIdempotencyConflictError(
                     "EXTERNAL_RESULT_REUSED_WITH_DIFFERENT_PAYLOAD"
                 )
-            return SubmitProviderResultResult(result=existing, duplicate=True)
+            plan = (
+                await self._reassessment_plans.get_by_provider_result(existing.id)
+                if self._reassessment_plans is not None
+                else None
+            )
+            return SubmitProviderResultResult(
+                result=existing,
+                duplicate=True,
+                reassessment_plan=plan,
+            )
 
         referral = await self._referrals.get_by_provider_reference(
             provider_id=command.provider_id,
@@ -137,6 +159,8 @@ class SubmitProviderResultHandler:
                 causation_id=None,
                 payload={
                     "provider_result_id": str(result.id),
+                    "household_id": str(referral.household_id),
+                    "intervention_id": str(referral.intervention_id),
                     "referral_id": str(result.referral_id),
                     "provider_id": str(result.provider_id),
                     "result_type": result.result_type,
@@ -166,4 +190,40 @@ class SubmitProviderResultHandler:
                 },
             )
         )
-        return SubmitProviderResultResult(result=result, duplicate=False)
+        plan: ReassessmentPlan | None = None
+        if (
+            self._interventions is not None
+            and self._prescriptions is not None
+            and self._reassessment_plans is not None
+        ):
+            intervention = await self._interventions.get(referral.intervention_id)
+            if intervention is None:
+                raise ProviderResultError("INTERVENTION_NOT_FOUND")
+            prescription_item = await self._prescriptions.get_item_by_id(
+                intervention.prescription_item_id
+            )
+            if prescription_item is None:
+                raise ProviderResultError("PRESCRIPTION_ITEM_NOT_FOUND")
+
+            plan = await ScheduleReassessmentHandler(
+                plans=self._reassessment_plans,
+                events=self._events,
+                audits=self._audits,
+            ).handle(
+                household_id=referral.household_id,
+                intervention_id=intervention.id,
+                provider_result_id=result.id,
+                prescription_item_id=prescription_item.id,
+                assigned_actor_id=intervention.owner_actor_id or referral.created_by,
+                review_after_days=prescription_item.review_after_days,
+                anchor_at=result.service_completed_at or result.submitted_at,
+                actor_id=command.actor_id,
+                request_id=command.external_result_id,
+                correlation_id=command.correlation_id,
+            )
+
+        return SubmitProviderResultResult(
+            result=result,
+            duplicate=False,
+            reassessment_plan=plan,
+        )

@@ -11,6 +11,15 @@ from hamoon.app.security.dependencies import (
     require_roles,
 )
 from hamoon.app.security.resource_scope import require_household_assignment
+from hamoon.domains.intervention.infrastructure.repositories import (
+    SqlAlchemyInterventionRepository,
+)
+from hamoon.domains.operations.infrastructure.repositories import (
+    SqlAlchemyReassessmentPlanRepository,
+)
+from hamoon.domains.prescription.infrastructure.repositories import (
+    SqlAlchemyPrescriptionRepository,
+)
 from hamoon.domains.provider_result.api.schemas import (
     ProviderResultData,
     ProviderResultListResponse,
@@ -42,7 +51,14 @@ from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
 router = APIRouter(tags=["provider-result"])
 
 
-def _data(item: ProviderResult, *, duplicate: bool = False) -> ProviderResultData:
+def _data(
+    item: ProviderResult,
+    *,
+    duplicate: bool = False,
+    reassessment_plan_id: UUID | None = None,
+    reassessment_due_at=None,
+    workflow_id: str | None = None,
+) -> ProviderResultData:
     return ProviderResultData(
         id=item.id,
         referral_id=item.referral_id,
@@ -58,6 +74,9 @@ def _data(item: ProviderResult, *, duplicate: bool = False) -> ProviderResultDat
         provider_reference=item.provider_reference,
         evidence=list(item.evidence_ids),
         duplicate=duplicate,
+        reassessment_plan_id=reassessment_plan_id,
+        reassessment_due_at=reassessment_due_at,
+        workflow_id=workflow_id,
     )
 
 
@@ -89,6 +108,9 @@ async def submit_provider_result(
                 results=SqlAlchemyProviderResultRepository(session),
                 events=SqlAlchemyDomainEventRecorder(session),
                 audits=SqlAlchemyAuditRecorder(session),
+                interventions=SqlAlchemyInterventionRepository(session),
+                prescriptions=SqlAlchemyPrescriptionRepository(session),
+                reassessment_plans=SqlAlchemyReassessmentPlanRepository(session),
             ).handle(
                 SubmitProviderResultCommand(
                     provider_id=context.provider_id,
@@ -122,8 +144,15 @@ async def submit_provider_result(
             detail={"code": str(exc)},
         ) from exc
 
+    plan = result.reassessment_plan
     return ProviderResultResponse(
-        data=_data(result.result, duplicate=result.duplicate)
+        data=_data(
+            result.result,
+            duplicate=result.duplicate,
+            reassessment_plan_id=None if plan is None else plan.id,
+            reassessment_due_at=None if plan is None else plan.due_at,
+            workflow_id=None if plan is None else plan.workflow_id,
+        )
     )
 
 

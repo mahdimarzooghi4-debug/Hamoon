@@ -35,6 +35,9 @@ class ProviderResultData(BaseModel):
     provider_reference: str | None
     evidence: list[UUID]
     duplicate: bool = False
+    reassessment_plan_id: UUID | None = None
+    reassessment_due_at: datetime | None = None
+    workflow_id: str | None = None
 
 
 class ProviderResultResponse(BaseModel):
