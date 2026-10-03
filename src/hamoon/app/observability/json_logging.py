@@ -46,11 +46,23 @@ def sanitize_log_message(value: str) -> str:
 
 
 class SafeJsonFormatter(logging.Formatter):
+    def __init__(
+        self,
+        *,
+        service_name: str = "hamoon",
+        environment: str = "unknown",
+    ) -> None:
+        super().__init__()
+        self._service_name = service_name
+        self._environment = environment
+
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, object] = {
             "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
+            "service": self._service_name,
+            "environment": self._environment,
             "message": sanitize_log_message(record.getMessage()),
         }
         request_id = current_request_id()
@@ -84,7 +96,12 @@ def configure_structured_logging(
 ) -> None:
     root = logging.getLogger()
     handler = logging.StreamHandler()
-    handler.setFormatter(SafeJsonFormatter())
+    handler.setFormatter(
+        SafeJsonFormatter(
+            service_name=service_name,
+            environment=environment,
+        )
+    )
     root.handlers.clear()
     root.addHandler(handler)
     root.setLevel(logging.INFO)
