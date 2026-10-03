@@ -1067,6 +1067,39 @@ Production provider باید بر اساس deployment-specific factors انتخ�
 
 ---
 
+# 56.1 V1 Reference Candidate — 2026-10-03
+
+برای اولین مسیر واقعی `DIAGNOSIS`، Adapter عملیاتی OpenAI Responses API اضافه شده است.
+
+Reference candidate فعلی:
+
+```text
+provider = OPENAI
+model_alias = hamoon.diagnosis.v1
+concrete candidate = gpt-6.1-sol
+status = CANDIDATE
+routing status = DRAFT
+evaluation status = PENDING
+```
+
+این انتخاب **Vendor Lock-in یا Production Approval نیست**. Domain همچنان فقط Alias/Task Class را می‌شناسد. Candidate تنها پس از Evaluation موفق، Model Version promotion و Routing Policy approval می‌تواند Production-Active شود.
+
+Runtime production همچنین network call را خارج از Database transaction اجرا می‌کند:
+
+```text
+DB transaction:
+authorize + resolve evaluated route + prepare immutable Feature Package
+COMMIT
+        ↓
+external AI inference
+        ↓
+DB transaction:
+persist AI Decision + Diagnosis + Decision Trace + Event + Audit
+COMMIT
+```
+
+---
+
 # 57. Initial Implementation Rule
 
 اولین implementation باید حداقل داشته باشد:
