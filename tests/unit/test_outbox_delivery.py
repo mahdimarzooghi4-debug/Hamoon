@@ -26,6 +26,8 @@ def _message(*, attempt_count: int = 1) -> ClaimedOutboxMessage:
         aggregate_version=2,
         correlation_id="corr-1",
         causation_id=None,
+        traceparent=None,
+        tracestate=None,
         payload={"classification": "PROGRESS"},
         created_at=datetime(2026, 10, 3, tzinfo=UTC),
         attempt_count=attempt_count,
