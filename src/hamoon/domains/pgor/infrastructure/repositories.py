@@ -371,6 +371,22 @@ class SqlAlchemyPGORSnapshotRepository:
         model = await self._session.get(PGORSnapshotModel, snapshot_id)
         return None if model is None else _snapshot(model)
 
+    async def get_official_by_assessment(
+        self,
+        assessment_id: UUID,
+    ) -> PGORSnapshot | None:
+        result = await self._session.execute(
+            select(PGORSnapshotModel)
+            .where(
+                PGORSnapshotModel.assessment_id == assessment_id,
+                PGORSnapshotModel.status == PGORSnapshotStatus.OFFICIAL,
+            )
+            .order_by(PGORSnapshotModel.calculated_at.desc())
+            .limit(1)
+        )
+        model = result.scalar_one_or_none()
+        return None if model is None else _snapshot(model)
+
     async def list_inputs(self, snapshot_id: UUID) -> list[PGORSnapshotInput]:
         result = await self._session.execute(
             select(PGORSnapshotInputModel)

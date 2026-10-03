@@ -68,4 +68,9 @@ class PGORSnapshotRepository(Protocol):
 
     async def get(self, snapshot_id: UUID) -> PGORSnapshot | None: ...
 
+    async def get_official_by_assessment(
+        self,
+        assessment_id: UUID,
+    ) -> PGORSnapshot | None: ...
+
     async def list_inputs(self, snapshot_id: UUID) -> list[PGORSnapshotInput]: ...

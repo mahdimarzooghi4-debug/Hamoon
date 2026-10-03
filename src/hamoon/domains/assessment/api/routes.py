@@ -23,12 +23,17 @@ from hamoon.domains.assessment.api.schemas import (
     RecordObservationRequest,
     ResolveAcceptedObservationRequest,
     StartAssessmentRequest,
+    StartReassessmentRequest,
 )
 from hamoon.domains.assessment.application.commands import (
     ChangeObservationValidationCommand,
     RecordIndicatorObservationCommand,
     ResolveAcceptedObservationCommand,
     StartAssessmentCommand,
+)
+from hamoon.domains.assessment.application.reassessment import (
+    ReassessmentError,
+    StartReassessmentHandler,
 )
 from hamoon.domains.assessment.application.handlers import (
     ChangeObservationValidationHandler,
@@ -37,7 +42,7 @@ from hamoon.domains.assessment.application.handlers import (
     ResolveAcceptedObservationHandler,
     StartAssessmentHandler,
 )
-from hamoon.domains.assessment.domain.entities import Assessment
+from hamoon.domains.assessment.domain.entities import Assessment, AssessmentType
 from hamoon.domains.assessment.domain.errors import (
     AcceptedObservationVersionConflictError,
     DefinitionNotAvailableError,
@@ -57,8 +62,17 @@ from hamoon.domains.assessment.infrastructure.repositories import (
 from hamoon.domains.family_data.infrastructure.repositories import (
     SqlAlchemyDataSourceRepository,
 )
+from hamoon.domains.intervention.infrastructure.repositories import (
+    SqlAlchemyInterventionRepository,
+)
 from hamoon.domains.pgor.infrastructure.repositories import (
     SqlAlchemyPGORDefinitionRepository,
+)
+from hamoon.domains.provider_result.infrastructure.repositories import (
+    SqlAlchemyProviderResultRepository,
+)
+from hamoon.domains.referral.infrastructure.repositories import (
+    SqlAlchemyReferralRepository,
 )
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
@@ -143,6 +157,10 @@ async def start_assessment(
             status=assessment.status,
             version=assessment.version,
             started_at=assessment.started_at,
+            reason=assessment.reason,
+            intervention_id=assessment.intervention_id,
+            provider_result_id=assessment.provider_result_id,
+            parent_assessment_id=assessment.parent_assessment_id,
         )
     )
 
@@ -173,6 +191,10 @@ async def get_assessment(
             status=assessment.status,
             version=assessment.version,
             started_at=assessment.started_at,
+            reason=assessment.reason,
+            intervention_id=assessment.intervention_id,
+            provider_result_id=assessment.provider_result_id,
+            parent_assessment_id=assessment.parent_assessment_id,
         )
     )
 
@@ -432,5 +454,115 @@ async def get_assessment_readiness(
             unresolved_validation_count=result.unresolved_validation_count,
             blocking_reasons=list(result.blocking_reasons),
             accepted_observation_ids=list(result.accepted_observation_ids),
+        )
+    )
+
+
+
+@router.post(
+    "/api/v1/households/{household_id}/reassessments",
+    response_model=AssessmentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def start_reassessment(
+    household_id: UUID,
+    body: StartReassessmentRequest,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> AssessmentResponse:
+    request_id = current_request_id() or "unknown"
+    correlation_id = current_correlation_id() or request_id
+    try:
+        async with session.begin():
+            await require_household_assignment(
+                session=session,
+                context=context,
+                household_id=household_id,
+            )
+            assessment = await StartReassessmentHandler(
+                assessments=SqlAlchemyAssessmentRepository(session),
+                definitions=SqlAlchemyPGORDefinitionRepository(session),
+                interventions=SqlAlchemyInterventionRepository(session),
+                provider_results=SqlAlchemyProviderResultRepository(session),
+                referrals=SqlAlchemyReferralRepository(session),
+                events=SqlAlchemyDomainEventRecorder(session),
+                audits=SqlAlchemyAuditRecorder(session),
+            ).handle(
+                household_id=household_id,
+                assessment_type=body.assessment_type,
+                definition_version_id=body.definition_version_id,
+                intervention_id=body.intervention_id,
+                provider_result_id=body.provider_result_id,
+                parent_assessment_id=body.parent_assessment_id,
+                reason=body.reason,
+                actor_id=context.actor_id,
+                request_id=request_id,
+                correlation_id=correlation_id,
+            )
+    except DefinitionNotAvailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "PGOR_DEFINITION_NOT_AVAILABLE"},
+        ) from exc
+    except ReassessmentError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": str(exc)},
+        ) from exc
+    return AssessmentResponse(
+        data=AssessmentData(
+            id=assessment.id,
+            household_id=assessment.household_id,
+            assessment_type=assessment.assessment_type,
+            definition_version_id=assessment.definition_version_id,
+            status=assessment.status,
+            version=assessment.version,
+            started_at=assessment.started_at,
+            reason=assessment.reason,
+            intervention_id=assessment.intervention_id,
+            provider_result_id=assessment.provider_result_id,
+            parent_assessment_id=assessment.parent_assessment_id,
+        )
+    )
+
+
+@router.get(
+    "/api/v1/reassessments/{assessment_id}",
+    response_model=AssessmentResponse,
+)
+async def get_reassessment(
+    assessment_id: UUID,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> AssessmentResponse:
+    assessment = await _assessment_with_scope(
+        assessment_id=assessment_id,
+        session=session,
+        context=context,
+    )
+    if assessment.assessment_type is AssessmentType.BASELINE:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RESOURCE_NOT_FOUND"},
+        )
+    return AssessmentResponse(
+        data=AssessmentData(
+            id=assessment.id,
+            household_id=assessment.household_id,
+            assessment_type=assessment.assessment_type,
+            definition_version_id=assessment.definition_version_id,
+            status=assessment.status,
+            version=assessment.version,
+            started_at=assessment.started_at,
+            reason=assessment.reason,
+            intervention_id=assessment.intervention_id,
+            provider_result_id=assessment.provider_result_id,
+            parent_assessment_id=assessment.parent_assessment_id,
         )
     )

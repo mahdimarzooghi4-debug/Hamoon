@@ -175,6 +175,7 @@ def _human_decision(model: HumanDecisionModel) -> HumanDecision:
         diagnosis_id=model.diagnosis_id,
         prescription_id=model.prescription_id,
         provider_match_id=model.provider_match_id,
+        outcome_id=model.outcome_id,
     )
 
 def _trace(model: DecisionTraceModel) -> DecisionTrace:
@@ -289,6 +290,7 @@ class SqlAlchemyHumanDecisionRepository:
                 diagnosis_id=decision.diagnosis_id,
                 prescription_id=decision.prescription_id,
                 provider_match_id=decision.provider_match_id,
+                outcome_id=decision.outcome_id,
                 decision_context=decision.decision_context,
                 actor_id=decision.actor_id,
                 action=decision.action,
@@ -390,6 +392,8 @@ class SqlAlchemyLearningSignalRepository:
                 intervention_id=signal.intervention_id,
                 provider_match_id=signal.provider_match_id,
                 provider_id=signal.provider_id,
+                provider_result_id=signal.provider_result_id,
+                outcome_id=signal.outcome_id,
                 signal_label=signal.signal_label,
                 quality_status=signal.quality_status,
                 created_at=signal.created_at,

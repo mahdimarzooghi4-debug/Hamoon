@@ -203,6 +203,10 @@ class HumanDecisionModel(Base):
         ForeignKey("provider_match.id", ondelete="RESTRICT"),
         nullable=True,
     )
+    outcome_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("hamoon_outcome.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     decision_context: Mapped[HumanDecisionContext] = mapped_column(
         Enum(HumanDecisionContext, name="human_decision_context"),
         nullable=False,
@@ -308,6 +312,14 @@ class LearningSignalModel(Base):
     )
     provider_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("provider.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    provider_result_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("provider_result.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    outcome_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("hamoon_outcome.id", ondelete="RESTRICT"),
         nullable=True,
     )
     signal_label: Mapped[str] = mapped_column(String(100), nullable=False)

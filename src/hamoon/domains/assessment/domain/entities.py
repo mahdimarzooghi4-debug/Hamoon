@@ -78,6 +78,9 @@ class Assessment:
     started_at: datetime
     started_by: UUID
     reason: str | None = None
+    intervention_id: UUID | None = None
+    provider_result_id: UUID | None = None
+    parent_assessment_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)

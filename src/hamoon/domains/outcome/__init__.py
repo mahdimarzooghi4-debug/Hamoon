@@ -1,0 +1,1 @@
+"""Observed outcome bounded context."""

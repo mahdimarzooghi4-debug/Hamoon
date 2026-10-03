@@ -26,6 +26,10 @@ class AssessmentData(BaseModel):
     status: AssessmentStatus
     version: int
     started_at: datetime
+    reason: str | None = None
+    intervention_id: UUID | None = None
+    provider_result_id: UUID | None = None
+    parent_assessment_id: UUID | None = None
 
 
 class AssessmentResponse(BaseModel):
@@ -112,3 +116,13 @@ class AssessmentReadinessData(BaseModel):
 
 class AssessmentReadinessResponse(BaseModel):
     data: AssessmentReadinessData
+
+
+
+class StartReassessmentRequest(BaseModel):
+    assessment_type: AssessmentType
+    definition_version_id: UUID
+    intervention_id: UUID
+    provider_result_id: UUID | None = None
+    parent_assessment_id: UUID | None = None
+    reason: str = Field(min_length=1, max_length=500)

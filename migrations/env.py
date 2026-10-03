@@ -16,9 +16,11 @@ from hamoon.domains.household.infrastructure import models as household_models  
 from hamoon.domains.identity.infrastructure import models as identity_models  # noqa: F401
 from hamoon.domains.intelligence.infrastructure import models as intelligence_models  # noqa: F401
 from hamoon.domains.intervention.infrastructure import models as intervention_models  # noqa: F401
+from hamoon.domains.outcome.infrastructure import models as outcome_models  # noqa: F401
 from hamoon.domains.pgor.infrastructure import models as pgor_models  # noqa: F401
 from hamoon.domains.prescription.infrastructure import models as prescription_models  # noqa: F401
 from hamoon.domains.provider.infrastructure import models as provider_models  # noqa: F401
+from hamoon.domains.provider_result.infrastructure import models as provider_result_models  # noqa: F401
 from hamoon.domains.referral.infrastructure import models as referral_models  # noqa: F401
 from hamoon.infrastructure.audit import models as audit_models  # noqa: F401
 from hamoon.infrastructure.events import models as event_models  # noqa: F401

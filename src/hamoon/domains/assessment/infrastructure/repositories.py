@@ -31,6 +31,9 @@ def _assessment(model: AssessmentModel) -> Assessment:
         started_at=model.started_at,
         started_by=model.started_by,
         reason=model.reason,
+        intervention_id=model.intervention_id,
+        provider_result_id=model.provider_result_id,
+        parent_assessment_id=model.parent_assessment_id,
     )
 
 
@@ -88,6 +91,9 @@ class SqlAlchemyAssessmentRepository:
                 started_at=assessment.started_at,
                 started_by=assessment.started_by,
                 reason=assessment.reason,
+                intervention_id=assessment.intervention_id,
+                provider_result_id=assessment.provider_result_id,
+                parent_assessment_id=assessment.parent_assessment_id,
             )
         )
 

@@ -28,6 +28,7 @@ class HumanDecisionContext(StrEnum):
     DIAGNOSIS = "DIAGNOSIS"
     PRESCRIPTION = "PRESCRIPTION"
     PROVIDER_MATCH = "PROVIDER_MATCH"
+    OUTCOME = "OUTCOME"
 
 
 class HumanDecisionAction(StrEnum):
@@ -49,6 +50,7 @@ class LearningSignalType(StrEnum):
     PRESCRIPTION_REPLACED = "PRESCRIPTION_REPLACED"
     PRESCRIPTION_DEFERRED = "PRESCRIPTION_DEFERRED"
     PROVIDER_SELECTED = "PROVIDER_SELECTED"
+    OUTCOME_OBSERVED = "OUTCOME_OBSERVED"
 
 
 class LearningSignalQuality(StrEnum):
@@ -157,6 +159,7 @@ class HumanDecision:
     diagnosis_id: UUID | None = None
     prescription_id: UUID | None = None
     provider_match_id: UUID | None = None
+    outcome_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,3 +194,5 @@ class LearningSignal:
     intervention_id: UUID | None = None
     provider_match_id: UUID | None = None
     provider_id: UUID | None = None
+    provider_result_id: UUID | None = None
+    outcome_id: UUID | None = None

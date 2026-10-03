@@ -1,0 +1,1 @@
+"""Provider result bounded context."""

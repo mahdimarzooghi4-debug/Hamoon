@@ -42,6 +42,20 @@ class AssessmentModel(Base):
         nullable=False,
     )
     reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    intervention_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("intervention.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    provider_result_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("provider_result.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    parent_assessment_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("assessment.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
 
 class IndicatorObservationModel(Base):
