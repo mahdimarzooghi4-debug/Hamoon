@@ -100,6 +100,24 @@ class AIDecisionRepo:
         )
 
 
+class FeaturePackageRepo:
+    async def add(self, package) -> None:
+        raise AssertionError("not used")
+
+    async def get(self, package_id: UUID):
+        if package_id != PACKAGE_ID:
+            return None
+
+        class Package:
+            def provider_payload(self):
+                return {"pgor.bottleneck_variables": ["O"]}
+
+        return Package()
+
+    async def get_by_snapshot(self, *, snapshot_id: UUID, schema_version: str):
+        return None
+
+
 class HumanDecisionRepo:
     def __init__(self) -> None:
         self.items: list[HumanDecision] = []
@@ -186,6 +204,7 @@ async def test_confirm_preserves_machine_output_and_creates_learning_signal() ->
         diagnoses=diagnoses,
         ai_decisions=AIDecisionRepo(),
         human_decisions=humans,
+        feature_packages=FeaturePackageRepo(),
         traces=traces,
         learning_signals=learning,
         events=events,
@@ -227,6 +246,7 @@ async def test_modify_keeps_human_payload_separate_from_machine_proposal() -> No
         diagnoses=diagnoses,
         ai_decisions=AIDecisionRepo(),
         human_decisions=humans,
+        feature_packages=FeaturePackageRepo(),
         traces=traces,
         learning_signals=learning,
         events=EventRecorder(),
