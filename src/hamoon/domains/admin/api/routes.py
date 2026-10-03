@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import Select
 
 from hamoon.app.security.context import AuthorizationContext, Role
 from hamoon.app.security.dependencies import require_roles
@@ -48,7 +49,10 @@ from hamoon.infrastructure.events.models import OutboxMessageModel
 router = APIRouter(tags=["admin-health"])
 
 
-async def _scalar_count(session: AsyncSession, statement) -> int:
+async def _scalar_count(
+    session: AsyncSession,
+    statement: Select[tuple[int]],
+) -> int:
     value = await session.scalar(statement)
     return int(value or 0)
 
