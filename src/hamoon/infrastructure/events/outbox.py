@@ -10,7 +10,6 @@ from uuid import UUID, uuid4
 
 import nats
 from nats.js.errors import NotFoundError
-from pydantic import JsonValue
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -178,7 +177,7 @@ def event_subject(message: ClaimedOutboxMessage) -> str:
     return f"hamoon.events.{message.event_type}.v{message.event_version}"
 
 
-def event_envelope(message: ClaimedOutboxMessage) -> dict[str, JsonValue]:
+def event_envelope(message: ClaimedOutboxMessage) -> dict[str, object]:
     return {
         "event_id": str(message.event_id),
         "event_type": message.event_type,
@@ -208,12 +207,15 @@ class NatsJetStreamEventPublisher:
     async def _ensure_connected(self) -> None:
         if self._client is not None and self._jetstream is not None:
             return
-        self._client = await nats.connect(self._url, name="hamoon-outbox")
-        self._jetstream = self._client.jetstream()
+        self._client = await nats.connect(  # pyright: ignore[reportUnknownMemberType]
+            self._url,
+            name="hamoon-outbox",
+        )
+        self._jetstream = self._client.jetstream()  # pyright: ignore[reportUnknownMemberType]
         try:
             await self._jetstream.stream_info(self._stream_name)
         except NotFoundError:
-            await self._jetstream.add_stream(
+            await self._jetstream.add_stream(  # pyright: ignore[reportUnknownMemberType]
                 name=self._stream_name,
                 subjects=["hamoon.events.>"],
             )
