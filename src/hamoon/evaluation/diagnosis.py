@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from jsonschema import ValidationError, validate
 from pydantic import BaseModel, Field, JsonValue
@@ -209,7 +209,7 @@ def evaluate_diagnosis_outputs(
 
 def _load_json(path: Path) -> JsonValue:
     with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+        return cast(JsonValue, json.load(handle))
 
 
 def main() -> None:
