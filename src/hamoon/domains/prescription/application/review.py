@@ -27,7 +27,6 @@ from hamoon.domains.prescription.domain.policy import (
     validate_prescription_output,
 )
 from hamoon.domains.prescription.ports.repositories import PrescriptionRepository
-from hamoon.infrastructure.ai.prescription_runtime import PRESCRIPTION_V1_SCHEMA
 from hamoon.shared.contracts.records import AuditRecord, DomainEventRecord
 from hamoon.shared.ports.recorders import AuditRecorder, DomainEventRecorder
 
