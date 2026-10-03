@@ -286,6 +286,19 @@ class SqlAlchemyPGORFormulaRepository:
         model = await self._session.get(PGORFormulaVersionModel, formula_version_id)
         return None if model is None else _formula(model)
 
+    async def get_active(self) -> FormulaVersion | None:
+        result = await self._session.execute(
+            select(PGORFormulaVersionModel)
+            .where(
+                PGORFormulaVersionModel.status == "ACTIVE",
+                PGORFormulaVersionModel.production_eligible.is_(True),
+            )
+            .order_by(PGORFormulaVersionModel.effective_from.desc())
+            .limit(1)
+        )
+        model = result.scalar_one_or_none()
+        return None if model is None else _formula(model)
+
 
 class SqlAlchemyPGORSnapshotRepository:
     def __init__(self, session: AsyncSession) -> None:

@@ -77,9 +77,15 @@ class CalculateOfficialPGORHandler:
                 ",".join(readiness.blocking_reasons) or readiness.status.value
             )
 
-        formula = await self._formulas.get(command.formula_version_id)
+        formula = (
+            await self._formulas.get(command.formula_version_id)
+            if command.formula_version_id is not None
+            else await self._formulas.get_active()
+        )
         if formula is None:
-            raise FormulaVersionNotFoundError(str(command.formula_version_id))
+            raise FormulaVersionNotFoundError(
+                str(command.formula_version_id or "ACTIVE_FORMULA")
+            )
         now = datetime.now(UTC)
         if (
             formula.status is not FormulaStatus.ACTIVE

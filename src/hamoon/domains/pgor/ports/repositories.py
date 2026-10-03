@@ -45,6 +45,8 @@ class PGORDefinitionRepository(Protocol):
 class PGORFormulaRepository(Protocol):
     async def get(self, formula_version_id: UUID) -> FormulaVersion | None: ...
 
+    async def get_active(self) -> FormulaVersion | None: ...
+
 
 class PGORSnapshotRepository(Protocol):
     async def create(

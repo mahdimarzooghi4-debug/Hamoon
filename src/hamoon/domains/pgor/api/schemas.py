@@ -55,7 +55,7 @@ class PGORDefinitionResponse(BaseModel):
 
 
 class CalculatePGORRequest(BaseModel):
-    formula_version_id: UUID
+    formula_version_id: UUID | None = None
 
 
 class PGORSnapshotData(BaseModel):

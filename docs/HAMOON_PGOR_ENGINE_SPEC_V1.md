@@ -372,26 +372,35 @@ E = (α P^3 + β G^2 + γ O)(0.5 + 0.5 R)
 
 ---
 
-# 13. Coefficient Policy
+# 13. Final Formula & Coefficient Policy — V1
 
-سند مقدار عددی α، β و γ را مشخص نکرده است.
-
-بنابراین:
-
-> PGOR Engine نباید برای α/β/γ مقدار پیش‌فرض اختراع کند.
-
-هر `PGOR_FORMULA_VERSION` برای Active شدن باید دارای:
+فرمول نهایی V1:
 
 ```text
-alpha
-beta
-gamma
-approval
-effective_from
-version
+E = (0.40 P^3 + 0.35 G^2 + 0.25 O)(0.5 + 0.5 R)
 ```
 
-باشد.
+ضرایب نهایی V1:
+
+```text
+α = 0.40
+β = 0.35
+γ = 0.25
+α + β + γ = 1.00
+```
+
+سند Hamoon این مقادیر را در فصل مطالعات موردی برای شبیه‌سازی اولیه به‌کار برده است؛ با تصمیم علمی/محصولی پروژه در 2026-10-03 همین مقادیر به‌عنوان ضرایب نهایی Formula v1 تثبیت شدند.
+
+Formula Registry:
+
+```text
+code = HAMOON_PGOR_V1_FINAL
+version = 1.0.0
+status = ACTIVE
+production_eligible = true
+```
+
+Engine همچنان ضرایب را از Formula Version می‌خواند و آن‌ها را در Domain Logic پراکنده hard-code نمی‌کند. تغییر آینده ضرایب، اگر روزی تصویب شود، باید Formula Version جدید ایجاد کند و Snapshotهای تاریخی را بازنویسی نکند.
 
 Validation:
 
@@ -401,8 +410,6 @@ beta >= 0
 gamma >= 0
 abs((alpha + beta + gamma) - 1) <= configured_tolerance
 ```
-
-تا زمانی که ضرایب رسمی تصویب نشده‌اند، Formula Version نباید Production-Active شود.
 
 ---
 
@@ -1104,17 +1111,17 @@ E=1
 
 ---
 
-# 42. Unit Test Fixture — Non-Production Coefficients
+# 42. Unit Test Fixtures
 
-برای تست نرم‌افزاری فقط، نه برای مدل علمی Production:
+ضرایب رسمی Production V1:
 
 ```text
-α = 1/3
-β = 1/3
-γ = 1/3
+α = 0.40
+β = 0.35
+γ = 0.25
 ```
 
-این ضرایب صرفاً fixture تست‌اند و نباید به‌عنوان ضرایب Hamoon تلقی شوند.
+Fixture مساوی یک‌سوم فقط برای تست مستقل رفتار ریاضی Engine مجاز است و هیچ‌گاه Formula فعال Hamoon محسوب نمی‌شود.
 
 Test:
 
@@ -1404,16 +1411,17 @@ calculated_at
 
 # 55. Open Decisions
 
+Formula v1 و ضرایب α/β/γ نهایی شده‌اند و دیگر Open Decision نیستند.
+
 موارد زیر هنوز نیازمند تصمیم علمی/محصولی‌اند:
 
-1. مقادیر رسمی α/β/γ برای Formula v1
-2. mapping رسمی categorical labels به 0..100
-3. آیا تمام Indicatorهای سند Required هستند یا برخی Optional
-4. تعریف Staleness برای Sourceها
-5. Quality policy برای Evidence
-6. policy دقیق Preview در UI
-7. calibration approval governance
-8. scope انتخاب Formula در سطح ملی/استانی/منطقه‌ای
+1. mapping رسمی categorical labels به 0..100
+2. آیا تمام Indicatorهای سند Required هستند یا برخی Optional
+3. تعریف Staleness برای Sourceها
+4. Quality policy برای Evidence
+5. policy دقیق Preview در UI
+6. calibration approval governance
+7. scope انتخاب Formula در سطح ملی/استانی/منطقه‌ای
 
 تا زمان تصمیم رسمی، Engine نباید این موارد را حدس بزند.
 
