@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from temporalio import activity
 
 from hamoon.domains.operations.application.handlers import (
