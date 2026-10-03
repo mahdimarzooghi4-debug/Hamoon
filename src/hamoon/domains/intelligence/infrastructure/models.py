@@ -86,7 +86,6 @@ class FeatureValueModel(Base):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
-
 class AIDecisionModel(Base):
     __tablename__ = "ai_decision"
     __table_args__ = (
@@ -156,7 +155,12 @@ class DiagnosisModel(Base):
     accepted_payload: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     latest_human_decision_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("human_decision.id", ondelete="SET NULL", use_alter=True),
+        ForeignKey(
+            "human_decision.id",
+            name="fk_diagnosis_latest_human_decision",
+            ondelete="SET NULL",
+            use_alter=True,
+        ),
         nullable=True,
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(
