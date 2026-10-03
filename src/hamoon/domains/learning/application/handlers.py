@@ -479,6 +479,7 @@ class CreateEvaluationRunHandler:
             model_version_id=command.model_version_id,
             prompt_policy_version_id=command.prompt_policy_version_id,
             dataset_version_id=dataset.id,
+            dataset_manifest_digest=dataset.manifest_digest,
             evaluation_policy_version=command.evaluation_policy_version.strip(),
             started_at=now,
         )
@@ -500,6 +501,7 @@ class CreateEvaluationRunHandler:
                     "evaluation_run_id": str(evaluation.id),
                     "task_class": command.task_class.value,
                     "dataset_version_id": str(dataset.id),
+                    "dataset_manifest_digest": dataset.manifest_digest,
                     "model_version_id": str(command.model_version_id),
                     "prompt_policy_version_id": str(command.prompt_policy_version_id),
                     "evaluation_policy_version": command.evaluation_policy_version,
