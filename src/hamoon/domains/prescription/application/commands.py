@@ -1,6 +1,10 @@
 from dataclasses import dataclass
 from uuid import UUID
 
+from pydantic import JsonValue
+
+from hamoon.domains.intelligence.domain.decisions import HumanDecisionAction
+
 
 @dataclass(frozen=True, slots=True)
 class GeneratePrescriptionCommand:
@@ -10,11 +14,6 @@ class GeneratePrescriptionCommand:
     actor_id: UUID
     request_id: str
     correlation_id: str
-
-
-from pydantic import JsonValue
-
-from hamoon.domains.intelligence.domain.decisions import HumanDecisionAction
 
 
 @dataclass(frozen=True, slots=True)
