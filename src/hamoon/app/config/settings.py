@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     environment: str = "local"
     database_url: str = "postgresql+asyncpg://hamoon:hamoon@localhost:5432/hamoon"
     nats_url: str = "nats://localhost:4222"
+    nats_events_stream: str = "HAMOON_EVENTS"
+    outbox_batch_size: int = 50
+    outbox_poll_seconds: float = 1.0
+    outbox_lease_seconds: int = 30
+    outbox_max_backoff_seconds: int = 300
     otel_enabled: bool = False
 
     oidc_issuer_url: str = "http://localhost:8081/realms/hamoon-local"
