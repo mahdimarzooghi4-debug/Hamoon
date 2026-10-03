@@ -417,8 +417,40 @@ Identity changes ideally via Fact model, نه update destructive.
   "value": "UNEMPLOYED",
   "source_id": "source_...",
   "effective_from": "...",
-  "status": "ACCEPTED",
+  "validation_status": "PENDING_VALIDATION",
   "version": 1
+}
+```
+
+---
+
+## 18.1.1 HouseholdFactValidated
+
+```json
+{
+  "fact_id": "fact_...",
+  "household_id": "hh_...",
+  "fact_type": "EMPLOYMENT_STATUS",
+  "from_status": "PENDING_VALIDATION",
+  "to_status": "VALIDATED",
+  "validation_version": 2,
+  "reason_code": "SOURCE_REVIEWED"
+}
+```
+
+Source Type به‌تنهایی این Event را تولید نمی‌کند؛ Validation یک تصمیم/فرآیند مستقل است.
+
+---
+
+## 18.1.2 HouseholdFactRejected
+
+```json
+{
+  "fact_id": "fact_...",
+  "from_status": "PENDING_VALIDATION",
+  "to_status": "REJECTED",
+  "validation_version": 2,
+  "reason_code": "..."
 }
 ```
 

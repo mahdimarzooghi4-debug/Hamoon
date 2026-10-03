@@ -476,21 +476,32 @@ HouseholdFact
 
 ---
 
-## 7.2 وضعیت Fact
+## 7.2 Validation Lifecycle
+
+Source-backed principle:
+
+> **داده خام الزاماً داده معتبر نیست.**
+
+Source authorization به‌تنهایی Fact را معتبر نمی‌کند.
+
+Technical states V1:
 
 ```text
-ACCEPTED
-CORRECTED
+PENDING_VALIDATION
+VALIDATED
 DISPUTED
+REJECTED
 SUPERSEDED
 ```
 
-قاعده:
+قواعد:
 
-- داده منبع مجاز به صورت پیش‌فرض ACCEPTED است.
-- اصلاح مقدار قبلی را حذف نمی‌کند.
-- SUPERSEDED فقط تاریخچه را نشان می‌دهد.
-- DISPUTED باید در تصمیم حساس قابل مشاهده باشد.
+- Fact جدید، مستقل از Source Type، با `PENDING_VALIDATION` آغاز می‌شود.
+- فقط `VALIDATED` می‌تواند وارد Current Accepted State شود.
+- `DISPUTED` یعنی تعارض حل‌نشده و باید در تصمیم حساس قابل مشاهده باشد.
+- `REJECTED` در Current Accepted State قابل انتخاب نیست.
+- `SUPERSEDED` تاریخچه را حفظ می‌کند.
+- Fact Value immutable است؛ Validation History و Accepted-State History جدا نگهداری می‌شوند.
 
 ---
 

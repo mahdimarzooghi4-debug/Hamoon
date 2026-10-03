@@ -476,34 +476,52 @@ SOURCE_ARTIFACT
 
 ---
 
-# 10. Fact Status Model
+# 10. Fact Validation Model
+
+اصل Source-backed:
+
+> **داده خام الزاماً داده معتبر نیست.**
+
+سه Source Type رسمی فقط منشأ را مشخص می‌کنند و هیچ‌کدام Accepted-by-default نیستند.
+
+## 10.1 FACT_VALIDATION_STATE
+
+Projection جاری اعتبارسنجی:
 
 ```text
-ACCEPTED
-CORRECTED
+PENDING_VALIDATION
+VALIDATED
 DISPUTED
+REJECTED
 SUPERSEDED
 ```
 
-قواعد:
+Fact جدید همیشه از `PENDING_VALIDATION` شروع می‌شود.
 
-### ACCEPTED
-مقدار جاری قابل استفاده.
+## 10.2 FACT_VALIDATION_CHANGE
 
-### CORRECTED
-رکوردی که به دلیل اثبات خطا اصلاح شده است.
+Validation History append-only است:
 
-### DISPUTED
-تعارض وجود دارد و تصمیم نهایی نشده است.
+```text
+FACT_VALIDATION_CHANGE
+- id
+- fact_id
+- validation_version
+- from_status?
+- to_status
+- reason_code
+- reason_text?
+- changed_by
+- changed_at
+```
 
-### SUPERSEDED
-نسخه تاریخی که مقدار جدید جایگزین آن شده است.
+Value خود Fact immutable باقی می‌ماند.
 
-نکته:
+## 10.3 Selection Rule
 
-`CORRECTED` درباره معنای اصلاح است و `SUPERSEDED` درباره جایگاه نسخه در تاریخچه؛ در پیاده‌سازی فیزیکی می‌توان این دو مفهوم را با state + relation دقیق‌تر مدل کرد، اما در Domain Language باید هر دو قابل بیان باشند.
+فقط Fact با وضعیت `VALIDATED` می‌تواند توسط Actor مجاز در `CURRENT_ACCEPTED_FACT` انتخاب شود.
 
----
+`DISPUTED` و `REJECTED` هرگز به‌طور خودکار وارد Current Accepted State نمی‌شوند.
 
 # 11. Current Accepted State
 

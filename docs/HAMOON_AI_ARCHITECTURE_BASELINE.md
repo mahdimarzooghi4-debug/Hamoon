@@ -481,104 +481,63 @@ Hamoon صرفاً یک سیستم تشخیصی نیست؛ **سامانه جام�
 
 مددکار می‌تواند داده را تأیید، اصلاح یا در صورت وجود تعارض برای بررسی علامت‌گذاری کند. AI می‌تواند تعارض یا ناهنجاری را گزارش کند، اما صرفاً به دلیل غیرعادی بودن داده نباید آن را خودکار تغییر دهد.
 
-## 21. اصل صحت داده — Presumption of Data Validity
+## 21. اصل اعتبارسنجی داده — Raw Data Is Not Necessarily Valid
 
-اصل پایه Hamoon:
+اصل پایه سند Hamoon:
 
-> **داده‌ها درست هستند، مگر اینکه خلاف آن ثابت شود.**
+> **داده خام الزاماً داده معتبر نیست.**
 
-هر داده‌ای که از یک منبع مجاز وارد Hamoon می‌شود، به‌صورت پیش‌فرض صحیح و قابل استفاده در نظر گرفته می‌شود. Hamoon نباید تمام داده‌ها را تا زمان راستی‌آزمایی مجدد «مشکوک» یا «تأییدنشده» تلقی کند.
+مجاز بودن Source فقط Provenance را مشخص می‌کند و به معنی معتبر بودن خودکار مقدار نیست.
+
+سه Source Class رسمی:
+
+```text
+HOUSEHOLD_DECLARATION
+EXPERT_ASSESSMENT
+EXTERNAL_DATA
+```
+
+Technical Policy V1:
 
 ```text
 Authorized Source Data
         ↓
-Accepted by Default
+PENDING_VALIDATION
         ↓
-Used by Hamoon
+Human / Policy Validation
+   ├─ VALIDATED
+   ├─ DISPUTED
+   └─ REJECTED
         ↓
-Evidence of Conflict / Error?
-        │
-   No ──┴── Yes
-   ↓         ↓
-Remain     Human Review
-Accepted      ↓
-          Confirm / Correct / Dispute
+Only VALIDATED data may be selected
+into Current Accepted State
 ```
 
-وضعیت‌های مفهومی پیشنهادی داده:
-
-- **ACCEPTED:** حالت پیش‌فرض؛ داده معتبر فرض می‌شود.
-- **CORRECTED:** خلاف مقدار قبلی احراز و مقدار اصلاح شده است.
-- **DISPUTED:** تعارض یا ادعای خلاف وجود دارد ولی هنوز تعیین تکلیف نشده است.
-- **SUPERSEDED:** رکورد تاریخی که مقدار جدید جایگزین آن شده است.
+Source Type هیچ اولویت یا ضریب اعتبار خودکاری ایجاد نمی‌کند. داده بیرونی، ارزیابی کارشناسی و خوداظهاری همگی باید Provenance و Validation State داشته باشند.
 
 ### اصل عدم حذف تاریخچه
 
-اصلاح یک داده به معنی حذف مقدار قبلی نیست. مقدار قبلی باید برای Audit، تحلیل کیفیت منابع و بازسازی تصمیم‌های تاریخی حفظ شود.
-
-### منشأ داده — Data Provenance
-
-برای داده‌های مؤثر در تصمیم، Hamoon باید بتواند مشخص کند:
-
-```text
-Value
-+ Source
-+ Recorded At
-+ Effective At
-+ Changed By
-+ Change Reason
-+ Evidence (when applicable)
-+ Status
-+ Version / History
-```
+اصلاح یا رد یک داده، Fact تاریخی را حذف نمی‌کند. Value/Source/Effective Time/Recorded Time/Actor/Reason/Evidence/Validation History باید قابل Audit باقی بماند.
 
 ### استفاده در AI و PGOR
 
-PGOR Engine، Diagnostic Engine، Prescription Engine و سایر اجزای Hamoon از **Current Accepted Value** استفاده می‌کنند.
+AI و موتورهای تصمیم فقط از State کنترل‌شده و Versioned استفاده می‌کنند. AI می‌تواند تعارض یا ناهنجاری را Flag کند اما مجاز به معتبرسازی، رد یا تغییر Current Accepted State نیست.
 
-در صورت وجود `DISPUTED` data، سیستم باید متناسب با اهمیت آن داده، تعارض را به مددکار نشان دهد و در تصمیم‌های حساس عدم‌قطعیت را لحاظ کند.
+## 22. تفکیک Source، Validation و Accepted State
 
-AI می‌تواند بگوید:
+```text
+Source
+≠ Validation Status
+≠ Current Accepted State
+```
 
-> «بین دو منبع درباره وضعیت اشتغال تعارض وجود دارد؛ بررسی مددکار لازم است.»
-
-اما نباید بدون Rule/Authority مشخص، مقدار رسمی پرونده را تغییر دهد.
-
-## 22. تفکیک انواع داده خانوار
-
-برای حفظ معنای داده، Hamoon باید منشأ و نوع آن را از هم تفکیک کند:
-
-- **Declared Data:** داده اعلام‌شده توسط مددجو یا منبع اولیه.
-- **Observed Data:** داده حاصل از مشاهده یا بررسی.
-- **Corrected Data:** مقداری که پس از اثبات خلاف داده قبلی اصلاح شده است.
-- **Derived Data:** داده محاسبه یا استنباط‌شده توسط Hamoon، مانند PGOR، E، Risk، Diagnosis یا Prediction.
-
-این دسته‌بندی به معنی مشکوک بودن Declared Data نیست. مطابق اصل صحت داده، همه داده‌های مجاز در حالت عادی قابل استفاده‌اند مگر اینکه خلافشان ثابت شود.
+- **Source** منشأ داده را مشخص می‌کند.
+- **Validation Status** وضعیت اعتبارسنجی Fact را مشخص می‌کند.
+- **Current Accepted State** Projectionی انسانی/قاعده‌مند از Factهای VALIDATED برای مصرف عملیاتی و هوشمندی است.
 
 ## 23. پیامد معماری
 
-با این اصول، Hamoon فقط Data Consumer نیست. Hamoon باید یک **Family Data & Empowerment System of Record** با قابلیت Data Integration، Provenance، Versioning، Correction، Audit و Decision Intelligence باشد.
-
-```text
-External / Existing Systems
-          ↓
-     Family Data
-          ↓
- Presumption of Validity
-          ↓
-       HAMOON
-          ↕
-       مددکار
-  (Correction / Review)
-          ↓
-Current Family State
-          ↓
-PGOR / Diagnosis / Prescription
-          ↓
-Intervention / Outcome / Learning
-```
-
-این اصول باید در طراحی Domain Model، Data Architecture، API Integration، Security، Audit Log و AI Guardrails رعایت شوند.
+Hamoon باید Data Provenance، Validation History و Accepted-State History را جدا نگه دارد. در فاز اولیه، داده‌های تاریخی سازمان نیز صرفاً به دلیل وجود در سامانه قبلی معتبر فرض نمی‌شوند؛ داده جدید، فرم استاندارد و سیستم مستقل داده مبنای کالیبراسیون و یادگیری خواهند بود.
 
 ## 24. اصل AI-First — هامون یک سیستم هوشمند تصمیم‌یار است
 
