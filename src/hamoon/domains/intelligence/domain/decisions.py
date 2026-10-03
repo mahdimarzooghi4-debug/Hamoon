@@ -27,6 +27,7 @@ class DiagnosisStatus(StrEnum):
 class HumanDecisionContext(StrEnum):
     DIAGNOSIS = "DIAGNOSIS"
     PRESCRIPTION = "PRESCRIPTION"
+    PROVIDER_MATCH = "PROVIDER_MATCH"
 
 
 class HumanDecisionAction(StrEnum):
@@ -47,6 +48,7 @@ class LearningSignalType(StrEnum):
     PRESCRIPTION_MODIFIED = "PRESCRIPTION_MODIFIED"
     PRESCRIPTION_REPLACED = "PRESCRIPTION_REPLACED"
     PRESCRIPTION_DEFERRED = "PRESCRIPTION_DEFERRED"
+    PROVIDER_SELECTED = "PROVIDER_SELECTED"
 
 
 class LearningSignalQuality(StrEnum):
@@ -143,7 +145,7 @@ class Diagnosis:
 class HumanDecision:
     id: UUID
     household_id: UUID
-    ai_decision_id: UUID
+    ai_decision_id: UUID | None
     actor_id: UUID
     action: HumanDecisionAction
     reason_code: str | None
@@ -154,6 +156,7 @@ class HumanDecision:
     decision_context: HumanDecisionContext = HumanDecisionContext.DIAGNOSIS
     diagnosis_id: UUID | None = None
     prescription_id: UUID | None = None
+    provider_match_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,6 +173,8 @@ class DecisionTrace:
     closed_at: datetime | None = None
     prescription_id: UUID | None = None
     intervention_id: UUID | None = None
+    provider_match_id: UUID | None = None
+    provider_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,7 +182,7 @@ class LearningSignal:
     id: UUID
     household_id: UUID
     signal_type: LearningSignalType
-    ai_decision_id: UUID
+    ai_decision_id: UUID | None
     human_decision_id: UUID
     diagnosis_id: UUID | None
     signal_label: str

@@ -186,9 +186,9 @@ class HumanDecisionModel(Base):
         ForeignKey("household.id", ondelete="CASCADE"),
         nullable=False,
     )
-    ai_decision_id: Mapped[UUID] = mapped_column(
+    ai_decision_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("ai_decision.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
     diagnosis_id: Mapped[UUID | None] = mapped_column(
@@ -197,6 +197,10 @@ class HumanDecisionModel(Base):
     )
     prescription_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("prescription.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    provider_match_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("provider_match.id", ondelete="RESTRICT"),
         nullable=True,
     )
     decision_context: Mapped[HumanDecisionContext] = mapped_column(
@@ -277,9 +281,9 @@ class LearningSignalModel(Base):
         Enum(LearningSignalType, name="learning_signal_type"),
         nullable=False,
     )
-    ai_decision_id: Mapped[UUID] = mapped_column(
+    ai_decision_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("ai_decision.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
     human_decision_id: Mapped[UUID] = mapped_column(
@@ -296,6 +300,14 @@ class LearningSignalModel(Base):
     )
     intervention_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("intervention.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    provider_match_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("provider_match.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    provider_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("provider.id", ondelete="RESTRICT"),
         nullable=True,
     )
     signal_label: Mapped[str] = mapped_column(String(100), nullable=False)
