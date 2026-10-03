@@ -54,6 +54,8 @@ class EvaluationRunState:
     prompt_policy_version_id: UUID
     evaluation_policy_version: str
     dataset_version_id: UUID | None
+    dataset_manifest_digest: str | None
+    report_digest: str | None
     status: EvaluationStatus
     passed: bool
     summary_metrics: dict[str, JsonValue]
