@@ -14,6 +14,10 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from hamoon.app.config.settings import Settings, get_settings
+from hamoon.app.observability.metrics import (
+    OUTBOX_PUBLISH_FAILURE,
+    OUTBOX_PUBLISH_SUCCESS,
+)
 from hamoon.infrastructure.db.session import session_factory
 from hamoon.infrastructure.events.models import OutboxMessageModel
 
@@ -278,6 +282,7 @@ class OutboxDeliveryService:
                 await self._publisher.publish(message)
             except Exception as exc:
                 failed += 1
+                OUTBOX_PUBLISH_FAILURE.labels(event_type=message.event_type).inc()
                 delay = min(
                     self._max_backoff_seconds,
                     max(1, 2 ** min(message.attempt_count - 1, 10)),
@@ -299,6 +304,7 @@ class OutboxDeliveryService:
                 continue
 
             published += 1
+            OUTBOX_PUBLISH_SUCCESS.labels(event_type=message.event_type).inc()
             await self._store.mark_published(
                 message_id=message.id,
                 lock_token=message.lock_token,
