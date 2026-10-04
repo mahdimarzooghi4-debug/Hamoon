@@ -16,6 +16,8 @@ from hamoon.domains.operations.api.schemas import (
     StartWorkItemReassessmentRequest,
     StartWorkItemReassessmentResponse,
     HouseholdTimelineResponse,
+    ReassessmentPlanData,
+    ReassessmentPlanResponse,
     TimelineItemData,
     WorkItemData,
     WorkItemResponse,
@@ -24,7 +26,11 @@ from hamoon.domains.operations.api.schemas import (
 from hamoon.domains.operations.application.handlers import (
     StartPlannedReassessmentHandler,
 )
-from hamoon.domains.operations.domain.entities import WorkItem, WorkItemStatus
+from hamoon.domains.operations.domain.entities import (
+    ReassessmentPlan,
+    WorkItem,
+    WorkItemStatus,
+)
 from hamoon.domains.assessment.infrastructure.repositories import (
     SqlAlchemyAssessmentRepository,
 )
@@ -74,6 +80,30 @@ def _work_item_data(item: WorkItem) -> WorkItemData:
         policy_version=item.policy_version,
         created_at=item.created_at,
         claimed_at=item.claimed_at,
+    )
+
+
+def _reassessment_plan_data(plan: ReassessmentPlan) -> ReassessmentPlanData:
+    return ReassessmentPlanData(
+        id=plan.id,
+        household_id=plan.household_id,
+        intervention_id=plan.intervention_id,
+        provider_result_id=plan.provider_result_id,
+        prescription_item_id=plan.prescription_item_id,
+        assigned_actor_id=plan.assigned_actor_id,
+        review_after_days=plan.review_after_days,
+        due_at=plan.due_at,
+        policy_version=plan.policy_version,
+        workflow_id=plan.workflow_id,
+        status=plan.status,
+        version=plan.version,
+        created_at=plan.created_at,
+        work_item_id=plan.work_item_id,
+        task_created_at=plan.task_created_at,
+        post_assessment_id=plan.post_assessment_id,
+        post_pgor_snapshot_id=plan.post_pgor_snapshot_id,
+        outcome_id=plan.outcome_id,
+        outcome_work_item_id=plan.outcome_work_item_id,
     )
 
 
@@ -213,6 +243,32 @@ async def start_work_item_reassessment(
             parent_assessment_id=assessment.parent_assessment_id,
         )
     )
+
+
+@router.get(
+    "/api/v1/reassessment-plans/{plan_id}",
+    response_model=ReassessmentPlanResponse,
+)
+async def get_reassessment_plan(
+    plan_id: UUID,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ReassessmentPlanResponse:
+    plan = await SqlAlchemyReassessmentPlanRepository(session).get(plan_id)
+    if plan is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RESOURCE_NOT_FOUND"},
+        )
+    await require_household_assignment(
+        session=session,
+        context=context,
+        household_id=plan.household_id,
+    )
+    return ReassessmentPlanResponse(data=_reassessment_plan_data(plan))
 
 
 @router.get(
