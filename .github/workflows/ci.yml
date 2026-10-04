@@ -6,6 +6,28 @@ on:
   pull_request:
 
 jobs:
+  frontend-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install frontend dependencies
+        run: npm install --prefix frontend --ignore-scripts --no-audit --no-fund
+
+      - name: Frontend type check
+        run: npm --prefix frontend run typecheck
+
+      - name: Frontend build
+        run: npm --prefix frontend run build
+
+
   quality:
     runs-on: ubuntu-latest
 
@@ -73,7 +95,7 @@ jobs:
 
 
   integration:
-    needs: quality
+    needs: [quality, frontend-quality]
     runs-on: ubuntu-latest
     env:
       HAMOON_DATABASE_URL: postgresql+asyncpg://hamoon:hamoon@localhost:5432/hamoon

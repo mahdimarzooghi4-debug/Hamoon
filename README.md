@@ -76,3 +76,27 @@ Production hosting and real external AI/provider/storage integrations are intent
 outside the local release boundary.
 
 See `docs/HAMOON_LOCAL_RELEASE_READINESS.md` for the exact Go/No-Go contract.
+
+
+## Frontend
+
+The canonical Persian/RTL product UI lives in `frontend/` and is implemented against the
+existing internal Hamoon API contracts. The first vertical slice contains the application shell,
+Figma-derived design tokens, the real work queue, and work-item claiming with optimistic
+version handling.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend verification:
+
+```bash
+npm run typecheck
+npm run build
+```
+
+OIDC browser login remains outside this slice; authenticated calls require a real access token
+and never fall back to fake product data.

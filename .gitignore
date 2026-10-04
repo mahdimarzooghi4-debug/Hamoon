@@ -27,3 +27,7 @@ dist/
 
 # Local data
 .local/
+
+# Frontend
+node_modules/
+frontend/.vite/

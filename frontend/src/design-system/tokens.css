@@ -1,0 +1,34 @@
+:root {
+  color-scheme: light;
+
+  --hamoon-white: #ffffff;
+  --hamoon-page: #f7fbfe;
+  --hamoon-navy: #0a2c3f;
+  --hamoon-blue: #0d3477;
+  --hamoon-cyan: #18c3d1;
+  --hamoon-cyan-soft: #e7f8fa;
+  --hamoon-ink: #153b54;
+  --hamoon-muted: #6c8798;
+  --hamoon-border: #d7eaf3;
+  --hamoon-warning: #b77a1f;
+  --hamoon-warning-soft: #fff5de;
+  --hamoon-danger: #c45161;
+  --hamoon-danger-soft: #fff0f2;
+  --hamoon-success: #118566;
+  --hamoon-success-soft: #e8f8f2;
+
+  --hamoon-space-8: 8px;
+  --hamoon-space-12: 12px;
+  --hamoon-space-16: 16px;
+  --hamoon-space-20: 20px;
+  --hamoon-space-24: 24px;
+  --hamoon-space-32: 32px;
+
+  --hamoon-radius-10: 10px;
+  --hamoon-radius-14: 14px;
+  --hamoon-radius-18: 18px;
+  --hamoon-radius-pill: 999px;
+
+  --hamoon-shadow-card: 0 12px 32px rgb(13 52 119 / 6%);
+  --hamoon-content-width: 1360px;
+}
