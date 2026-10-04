@@ -45,7 +45,7 @@ class S3CompatibleEvidenceStorage:
 
     @staticmethod
     def _sign(key: bytes, value: str) -> bytes:
-        return hmac.new(key, value.encode("utf-8"), hashlib.sha256).digest()
+        return hmac.new(key, value.encode(), hashlib.sha256).digest()
 
     def _authorization(
         self,
@@ -76,7 +76,7 @@ class S3CompatibleEvidenceStorage:
             f"{hashlib.sha256(canonical_request.encode('utf-8')).hexdigest()}"
         )
         date_key = self._sign(
-            f"AWS4{self._secret_key}".encode("utf-8"),
+            f"AWS4{self._secret_key}".encode(),
             date_stamp,
         )
         region_key = self._sign(date_key, self._region)
@@ -84,7 +84,7 @@ class S3CompatibleEvidenceStorage:
         signing_key = self._sign(service_key, "aws4_request")
         signature = hmac.new(
             signing_key,
-            string_to_sign.encode("utf-8"),
+            string_to_sign.encode(),
             hashlib.sha256,
         ).hexdigest()
         return (
