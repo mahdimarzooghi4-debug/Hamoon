@@ -145,7 +145,7 @@ async def read_operational_snapshot() -> OperationalSnapshot:
     oldest = backlog[1]
     oldest_age_seconds = (
         max(0.0, (now - oldest).total_seconds())
-        if isinstance(oldest, datetime)
+        if oldest is not None
         else 0.0
     )
     heartbeats = tuple(
