@@ -198,6 +198,47 @@ async def get_provider_service(
     )
 
 
+@router.get(
+    "/api/v1/interventions/{intervention_id}/provider-match",
+    response_model=ProviderMatchResponse,
+)
+async def get_latest_provider_match(
+    intervention_id: UUID,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ProviderMatchResponse:
+    interventions = SqlAlchemyInterventionRepository(session)
+    intervention = await interventions.get(intervention_id)
+    if intervention is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RESOURCE_NOT_FOUND"},
+        )
+    await require_household_assignment(
+        session=session,
+        context=context,
+        household_id=intervention.household_id,
+    )
+    match = await SqlAlchemyProviderMatchRepository(
+        session
+    ).get_latest_for_intervention(intervention_id)
+    if match is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "PROVIDER_MATCH_NOT_FOUND"},
+        )
+    registry = SqlAlchemyProviderRegistryRepository(session)
+    return ProviderMatchResponse(
+        data=await _provider_match_data(
+            match=match,
+            registry=registry,
+        )
+    )
+
+
 @router.post(
     "/api/v1/interventions/{intervention_id}/match-providers",
     response_model=ProviderMatchResponse,
