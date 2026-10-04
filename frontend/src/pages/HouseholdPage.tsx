@@ -10,6 +10,7 @@ import {
 import { AppLink } from "../app/navigation";
 import { DiagnosisSection } from "../components/DiagnosisSection";
 import { PrescriptionSection } from "../components/PrescriptionSection";
+import { ProviderReferralSection } from "../components/ProviderReferralSection";
 import {
   Badge,
   EmptyState,
@@ -304,16 +305,18 @@ export function HouseholdPage({ householdId }: { householdId: string }) {
         pgorSnapshotId={pgor?.snapshot_id ?? null}
       />
 
+      <ProviderReferralSection householdId={item.id} />
+
       <Panel>
         <div className="section-heading">
           <div>
             <span className="eyebrow">مسیر Canonical بعدی</span>
-            <h2>تطبیق ارائه‌دهنده و ارجاع</h2>
+            <h2>نتیجه ارائه‌دهنده و بازسنجی</h2>
           </div>
         </div>
         <EmptyState
-          title="تطبیق ارائه‌دهنده در vertical slice بعدی متصل می‌شود"
-          description="پس از فعال‌شدن مداخله، تطبیق قاعده‌محور ارائه‌دهنده، انتخاب انسانی و ایجاد ارجاع به همین پرونده متصل خواهند شد."
+          title="نتیجه خدمت و بازسنجی در vertical slice بعدی متصل می‌شود"
+          description="پس از اجرای ارجاع، نتیجه ساختاریافته ارائه‌دهنده، برنامه بازسنجی و ادامه مسیر Outcome به همین پرونده متصل خواهند شد."
         />
       </Panel>
     </div>
