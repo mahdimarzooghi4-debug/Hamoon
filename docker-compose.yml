@@ -36,7 +36,7 @@ services:
       - ./infra/identity/hamoon-realm.json:/opt/keycloak/data/import/hamoon-local-realm.json:ro
 
   minio:
-    image: quay.io/minio/aistor/minio:latest
+    image: quay.io/minio/minio:RELEASE.2025-09-06T17-38-46Z
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
@@ -48,7 +48,7 @@ services:
       - hamoon_minio:/data
 
   minio-init:
-    image: quay.io/minio/aistor/mc:latest
+    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
     depends_on:
       minio:
         condition: service_started

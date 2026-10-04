@@ -183,8 +183,8 @@ jobs:
 
       - name: Verify workers and one-shot bootstrap
         run: |
-          test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -q migrate)")" = "0"
-          test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -q minio-init)")" = "0"
+          test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -a -q migrate)")" = "0"
+          test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -a -q minio-init)")" = "0"
           test "$(docker inspect -f '{{.State.Running}}' "$(docker compose ps -q outbox-worker)")" = "true"
           test "$(docker inspect -f '{{.State.Running}}' "$(docker compose ps -q temporal-worker)")" = "true"
 
