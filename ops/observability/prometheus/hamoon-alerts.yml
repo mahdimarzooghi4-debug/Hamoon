@@ -1,0 +1,114 @@
+{
+  "groups": [
+    {
+      "name": "hamoon-production",
+      "rules": [
+        {
+          "alert": "HAMOON_METRICS_MISSING",
+          "expr": "absent(hamoon_http_requests_total) == 1",
+          "for": "5m",
+          "labels": {
+            "severity": "critical",
+            "category": "platform",
+            "service": "hamoon",
+            "environment": "production"
+          },
+          "annotations": {
+            "summary": "Hamoon metrics have disappeared from the monitoring backend.",
+            "runbook": "docs/runbooks/HAMOON_METRICS_MISSING.md"
+          }
+        },
+        {
+          "alert": "HAMOON_API_CRITICAL_ERROR_SPIKE",
+          "expr": "sum(rate(hamoon_http_request_errors_total[5m])) / clamp_min(sum(rate(hamoon_http_requests_total[5m])), 0.001) > 0.05",
+          "for": "10m",
+          "labels": {
+            "severity": "critical",
+            "category": "platform",
+            "service": "hamoon",
+            "environment": "production"
+          },
+          "annotations": {
+            "summary": "Production API 5xx error ratio is above 5 percent.",
+            "runbook": "docs/runbooks/HAMOON_API_CRITICAL_ERROR_SPIKE.md"
+          }
+        },
+        {
+          "alert": "HAMOON_POSTGRES_UNAVAILABLE",
+          "expr": "hamoon_dependency_health{dependency=\"postgresql\"} == 0",
+          "for": "2m",
+          "labels": {
+            "severity": "critical",
+            "category": "database",
+            "service": "hamoon",
+            "environment": "production"
+          },
+          "annotations": {
+            "summary": "The API metrics scraper cannot successfully query PostgreSQL.",
+            "runbook": "docs/runbooks/HAMOON_POSTGRES_UNAVAILABLE.md"
+          }
+        },
+        {
+          "alert": "HAMOON_OUTBOX_STUCK",
+          "expr": "hamoon_outbox_pending_count > 100 and hamoon_outbox_oldest_age_seconds > 300",
+          "for": "10m",
+          "labels": {
+            "severity": "critical",
+            "category": "events",
+            "service": "hamoon",
+            "environment": "production"
+          },
+          "annotations": {
+            "summary": "The durable outbox backlog is both large and old.",
+            "runbook": "docs/runbooks/HAMOON_OUTBOX_STUCK.md"
+          }
+        },
+        {
+          "alert": "HAMOON_OUTBOX_WORKER_STALE",
+          "expr": "hamoon_worker_healthy{worker=\"outbox-worker\"} == 0",
+          "for": "2m",
+          "labels": {
+            "severity": "critical",
+            "category": "workers",
+            "service": "hamoon",
+            "environment": "production"
+          },
+          "annotations": {
+            "summary": "The exact-release Outbox worker heartbeat is missing, stale, or degraded.",
+            "runbook": "docs/runbooks/HAMOON_WORKER_STALE.md"
+          }
+        },
+        {
+          "alert": "HAMOON_TEMPORAL_WORKER_STALE",
+          "expr": "hamoon_worker_healthy{worker=\"temporal-worker\"} == 0",
+          "for": "2m",
+          "labels": {
+            "severity": "critical",
+            "category": "workers",
+            "service": "hamoon",
+            "environment": "production"
+          },
+          "annotations": {
+            "summary": "The exact-release Temporal worker heartbeat is missing or stale.",
+            "runbook": "docs/runbooks/HAMOON_WORKER_STALE.md"
+          }
+        },
+        {
+          "alert": "HAMOON_OPERATIONAL_METRICS_REFRESH_FAILURE",
+          "expr": "increase(hamoon_operational_metrics_refresh_failures_total{dependency=\"postgresql\"}[5m]) > 0",
+          "for": "5m",
+          "labels": {
+            "severity": "warning",
+            "category": "observability",
+            "service": "hamoon",
+            "environment": "production"
+          },
+          "annotations": {
+            "summary": "DB-backed operational metric refreshes are failing.",
+            "runbook": "docs/runbooks/HAMOON_POSTGRES_UNAVAILABLE.md"
+          }
+        }
+      ]
+    }
+  ]
+}

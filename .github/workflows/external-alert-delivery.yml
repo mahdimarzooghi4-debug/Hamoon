@@ -1,0 +1,551 @@
+name: External Alert Delivery Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact Production-monitored 40-character commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: Type VERIFY_ALERT_DELIVERY to send a synthetic critical alert
+        required: true
+        type: string
+      receiver:
+        description: Exact Alertmanager receiver name expected for the probe
+        required: true
+        type: string
+      integration:
+        description: Alertmanager integration label expected for notification metrics
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-alert-delivery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PROMOTED_SHA: ${{ inputs.commit_sha }}
+      EXPECTED_RECEIVER: ${{ inputs.receiver }}
+      EXPECTED_INTEGRATION: ${{ inputs.integration }}
+      ALERTMANAGER_URL: ${{ secrets.HAMOON_ALERTMANAGER_URL }}
+      ALERTMANAGER_METRICS_URL: ${{ secrets.HAMOON_ALERTMANAGER_METRICS_URL }}
+      ALERTMANAGER_TOKEN: ${{ secrets.HAMOON_ALERTMANAGER_BEARER_TOKEN }}
+
+    steps:
+      - name: Validate explicit external verification input
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          test "$CONFIRMATION" = "VERIFY_ALERT_DELIVERY"
+          printf '%s' "$PROMOTED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$EXPECTED_RECEIVER" | grep -Eq '^[A-Za-z0-9._:/ -]{1,128}$'
+          printf '%s' "$EXPECTED_INTEGRATION" | grep -Eq '^[A-Za-z0-9._-]{1,64}$'
+          test -n "$ALERTMANAGER_URL"
+          test -n "$ALERTMANAGER_METRICS_URL"
+          test -n "$ALERTMANAGER_TOKEN"
+
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import ipaddress
+          import os
+          from urllib.parse import urlsplit
+
+          def validate(name: str) -> str:
+              value = os.environ[name].strip().rstrip("/")
+              parsed = urlsplit(value)
+              assert parsed.scheme == "https", f"{name} must use HTTPS"
+              assert parsed.hostname, f"{name} must include a host"
+              host = parsed.hostname.lower()
+              assert host != "localhost" and not host.endswith(".localhost")
+              try:
+                  address = ipaddress.ip_address(host)
+              except ValueError:
+                  pass
+              else:
+                  assert not (
+                      address.is_loopback
+                      or address.is_unspecified
+                      or address.is_private
+                      or address.is_link_local
+                  ), f"{name} must not use a local/private IP"
+              return value
+
+          alertmanager = validate("ALERTMANAGER_URL")
+          metrics = validate("ALERTMANAGER_METRICS_URL")
+          origin = urlsplit(alertmanager)
+          port = f":{origin.port}" if origin.port else ""
+          print(f"ALERTMANAGER_URL={alertmanager}")
+          print(f"ALERTMANAGER_METRICS_URL={metrics}")
+          print(f"ALERTMANAGER_ORIGIN={origin.scheme}://{origin.hostname}{port}")
+          PY
+
+      - name: Checkout exact monitored commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Require candidate to belong to main history
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$PROMOTED_SHA" origin/main
+
+      - name: Resolve successful Production Monitoring baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          artifact_name="hamoon-production-monitoring-$PROMOTED_SHA"
+          artifact_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$artifact_name&per_page=100" \
+              --jq '[.artifacts[] | select(.expired == false)][0].id'
+          )"
+          test -n "$artifact_id"
+
+          monitoring_run_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id" \
+              --jq '.workflow_run.id'
+          )"
+          test -n "$monitoring_run_id"
+
+          monitoring_conclusion="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$monitoring_run_id" \
+              --jq '.conclusion'
+          )"
+          test "$monitoring_conclusion" = "success"
+
+          echo "PRODUCTION_MONITORING_RUN_ID=$monitoring_run_id" >> "$GITHUB_ENV"
+
+      - name: Download Production Monitoring baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p alert-delivery-input
+          gh run download "$PRODUCTION_MONITORING_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-production-monitoring-$PROMOTED_SHA" \
+            --dir alert-delivery-input
+
+      - name: Bind external verification to monitored Production release
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          monitoring = json.loads(
+              Path(
+                  "alert-delivery-input/production-monitoring-baseline.json"
+              ).read_text()
+          )
+          assert monitoring["status"] == "BASELINE_PASSED"
+          assert monitoring["production_deployed"] is True
+          assert monitoring["production_verified"] is True
+          assert monitoring["metrics_auth_verified"] is True
+          assert monitoring["commit_sha"] == os.environ["PROMOTED_SHA"]
+          assert (
+              monitoring["production_monitoring_run_id"]
+              == os.environ["PRODUCTION_MONITORING_RUN_ID"]
+          )
+          assert monitoring["external_observability_backend_verified"] is False
+          PY
+
+      - name: Verify alert policy and Prometheus rule materialization
+        run: |
+          python3 scripts/verify_alert_contract.py \
+            ops/observability/alert-policy.json .
+          python3 scripts/verify_prometheus_alert_rules.py \
+            ops/observability/alert-policy.json \
+            ops/observability/prometheus/hamoon-alerts.yml
+
+      - name: Verify external Alertmanager API and receiver
+        run: |
+          mkdir -p alert-delivery-observed
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer $ALERTMANAGER_TOKEN" \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 3 --retry-all-errors \
+            "$ALERTMANAGER_URL/api/v2/status" \
+            > alert-delivery-observed/alertmanager-status.json
+
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer $ALERTMANAGER_TOKEN" \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 3 --retry-all-errors \
+            "$ALERTMANAGER_URL/api/v2/receivers" \
+            > alert-delivery-observed/receivers.json
+
+          python3 - <<'PY'
+          import json
+          import os
+
+          status = json.load(
+              open("alert-delivery-observed/alertmanager-status.json")
+          )
+          assert status["versionInfo"]["version"]
+          receivers = json.load(open("alert-delivery-observed/receivers.json"))
+          names = {receiver["name"] for receiver in receivers}
+          assert os.environ["EXPECTED_RECEIVER"] in names
+          PY
+
+      - name: Capture receiver-labelled Alertmanager metrics before probe
+        run: |
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer $ALERTMANAGER_TOKEN" \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 3 --retry-all-errors \
+            "$ALERTMANAGER_METRICS_URL" \
+            > alert-delivery-observed/metrics-before.prom
+
+      - name: Send synthetic alert through Alertmanager API v2
+        run: |
+          probe_id="hamoon-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "PROBE_ID=$probe_id" >> "$GITHUB_ENV"
+
+          python3 - <<'PY'
+          import json
+          import os
+          from datetime import UTC, datetime, timedelta
+          from pathlib import Path
+
+          now = datetime.now(UTC)
+          payload = [
+              {
+                  "labels": {
+                      "alertname": "HAMOON_ALERT_DELIVERY_PROBE",
+                      "service": "hamoon",
+                      "environment": "production",
+                      "severity": "critical",
+                      "category": "observability",
+                      "hamoon_probe_id": os.environ["PROBE_ID"],
+                  },
+                  "annotations": {
+                      "summary": "Synthetic Hamoon alert delivery verification probe.",
+                      "runbook": "docs/runbooks/HAMOON_ALERT_DELIVERY_PROBE.md",
+                  },
+                  "startsAt": now.isoformat(),
+                  "endsAt": (now + timedelta(minutes=5)).isoformat(),
+                  "generatorURL": (
+                      "https://github.com/"
+                      + os.environ["GITHUB_REPOSITORY"]
+                      + "/actions/runs/"
+                      + os.environ["GITHUB_RUN_ID"]
+                  ),
+              }
+          ]
+          Path("alert-delivery-observed/probe-payload.json").write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          curl --fail --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $ALERTMANAGER_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data-binary @alert-delivery-observed/probe-payload.json \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 3 --retry-all-errors \
+            "$ALERTMANAGER_URL/api/v2/alerts"
+
+      - name: Verify probe is active and routed to expected receiver
+        run: |
+          for i in {1..24}; do
+            curl --fail --silent --show-error --get \
+              --header "Authorization: Bearer $ALERTMANAGER_TOKEN" \
+              --data-urlencode "active=true" \
+              --data-urlencode "silenced=false" \
+              --data-urlencode "inhibited=false" \
+              --data-urlencode "filter=hamoon_probe_id=\"$PROBE_ID\"" \
+              --data-urlencode "receiver=$EXPECTED_RECEIVER" \
+              --proto '=https' --proto-redir '=https' --tlsv1.2 \
+              --max-time 20 --retry 2 --retry-all-errors \
+              "$ALERTMANAGER_URL/api/v2/alerts" \
+              > alert-delivery-observed/route-observation.json
+
+            if python3 - <<'PY'
+          import json
+          import os
+
+          alerts = json.load(
+              open("alert-delivery-observed/route-observation.json")
+          )
+          for alert in alerts:
+              labels = alert.get("labels", {})
+              receivers = {
+                  receiver.get("name")
+                  for receiver in alert.get("receivers", [])
+              }
+              if (
+                  labels.get("alertname") == "HAMOON_ALERT_DELIVERY_PROBE"
+                  and labels.get("hamoon_probe_id") == os.environ["PROBE_ID"]
+                  and alert.get("status", {}).get("state") == "active"
+                  and os.environ["EXPECTED_RECEIVER"] in receivers
+              ):
+                  raise SystemExit(0)
+          raise SystemExit(1)
+          PY
+            then
+              break
+            fi
+            sleep 5
+          done
+
+          python3 - <<'PY'
+          import json
+          import os
+
+          alerts = json.load(
+              open("alert-delivery-observed/route-observation.json")
+          )
+          matches = []
+          for alert in alerts:
+              labels = alert.get("labels", {})
+              receivers = {
+                  receiver.get("name")
+                  for receiver in alert.get("receivers", [])
+              }
+              if (
+                  labels.get("alertname") == "HAMOON_ALERT_DELIVERY_PROBE"
+                  and labels.get("hamoon_probe_id") == os.environ["PROBE_ID"]
+                  and alert.get("status", {}).get("state") == "active"
+                  and os.environ["EXPECTED_RECEIVER"] in receivers
+              ):
+                  matches.append(alert)
+          assert matches, "synthetic alert did not route to expected receiver"
+          PY
+
+      - name: Wait for successful receiver notification evidence
+        run: |
+          for i in {1..24}; do
+            curl --fail --silent --show-error \
+              --header "Authorization: Bearer $ALERTMANAGER_TOKEN" \
+              --proto '=https' --proto-redir '=https' --tlsv1.2 \
+              --max-time 20 --retry 2 --retry-all-errors \
+              "$ALERTMANAGER_METRICS_URL" \
+              > alert-delivery-observed/metrics-current.prom
+
+            if python3 - <<'PY'
+          import re
+          import os
+
+          label_re = re.compile(r'(\w+)="((?:\\.|[^"])*)"')
+
+          def value(path: str, metric: str) -> float | None:
+              total = 0.0
+              matched = False
+              prefix = metric + "{"
+              for line in open(path):
+                  if not line.startswith(prefix):
+                      continue
+                  label_text, value_text = line.split("}", 1)
+                  labels = dict(label_re.findall(label_text))
+                  if (
+                      labels.get("receiver") == os.environ["EXPECTED_RECEIVER"]
+                      and labels.get("integration")
+                      == os.environ["EXPECTED_INTEGRATION"]
+                  ):
+                      total += float(value_text.strip())
+                      matched = True
+              return total if matched else None
+
+          before_total = value(
+              "alert-delivery-observed/metrics-before.prom",
+              "alertmanager_notifications_total",
+          )
+          after_total = value(
+              "alert-delivery-observed/metrics-current.prom",
+              "alertmanager_notifications_total",
+          )
+          before_failed = value(
+              "alert-delivery-observed/metrics-before.prom",
+              "alertmanager_notifications_failed_total",
+          )
+          after_failed = value(
+              "alert-delivery-observed/metrics-current.prom",
+              "alertmanager_notifications_failed_total",
+          )
+          if None in (before_total, after_total, before_failed, after_failed):
+              raise SystemExit(1)
+          if (
+              after_total - before_total >= 1
+              and after_failed - before_failed == 0
+          ):
+              raise SystemExit(0)
+          raise SystemExit(1)
+          PY
+            then
+              cp alert-delivery-observed/metrics-current.prom \
+                alert-delivery-observed/metrics-after.prom
+              break
+            fi
+            sleep 5
+          done
+          test -f alert-delivery-observed/metrics-after.prom
+
+      - name: Create external alert delivery attestation
+        env:
+          EXTERNAL_ALERT_RUN_ID: ${{ github.run_id }}
+        run: |
+          mkdir -p external-alert-delivery
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          label_re = re.compile(r'(\w+)="((?:\\.|[^"])*)"')
+
+          def counter(path: Path, metric: str) -> float:
+              total = 0.0
+              matched = False
+              prefix = metric + "{"
+              for line in path.read_text().splitlines():
+                  if not line.startswith(prefix):
+                      continue
+                  label_text, value_text = line.split("}", 1)
+                  labels = dict(label_re.findall(label_text))
+                  if (
+                      labels.get("receiver") == os.environ["EXPECTED_RECEIVER"]
+                      and labels.get("integration")
+                      == os.environ["EXPECTED_INTEGRATION"]
+                  ):
+                      total += float(value_text.strip())
+                      matched = True
+              assert matched
+              return total
+
+          monitoring_path = Path(
+              "alert-delivery-input/production-monitoring-baseline.json"
+          )
+          rules_path = Path(
+              "ops/observability/prometheus/hamoon-alerts.yml"
+          )
+          status_path = Path(
+              "alert-delivery-observed/alertmanager-status.json"
+          )
+          route_path = Path(
+              "alert-delivery-observed/route-observation.json"
+          )
+          before_path = Path(
+              "alert-delivery-observed/metrics-before.prom"
+          )
+          after_path = Path(
+              "alert-delivery-observed/metrics-after.prom"
+          )
+          monitoring = json.loads(monitoring_path.read_text())
+          status = json.loads(status_path.read_text())
+
+          total_delta = (
+              counter(after_path, "alertmanager_notifications_total")
+              - counter(before_path, "alertmanager_notifications_total")
+          )
+          failed_delta = (
+              counter(after_path, "alertmanager_notifications_failed_total")
+              - counter(before_path, "alertmanager_notifications_failed_total")
+          )
+
+          attestation = {
+              "schema_version": 1,
+              "status": "VERIFIED",
+              "verification_scope": "EXTERNAL_ALERTMANAGER_DELIVERY",
+              "external_observability_backend_verified": True,
+              "alertmanager_routing_verified": True,
+              "alert_delivery_verified": True,
+              "production_deployed": True,
+              "production_monitoring_status": monitoring["status"],
+              "commit_sha": os.environ["PROMOTED_SHA"],
+              "production_monitoring_run_id": os.environ[
+                  "PRODUCTION_MONITORING_RUN_ID"
+              ],
+              "external_alert_delivery_run_id": os.environ[
+                  "EXTERNAL_ALERT_RUN_ID"
+              ],
+              "deployment_id": monitoring["deployment_id"],
+              "alertmanager_origin": os.environ["ALERTMANAGER_ORIGIN"],
+              "alertmanager_version": status["versionInfo"]["version"],
+              "receiver": os.environ["EXPECTED_RECEIVER"],
+              "integration": os.environ["EXPECTED_INTEGRATION"],
+              "probe_id": os.environ["PROBE_ID"],
+              "alertname": "HAMOON_ALERT_DELIVERY_PROBE",
+              "runbook": "docs/runbooks/HAMOON_ALERT_DELIVERY_PROBE.md",
+              "notification_total_delta": total_delta,
+              "notification_failed_delta": failed_delta,
+              "production_monitoring_sha256": hashlib.sha256(
+                  monitoring_path.read_bytes()
+              ).hexdigest(),
+              "alert_rule_bundle_sha256": hashlib.sha256(
+                  rules_path.read_bytes()
+              ).hexdigest(),
+              "alertmanager_status_sha256": hashlib.sha256(
+                  status_path.read_bytes()
+              ).hexdigest(),
+              "route_observation_sha256": hashlib.sha256(
+                  route_path.read_bytes()
+              ).hexdigest(),
+              "metrics_before_sha256": hashlib.sha256(
+                  before_path.read_bytes()
+              ).hexdigest(),
+              "metrics_after_sha256": hashlib.sha256(
+                  after_path.read_bytes()
+              ).hexdigest(),
+              "verified_at": datetime.now(UTC).isoformat(),
+          }
+          Path(
+              "external-alert-delivery/external-alert-delivery.json"
+          ).write_text(
+              json.dumps(attestation, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Verify external alert delivery attestation
+        run: |
+          python3 scripts/verify_external_alert_delivery.py \
+            alert-delivery-input/production-monitoring-baseline.json \
+            ops/observability/prometheus/hamoon-alerts.yml \
+            alert-delivery-observed/alertmanager-status.json \
+            alert-delivery-observed/route-observation.json \
+            alert-delivery-observed/metrics-before.prom \
+            alert-delivery-observed/metrics-after.prom \
+            external-alert-delivery/external-alert-delivery.json
+
+      - name: Resolve synthetic alert
+        if: always()
+        continue-on-error: true
+        run: |
+          test -f alert-delivery-observed/probe-payload.json || exit 0
+          python3 - <<'PY'
+          import json
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          path = Path("alert-delivery-observed/probe-payload.json")
+          payload = json.loads(path.read_text())
+          payload[0]["endsAt"] = datetime.now(UTC).isoformat()
+          Path("alert-delivery-observed/probe-resolved.json").write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          curl --fail --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $ALERTMANAGER_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data-binary @alert-delivery-observed/probe-resolved.json \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 \
+            "$ALERTMANAGER_URL/api/v2/alerts"
+
+      - name: Upload immutable external alert delivery evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamoon-external-alert-delivery-${{ inputs.commit_sha }}
+          path: external-alert-delivery/
+          if-no-files-found: error
+          retention-days: 90

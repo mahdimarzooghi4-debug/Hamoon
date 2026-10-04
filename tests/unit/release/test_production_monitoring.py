@@ -23,6 +23,20 @@ hamoon_http_active_requests 0
 hamoon_outbox_publish_success_total{{event_type="TestEvent"}} 1
 # TYPE hamoon_outbox_publish_failure_total counter
 hamoon_outbox_publish_failure_total{{event_type="TestEvent"}} 0
+# TYPE hamoon_dependency_health gauge
+hamoon_dependency_health{{dependency="postgresql"}} 1
+# TYPE hamoon_outbox_pending_count gauge
+hamoon_outbox_pending_count 0
+# TYPE hamoon_outbox_oldest_age_seconds gauge
+hamoon_outbox_oldest_age_seconds 0
+# TYPE hamoon_worker_healthy gauge
+hamoon_worker_healthy{{worker="outbox-worker"}} 1
+hamoon_worker_healthy{{worker="temporal-worker"}} 1
+# TYPE hamoon_worker_heartbeat_age_seconds gauge
+hamoon_worker_heartbeat_age_seconds{{worker="outbox-worker"}} 5
+hamoon_worker_heartbeat_age_seconds{{worker="temporal-worker"}} 5
+# TYPE hamoon_operational_metrics_refresh_failures_total counter
+hamoon_operational_metrics_refresh_failures_total{{dependency="postgresql"}} 0
 """
 
 

@@ -36,9 +36,11 @@ After a successful `Production Verification`, the
 8. verifies required Hamoon metric families exist;
 9. rejects forbidden high-cardinality/sensitive labels such as household, user,
    request, trace, referral, national-ID, or phone identifiers;
-10. proves the readiness request counter advanced by at least the number of synthetic
+10. requires the centralized PostgreSQL/outbox/worker metric families used by the
+    enforced alert policy;
+11. proves the readiness request counter advanced by at least the number of synthetic
     probes;
-11. emits a hashed monitoring-baseline attestation.
+12. emits a hashed monitoring-baseline attestation.
 
 ## Deliberate boundary
 
@@ -60,7 +62,8 @@ Production Verification VERIFIED
 → synthetic telemetry movement
 → runtime identity re-check
 → Production Monitoring Baseline PASSED
-→ external telemetry/alert backend verification
+→ materialized Prometheus alert rules
+→ external Alertmanager routing/delivery verification
 → ongoing monitoring
 → improvement
 ```

@@ -821,6 +821,11 @@ Outbox and Temporal workers. Rules for NATS consumer lag, provider dispatch, AI,
 audit, and evidence quarantine remain incomplete until those metric families are
 implemented; the contract must not pretend those alerts exist.
 
+The same contract is materialized as a Prometheus-compatible rule document at
+`ops/observability/prometheus/hamoon-alerts.yml`. CI verifies one-to-one equivalence
+between the policy, PromQL, severity/category labels, durations, summaries, and
+runbook references so a deployable rule file cannot silently drift from governance.
+
 ---
 
 # 35. AI Drift Monitoring

@@ -29,6 +29,12 @@ REQUIRED_METRIC_FAMILIES = {
     "hamoon_http_active_requests",
     "hamoon_outbox_publish_success_total",
     "hamoon_outbox_publish_failure_total",
+    "hamoon_dependency_health",
+    "hamoon_outbox_pending_count",
+    "hamoon_outbox_oldest_age_seconds",
+    "hamoon_worker_healthy",
+    "hamoon_worker_heartbeat_age_seconds",
+    "hamoon_operational_metrics_refresh_failures_total",
 }
 
 
