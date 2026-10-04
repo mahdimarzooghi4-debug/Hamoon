@@ -91,6 +91,8 @@ uv run pytest tests/unit/config/test_settings.py
 docker compose config --quiet
 uv run alembic heads
 docker build -t hamoon-local-release .
+# CI additionally scans both backend and frontend OCI images for
+# fixable HIGH/CRITICAL vulnerabilities before integration can run.
 ```
 
 Infrastructure integration verification additionally requires local PostgreSQL and NATS:
@@ -115,9 +117,10 @@ UI/Figma work may start only when the current main commit has:
 7. closed-loop Golden Path green;
 8. diagnosis and outcome evaluation replay gates green;
 9. Alembic topology and fresh-database migration green;
-10. container build green;
-11. PostgreSQL/JetStream integration gate green, including real S3-compatible Evidence round-trip against MinIO;
-12. complete local Docker Compose stack smoke green, including frontend SPA/deep-link/runtime-config/API-proxy checks.
+10. backend and frontend container builds green;
+11. both OCI images pass the pinned Trivy HIGH/CRITICAL vulnerability gate;
+12. PostgreSQL/JetStream integration gate green, including real S3-compatible Evidence round-trip against MinIO;
+13. complete local Docker Compose stack smoke green, including frontend SPA/deep-link/runtime-config/API-proxy checks.
 
 A red gate means the backend contract is not considered frozen for UI work.
 

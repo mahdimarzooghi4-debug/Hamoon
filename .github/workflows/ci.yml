@@ -33,6 +33,16 @@ jobs:
       - name: Frontend container build
         run: docker build -f frontend/Dockerfile -t hamoon-web-ci .
 
+      - name: Frontend image vulnerability scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: hamoon-web-ci
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+
 
   quality:
     runs-on: ubuntu-latest
@@ -101,6 +111,16 @@ jobs:
 
       - name: Container build
         run: docker build -t hamoon-ci .
+
+      - name: Backend image vulnerability scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: hamoon-ci
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
 
 
   integration:
