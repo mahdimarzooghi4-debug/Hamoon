@@ -33,7 +33,7 @@ services:
     ports:
       - "8081:8080"
     volumes:
-      - ./infra/identity/hamoon-realm.json:/opt/keycloak/data/import/hamoon-realm.json:ro
+      - ./infra/identity/hamoon-realm.json:/opt/keycloak/data/import/hamoon-local-realm.json:ro
 
   minio:
     image: quay.io/minio/aistor/minio:latest
