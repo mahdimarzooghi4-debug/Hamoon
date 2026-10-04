@@ -34,6 +34,12 @@ class OperationalSnapshot:
     heartbeats: tuple[WorkerHeartbeat, ...]
 
 
+def _age_seconds(value: object, *, now: datetime) -> float:
+    if not isinstance(value, datetime):
+        return 0.0
+    return max(0.0, (now - value).total_seconds())
+
+
 async def record_worker_heartbeat(
     *,
     worker_name: str,
@@ -142,12 +148,7 @@ async def read_operational_snapshot() -> OperationalSnapshot:
         ).mappings().all()
 
     pending_count = int(backlog[0] or 0)
-    oldest_value: object = backlog[1]
-    oldest_age_seconds = (
-        max(0.0, (now - oldest_value).total_seconds())
-        if isinstance(oldest_value, datetime)
-        else 0.0
-    )
+    oldest_age_seconds = _age_seconds(backlog[1], now=now)
     heartbeats = tuple(
         WorkerHeartbeat(
             worker_name=str(row["worker_name"]),
