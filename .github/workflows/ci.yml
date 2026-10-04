@@ -133,12 +133,19 @@ jobs:
 
       - name: Wait for PostgreSQL and NATS
         run: |
-          for i in {1..30}; do
+          postgres_ready_count=0
+          for i in {1..60}; do
             if docker compose exec -T postgres pg_isready -U hamoon -d hamoon >/dev/null 2>&1; then
-              break
+              postgres_ready_count=$((postgres_ready_count + 1))
+              if [ "$postgres_ready_count" -ge 5 ]; then
+                break
+              fi
+            else
+              postgres_ready_count=0
             fi
             sleep 1
           done
+          test "$postgres_ready_count" -ge 5
           for i in {1..30}; do
             if curl --fail --silent http://localhost:8222/healthz >/dev/null; then
               break
