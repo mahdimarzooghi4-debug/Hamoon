@@ -1346,3 +1346,316 @@ a {
     width: 100%;
   }
 }
+
+
+.prescription-panel {
+  display: grid;
+  gap: var(--hamoon-space-20);
+}
+
+.prescription-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--hamoon-space-12);
+}
+
+.prescription-current {
+  display: grid;
+  gap: var(--hamoon-space-16);
+}
+
+.prescription-summary {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-14);
+  background: linear-gradient(180deg, #f5fdff 0%, var(--hamoon-white) 100%);
+}
+
+.prescription-summary__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}
+
+.prescription-summary h3 {
+  margin: 0;
+  color: var(--hamoon-blue);
+  font-size: 22px;
+  line-height: 1.7;
+}
+
+.prescription-intensity {
+  width: fit-content;
+  min-width: 140px;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-cyan-soft);
+}
+
+.prescription-intensity span {
+  color: var(--hamoon-muted);
+  font-size: 10px;
+}
+
+.prescription-intensity strong {
+  color: #087f89;
+  font-size: 22px;
+}
+
+.prescription-items {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--hamoon-space-12);
+}
+
+.prescription-item {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-14);
+  background: var(--hamoon-white);
+}
+
+.prescription-item__top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.prescription-item > strong {
+  color: var(--hamoon-blue);
+  font-size: 17px;
+}
+
+.prescription-item > span {
+  color: var(--hamoon-muted);
+  font-size: 12px;
+}
+
+.prescription-item > p {
+  margin: 0;
+  color: var(--hamoon-muted);
+  line-height: 1.9;
+}
+
+.prescription-item__facts {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.prescription-item__facts > div {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-page);
+}
+
+.prescription-item__facts span {
+  color: var(--hamoon-muted);
+  font-size: 10px;
+}
+
+.prescription-item__facts strong {
+  color: var(--hamoon-ink);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.prescription-flags,
+.prescription-actions,
+.prescription-review-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.prescription-review-form {
+  display: grid;
+  gap: var(--hamoon-space-16);
+  padding: 18px;
+  border: 1px solid var(--hamoon-cyan);
+  border-radius: var(--hamoon-radius-14);
+  background: #f8feff;
+}
+
+.prescription-review-form__heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--hamoon-space-12);
+}
+
+.prescription-review-form__heading h3 {
+  margin: 4px 0 0;
+  color: var(--hamoon-blue);
+}
+
+.prescription-editor {
+  display: grid;
+  gap: var(--hamoon-space-16);
+}
+
+.prescription-editor__items {
+  display: grid;
+  gap: var(--hamoon-space-12);
+}
+
+.prescription-editor-item {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-white);
+}
+
+.prescription-editor-item__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.accepted-interventions {
+  display: grid;
+  gap: var(--hamoon-space-12);
+  padding-top: 8px;
+  border-top: 1px solid var(--hamoon-border);
+}
+
+.accepted-interventions h3,
+.prescription-history h3 {
+  margin: 4px 0 0;
+  color: var(--hamoon-blue);
+}
+
+.accepted-interventions__list {
+  display: grid;
+  gap: var(--hamoon-space-8);
+}
+
+.accepted-intervention {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hamoon-space-12);
+  padding: 14px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-page);
+}
+
+.accepted-intervention > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.accepted-intervention strong {
+  color: var(--hamoon-ink);
+}
+
+.accepted-intervention span {
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}
+
+.accepted-intervention__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prescription-history {
+  display: grid;
+  gap: var(--hamoon-space-12);
+  padding-top: 8px;
+  border-top: 1px solid var(--hamoon-border);
+}
+
+.prescription-history__list {
+  display: grid;
+  gap: var(--hamoon-space-8);
+}
+
+.prescription-history-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-page);
+}
+
+.prescription-history-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}
+
+.prescription-history-card > strong {
+  color: var(--hamoon-ink);
+}
+
+.prescription-history-card > span {
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}
+
+.prescription-history-card > div:last-child:not(.prescription-history-card__top) {
+  padding: 10px;
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-white);
+}
+
+.prescription-history-card b {
+  color: var(--hamoon-blue);
+  font-size: 12px;
+}
+
+.prescription-history-card p {
+  margin: 6px 0 0;
+  color: var(--hamoon-muted);
+  line-height: 1.8;
+}
+
+@media (max-width: 860px) {
+  .prescription-items {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .prescription-actions,
+  .prescription-review-form__actions,
+  .accepted-intervention,
+  .accepted-intervention__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .prescription-actions .hm-button,
+  .prescription-review-form__actions .hm-button,
+  .accepted-intervention__actions .hm-button {
+    width: 100%;
+  }
+
+  .prescription-item__facts {
+    grid-template-columns: 1fr;
+  }
+}

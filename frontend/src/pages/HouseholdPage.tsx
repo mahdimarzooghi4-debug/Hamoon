@@ -9,6 +9,7 @@ import {
 } from "../api/households";
 import { AppLink } from "../app/navigation";
 import { DiagnosisSection } from "../components/DiagnosisSection";
+import { PrescriptionSection } from "../components/PrescriptionSection";
 import {
   Badge,
   EmptyState,
@@ -298,16 +299,21 @@ export function HouseholdPage({ householdId }: { householdId: string }) {
         pgorSnapshotId={pgor?.snapshot_id ?? null}
       />
 
+      <PrescriptionSection
+        householdId={item.id}
+        pgorSnapshotId={pgor?.snapshot_id ?? null}
+      />
+
       <Panel>
         <div className="section-heading">
           <div>
             <span className="eyebrow">مسیر Canonical بعدی</span>
-            <h2>نسخه توانمندسازی و مداخلات</h2>
+            <h2>تطبیق ارائه‌دهنده و ارجاع</h2>
           </div>
         </div>
         <EmptyState
-          title="نسخه توانمندسازی در vertical slice بعدی متصل می‌شود"
-          description="پس از نهایی‌شدن تصمیم تشخیص، پیشنهاد نسخه، تصمیم انسانی و مداخلات از APIهای واقعی به همین پرونده متصل می‌شوند."
+          title="تطبیق ارائه‌دهنده در vertical slice بعدی متصل می‌شود"
+          description="پس از فعال‌شدن مداخله، تطبیق قاعده‌محور ارائه‌دهنده، انتخاب انسانی و ایجاد ارجاع به همین پرونده متصل خواهند شد."
         />
       </Panel>
     </div>
