@@ -24,6 +24,7 @@ The local product boundary includes:
 - Unit, contract, security, closed-loop Golden Path and infrastructure integration gates.
 - One-command local Docker Compose stack, including the real web frontend runtime.
 - Build-once release artifact chain: backend/frontend images are built once, scanned, smoke-tested by exact image ID, then packaged with a digest manifest.
+- Supply-chain metadata for the tested artifacts: CycloneDX SBOMs, SLSA-style in-toto provenance, SHA-256 checksums, and an offline bundle verifier.
 
 ## Intentionally deferred integrations
 
@@ -123,7 +124,8 @@ UI/Figma work may start only when the current main commit has:
 11. backend and frontend OCI images are each built exactly once for the release gate;
 12. those exact images pass the pinned Trivy HIGH/CRITICAL vulnerability gate;
 13. the complete local stack smoke uses those exact scanned image IDs, including frontend SPA/deep-link/runtime-config/API-proxy checks;
-14. successful main runs package both tested images plus commit/image/archive SHA-256 identity into an immutable GitHub Actions release artifact.
+14. successful main runs package both tested images plus commit/image/archive SHA-256 identity into an immutable GitHub Actions release artifact;
+15. that artifact includes CycloneDX SBOMs and SLSA-style provenance, and the offline release verifier passes before upload.
 
 A red gate means the backend contract is not considered frozen for UI work.
 

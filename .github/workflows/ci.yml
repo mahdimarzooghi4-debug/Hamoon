@@ -215,6 +215,27 @@ jobs:
           vuln-type: os,library
           severity: HIGH,CRITICAL
 
+      - name: Prepare release metadata directory
+        run: mkdir -p release
+
+      - name: Generate backend CycloneDX SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.HAMOON_API_IMAGE }}
+          format: cyclonedx
+          output: release/hamoon-api.cdx.json
+          exit-code: "0"
+          scanners: vuln
+
+      - name: Generate frontend CycloneDX SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.HAMOON_WEB_IMAGE }}
+          format: cyclonedx
+          output: release/hamoon-web.cdx.json
+          exit-code: "0"
+          scanners: vuln
+
       - name: Build local-only MinIO helper
         run: docker compose build minio
 
@@ -287,7 +308,6 @@ jobs:
       - name: Package immutable release bundle
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          mkdir -p release
           docker save "$HAMOON_API_IMAGE" -o release/hamoon-api.tar
           docker save "$HAMOON_WEB_IMAGE" -o release/hamoon-web.tar
 
@@ -295,18 +315,77 @@ jobs:
           web_id="$(docker image inspect "$HAMOON_WEB_IMAGE" --format '{{.Id}}')"
           api_archive_sha256="$(sha256sum release/hamoon-api.tar | awk '{print $1}')"
           web_archive_sha256="$(sha256sum release/hamoon-web.tar | awk '{print $1}')"
+          api_sbom_sha256="$(sha256sum release/hamoon-api.cdx.json | awk '{print $1}')"
+          web_sbom_sha256="$(sha256sum release/hamoon-web.cdx.json | awk '{print $1}')"
+
+          cat > release/provenance.json <<EOF
+          {
+            "_type": "https://in-toto.io/Statement/v1",
+            "subject": [
+              {"name": "hamoon-api.tar", "digest": {"sha256": "${api_archive_sha256}"}},
+              {"name": "hamoon-web.tar", "digest": {"sha256": "${web_archive_sha256}"}}
+            ],
+            "predicateType": "https://slsa.dev/provenance/v1",
+            "predicate": {
+              "buildDefinition": {
+                "buildType": "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/ci.yml#release-artifact",
+                "externalParameters": {
+                  "repository": "${GITHUB_REPOSITORY}",
+                  "commit_sha": "${GITHUB_SHA}"
+                },
+                "resolvedDependencies": [
+                  {
+                    "uri": "git+https://github.com/${GITHUB_REPOSITORY}@${GITHUB_SHA}",
+                    "digest": {"gitCommit": "${GITHUB_SHA}"}
+                  }
+                ]
+              },
+              "runDetails": {
+                "builder": {
+                  "id": "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/ci.yml@refs/heads/main"
+                },
+                "metadata": {
+                  "invocationId": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+                }
+              }
+            }
+          }
+          EOF
+
+          provenance_sha256="$(sha256sum release/provenance.json | awk '{print $1}')"
 
           cat > release/manifest.json <<EOF
           {
+            "schema_version": 2,
+            "repository": "${GITHUB_REPOSITORY}",
             "commit_sha": "${GITHUB_SHA}",
-            "backend_image": "${HAMOON_API_IMAGE}",
-            "backend_image_id": "${api_id}",
-            "backend_archive_sha256": "${api_archive_sha256}",
-            "frontend_image": "${HAMOON_WEB_IMAGE}",
-            "frontend_image_id": "${web_id}",
-            "frontend_archive_sha256": "${web_archive_sha256}"
+            "workflow_run_id": "${GITHUB_RUN_ID}",
+            "backend": {
+              "image": "${HAMOON_API_IMAGE}",
+              "image_id": "${api_id}",
+              "archive": "hamoon-api.tar",
+              "archive_sha256": "${api_archive_sha256}",
+              "sbom": "hamoon-api.cdx.json",
+              "sbom_sha256": "${api_sbom_sha256}"
+            },
+            "frontend": {
+              "image": "${HAMOON_WEB_IMAGE}",
+              "image_id": "${web_id}",
+              "archive": "hamoon-web.tar",
+              "archive_sha256": "${web_archive_sha256}",
+              "sbom": "hamoon-web.cdx.json",
+              "sbom_sha256": "${web_sbom_sha256}"
+            },
+            "provenance": "provenance.json",
+            "provenance_sha256": "${provenance_sha256}"
           }
           EOF
+
+          sha256sum             release/hamoon-api.tar             release/hamoon-web.tar             release/hamoon-api.cdx.json             release/hamoon-web.cdx.json             release/provenance.json             > release/SHA256SUMS
+
+      - name: Verify release bundle integrity
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: python3 scripts/verify_release_bundle.py release
 
       - name: Upload immutable release bundle
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
