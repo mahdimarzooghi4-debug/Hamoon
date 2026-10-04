@@ -1,0 +1,284 @@
+name: External Telemetry Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact Production-monitored 40-character commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: Type VERIFY_TELEMETRY to emit and query a synthetic telemetry probe
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-external-telemetry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PROMOTED_SHA: ${{ inputs.commit_sha }}
+      METRICS_TOKEN: ${{ secrets.HAMOON_PRODUCTION_METRICS_TOKEN }}
+      VERIFICATION_URL: ${{ secrets.HAMOON_OBSERVABILITY_VERIFICATION_URL }}
+      VERIFICATION_TOKEN: ${{ secrets.HAMOON_OBSERVABILITY_VERIFICATION_TOKEN }}
+
+    steps:
+      - name: Validate explicit external telemetry verification input
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          test "$CONFIRMATION" = "VERIFY_TELEMETRY"
+          printf '%s' "$PROMOTED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test -n "$METRICS_TOKEN"
+          test -n "$VERIFICATION_URL"
+          test -n "$VERIFICATION_TOKEN"
+
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import ipaddress
+          import os
+          from urllib.parse import urlsplit
+
+          value = os.environ["VERIFICATION_URL"].strip()
+          parsed = urlsplit(value)
+          assert parsed.scheme == "https", "verification URL must use HTTPS"
+          assert parsed.hostname, "verification URL must include a host"
+          host = parsed.hostname.lower()
+          assert host != "localhost" and not host.endswith(".localhost")
+          try:
+              address = ipaddress.ip_address(host)
+          except ValueError:
+              pass
+          else:
+              assert not (
+                  address.is_loopback
+                  or address.is_private
+                  or address.is_link_local
+                  or address.is_unspecified
+              ), "verification URL must not use a local/private IP"
+          print(f"VERIFICATION_URL={value}")
+          PY
+
+      - name: Checkout exact monitored commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Require candidate to belong to main history
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$PROMOTED_SHA" origin/main
+
+      - name: Resolve successful Production Monitoring baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          artifact_name="hamoon-production-monitoring-$PROMOTED_SHA"
+          artifact_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$artifact_name&per_page=100" \
+              --jq '[.artifacts[] | select(.expired == false)][0].id'
+          )"
+          test -n "$artifact_id"
+
+          monitoring_run_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id" \
+              --jq '.workflow_run.id'
+          )"
+          test -n "$monitoring_run_id"
+
+          monitoring_conclusion="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$monitoring_run_id" \
+              --jq '.conclusion'
+          )"
+          test "$monitoring_conclusion" = "success"
+
+          echo "PRODUCTION_MONITORING_RUN_ID=$monitoring_run_id" >> "$GITHUB_ENV"
+
+      - name: Download Production Monitoring baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p telemetry-input
+          gh run download "$PRODUCTION_MONITORING_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-production-monitoring-$PROMOTED_SHA" \
+            --dir telemetry-input
+
+      - name: Bind telemetry verification to monitored Production release
+        run: |
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          import os
+          from pathlib import Path
+
+          monitoring = json.loads(
+              Path(
+                  "telemetry-input/production-monitoring-baseline.json"
+              ).read_text()
+          )
+          assert monitoring["status"] == "BASELINE_PASSED"
+          assert monitoring["production_deployed"] is True
+          assert monitoring["production_verified"] is True
+          assert monitoring["commit_sha"] == os.environ["PROMOTED_SHA"]
+          assert (
+              monitoring["production_monitoring_run_id"]
+              == os.environ["PRODUCTION_MONITORING_RUN_ID"]
+          )
+          print(f'PRODUCTION_ENDPOINT={monitoring["production_endpoint"]}')
+          print(f'EXPECTED_DEPLOYMENT_ID={monitoring["deployment_id"]}')
+          PY
+
+      - name: Emit PII-free Production telemetry probe
+        run: |
+          mkdir -p telemetry-observed
+          base="${PRODUCTION_ENDPOINT%/}"
+          curl --fail --silent --show-error \
+            --request POST \
+            --header "X-Hamoon-Metrics-Token: $METRICS_TOKEN" \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 3 --retry-all-errors \
+            "$base/health/telemetry-probe" \
+            > telemetry-observed/probe-response.json
+
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          import os
+
+          probe = json.load(open("telemetry-observed/probe-response.json"))
+          assert probe["status"] == "emitted"
+          assert probe["git_commit"] == os.environ["PROMOTED_SHA"]
+          assert probe["deployment_id"] == os.environ["EXPECTED_DEPLOYMENT_ID"]
+          assert probe["environment"].lower() in {"prod", "production"}
+          print(f'TELEMETRY_PROBE_ID={probe["probe_id"]}')
+          print(f'TELEMETRY_TRACE_ID={probe["trace_id"]}')
+          PY
+
+      - name: Query external observability verification adapter
+        run: |
+          for i in {1..36}; do
+            status="$(
+              curl --silent --show-error \
+                --output telemetry-observed/backend-observation.tmp \
+                --write-out '%{http_code}' \
+                --get \
+                --header "Authorization: Bearer $VERIFICATION_TOKEN" \
+                --data-urlencode "probe_id=$TELEMETRY_PROBE_ID" \
+                --data-urlencode "trace_id=$TELEMETRY_TRACE_ID" \
+                --data-urlencode "commit_sha=$PROMOTED_SHA" \
+                --data-urlencode "deployment_id=$EXPECTED_DEPLOYMENT_ID" \
+                --proto '=https' --proto-redir '=https' --tlsv1.2 \
+                --max-time 20 \
+                "$VERIFICATION_URL" || true
+            )"
+            if [ "$status" = "200" ]; then
+              mv telemetry-observed/backend-observation.tmp \
+                telemetry-observed/backend-observation.json
+              break
+            fi
+            if [ "$status" != "202" ] && [ "$status" != "404" ]; then
+              echo "Unexpected observability verification status: $status" >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          test -f telemetry-observed/backend-observation.json
+
+      - name: Create external telemetry attestation
+        env:
+          EXTERNAL_TELEMETRY_RUN_ID: ${{ github.run_id }}
+        run: |
+          mkdir -p external-telemetry
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          policy_path = Path(
+              "ops/observability/external-telemetry-policy.json"
+          )
+          monitoring_path = Path(
+              "telemetry-input/production-monitoring-baseline.json"
+          )
+          probe_path = Path("telemetry-observed/probe-response.json")
+          observation_path = Path(
+              "telemetry-observed/backend-observation.json"
+          )
+
+          policy = json.loads(policy_path.read_text())
+          monitoring = json.loads(monitoring_path.read_text())
+          probe = json.loads(probe_path.read_text())
+          observation = json.loads(observation_path.read_text())
+
+          attestation = {
+              "schema_version": 1,
+              "status": "VERIFIED",
+              "verification_scope": "EXTERNAL_OTEL_TRACES_LOGS",
+              "external_telemetry_backend_verified": True,
+              "trace_ingestion_verified": True,
+              "log_ingestion_verified": True,
+              "retention_verified": True,
+              "dashboards_verified": True,
+              "commit_sha": monitoring["commit_sha"],
+              "deployment_id": monitoring["deployment_id"],
+              "probe_id": probe["probe_id"],
+              "trace_id": probe["trace_id"],
+              "provider": observation["provider"],
+              "production_monitoring_run_id": monitoring[
+                  "production_monitoring_run_id"
+              ],
+              "external_telemetry_run_id": os.environ[
+                  "EXTERNAL_TELEMETRY_RUN_ID"
+              ],
+              "minimum_trace_retention_days": policy[
+                  "minimum_retention_days"
+              ]["traces"],
+              "minimum_log_retention_days": policy[
+                  "minimum_retention_days"
+              ]["logs"],
+              "dashboard_ids": [
+                  item["id"] for item in policy["required_dashboards"]
+              ],
+              "policy_sha256": hashlib.sha256(
+                  policy_path.read_bytes()
+              ).hexdigest(),
+              "production_monitoring_sha256": hashlib.sha256(
+                  monitoring_path.read_bytes()
+              ).hexdigest(),
+              "probe_response_sha256": hashlib.sha256(
+                  probe_path.read_bytes()
+              ).hexdigest(),
+              "backend_observation_sha256": hashlib.sha256(
+                  observation_path.read_bytes()
+              ).hexdigest(),
+              "verified_at": datetime.now(UTC).isoformat(),
+          }
+          Path(
+              "external-telemetry/external-telemetry-verification.json"
+          ).write_text(
+              json.dumps(attestation, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Verify external telemetry evidence
+        run: |
+          python3 scripts/verify_external_telemetry.py \
+            ops/observability/external-telemetry-policy.json \
+            telemetry-input/production-monitoring-baseline.json \
+            telemetry-observed/probe-response.json \
+            telemetry-observed/backend-observation.json \
+            external-telemetry/external-telemetry-verification.json
+
+      - name: Upload immutable external telemetry evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamoon-external-telemetry-${{ inputs.commit_sha }}
+          path: external-telemetry/
+          if-no-files-found: error
+          retention-days: 90

@@ -931,6 +931,11 @@ Telemetry retention بر اساس type:
 
 در Deployment/Operations policy تعیین می‌شود.
 
+The V1 external telemetry operations policy is machine-readable at
+`ops/observability/external-telemetry-policy.json`. Its current minimum retention is
+14 days for traces and 30 days for logs. These are telemetry retention minima and do not
+replace Business Audit or evidence retention rules.
+
 Telemetry نباید جای Business Audit retention را بگیرد.
 
 ---
@@ -1044,6 +1049,11 @@ Stage باید observability کامل داشته باشد تا قبل از Produ
 
 قابل مشاهده باشند.
 
+Stage Admission additionally runs an ephemeral OpenTelemetry Collector and requires a
+PII-free synthetic probe to appear in both OTLP trace and OTLP log output with the exact
+release SHA and deployment ID. This is the executable minimum for end-to-end telemetry
+transport before Production.
+
 ---
 
 # 48. Production
@@ -1062,8 +1072,10 @@ Production Prometheus metrics are protected by a dedicated monitoring credential
 Unauthenticated requests to `/metrics` must return HTTP 401. The credential is
 separate from end-user OIDC tokens and must not appear in logs or artifacts.
 
-Production configuration also requires OpenTelemetry export to a non-local HTTPS
-collector endpoint. A deploy that disables metrics or OTEL is configuration-invalid.
+Production configuration also requires separate non-local HTTPS OTLP/HTTP endpoints
+for traces and logs. Application logs are sanitized before entering the OTLP pipeline,
+and OTLP authentication headers are handled as secrets. A deploy that disables metrics,
+structured logging, or OTEL is configuration-invalid.
 
 ---
 

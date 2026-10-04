@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "status": "ENFORCED",
+  "probe": {
+    "endpoint": "/health/telemetry-probe",
+    "span_name": "hamoon.observability.probe",
+    "log_message": "Observability verification probe emitted",
+    "log_operation": "observability_probe"
+  },
+  "required_resource_attributes": [
+    "service.name",
+    "service.version",
+    "deployment.environment.name",
+    "hamoon.git_commit",
+    "hamoon.image_id",
+    "hamoon.deployment_id"
+  ],
+  "minimum_retention_days": {
+    "traces": 14,
+    "logs": 30
+  },
+  "required_dashboards": [
+    {
+      "id": "platform",
+      "purpose": "API availability, latency, errors, database health, release identity"
+    },
+    {
+      "id": "async-workers",
+      "purpose": "Outbox backlog, worker health and heartbeat freshness"
+    }
+  ],
+  "forbidden_evidence_fields": [
+    "household_id",
+    "referral_id",
+    "user_id",
+    "national_id",
+    "phone",
+    "access_token",
+    "refresh_token",
+    "client_secret",
+    "password"
+  ]
+}

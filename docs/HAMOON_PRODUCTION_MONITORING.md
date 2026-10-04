@@ -64,6 +64,17 @@ Production Verification VERIFIED
 → Production Monitoring Baseline PASSED
 → materialized Prometheus alert rules
 → external Alertmanager routing/delivery verification
+→ external OTLP trace/log query + retention/dashboard verification
 → ongoing monitoring
 → improvement
 ```
+
+
+## External trace/log verification
+
+A separate `External Telemetry Verification` gate emits a fresh protected
+Production telemetry probe and requires a remote verification adapter to prove that the
+same trace and correlated sanitized log are queryable in the real external backend.
+The adapter also supplies retention and dashboard evidence governed by
+`ops/observability/external-telemetry-policy.json`. Until that gate succeeds,
+Production Monitoring does not imply that external trace/log storage is verified.
