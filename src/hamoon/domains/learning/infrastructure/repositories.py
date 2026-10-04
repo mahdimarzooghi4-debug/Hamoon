@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.domains.intelligence.domain.decisions import LearningSignalType
 from hamoon.domains.learning.domain.entities import (
+    DatasetVersionStatus,
     LearningDatasetItem,
     LearningDatasetVersion,
 )

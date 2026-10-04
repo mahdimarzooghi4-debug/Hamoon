@@ -45,6 +45,7 @@ from hamoon.domains.intelligence.infrastructure.models import (
     AIProviderModel,
     EvaluationRunModel,
     ModelRoutingPolicyModel,
+    PromptPolicyModel,
     PromptPolicyVersionModel,
 )
 from hamoon.infrastructure.ai.contracts import AIRoutingPolicy, AITaskClass

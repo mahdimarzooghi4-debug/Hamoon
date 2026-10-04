@@ -596,13 +596,14 @@ export function LearningGovernancePage() {
     );
   }
 
-  const rawCount = ready.signals.filter(
+  const readyData = state;
+  const rawCount = readyData.signals.filter(
     (item) => item.quality_status === "RAW",
   ).length;
   const curatedOutcomeCount = eligibleDatasetSignals.length;
   const approvedDatasetCount = approvedDatasets.length;
   const passedEvaluationCount = passedEvaluations.length;
-  const activeRoute = ready.routes.find((item) => item.status === "ACTIVE");
+  const activeRoute = readyData.routes.find((item) => item.status === "ACTIVE");
 
   return (
     <div className="page-stack admin-learning-page">
@@ -881,7 +882,7 @@ export function LearningGovernancePage() {
         </form>
 
         <div className="dataset-list">
-          {ready.datasets.map((dataset) => (
+          {readyData.datasets.map((dataset) => (
             <article className="dataset-card" key={dataset.id}>
               <div>
                 <strong>
@@ -943,7 +944,7 @@ export function LearningGovernancePage() {
             <h2>Evaluation Runs</h2>
           </div>
           <Badge tone="neutral">
-            {ready.evaluations.length.toLocaleString("fa-IR")} اجرا
+            {readyData.evaluations.length.toLocaleString("fa-IR")} اجرا
           </Badge>
         </div>
 
@@ -1008,7 +1009,7 @@ export function LearningGovernancePage() {
         </form>
 
         <div className="evaluation-list">
-          {ready.evaluations.map((evaluation) => {
+          {readyData.evaluations.map((evaluation) => {
             const dataset = evaluation.dataset_version_id
               ? datasetById.get(evaluation.dataset_version_id)
               : undefined;
@@ -1173,7 +1174,7 @@ export function LearningGovernancePage() {
         </form>
 
         <div className="routing-list">
-          {ready.routes.map((route) => {
+          {readyData.routes.map((route) => {
             const evaluation = evaluationById.get(route.evaluation_run_id);
             const model = modelById.get(route.model_version_id);
             return (
@@ -1219,7 +1220,7 @@ export function LearningGovernancePage() {
             <div>
               <span className="eyebrow">Explicit Production Approval</span>
               <strong>
-                {ready.routes.find((item) => item.id === promotionRouteId)
+                {readyData.routes.find((item) => item.id === promotionRouteId)
                   ?.version ?? "Routing Policy"}
               </strong>
             </div>
