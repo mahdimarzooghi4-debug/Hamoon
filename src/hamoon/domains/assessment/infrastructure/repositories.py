@@ -189,6 +189,23 @@ class SqlAlchemyObservationValidationRepository:
         model = await self._session.get(ObservationValidationStateModel, observation_id)
         return None if model is None else _validation(model)
 
+
+    async def list_states_for_observations(
+        self,
+        observation_ids: list[UUID],
+    ) -> dict[UUID, ObservationValidationState]:
+        if not observation_ids:
+            return {}
+        result = await self._session.execute(
+            select(ObservationValidationStateModel).where(
+                ObservationValidationStateModel.observation_id.in_(observation_ids)
+            )
+        )
+        return {
+            model.observation_id: _validation(model)
+            for model in result.scalars().all()
+        }
+
     async def transition(
         self,
         *,

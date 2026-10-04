@@ -126,3 +126,42 @@ class StartReassessmentRequest(BaseModel):
     provider_result_id: UUID | None = None
     parent_assessment_id: UUID | None = None
     reason: str = Field(min_length=1, max_length=500)
+
+
+class AssessmentWorkspaceObservationData(BaseModel):
+    id: UUID
+    raw_score_0_100: Decimal
+    source_id: UUID
+    source_detail: str | None
+    effective_at: datetime
+    observed_at: datetime
+    validation_status: ObservationValidationStatus | None
+    validation_version: int | None
+    accepted: bool
+    accepted_projection_version: int | None
+
+
+class AssessmentWorkspaceIndicatorData(BaseModel):
+    id: UUID
+    variable_code: str
+    variable_name_fa: str
+    dimension_code: str
+    dimension_name_fa: str
+    code: str
+    name_fa: str
+    score_min: int
+    score_max: int
+    required_for_complete_assessment: bool | None
+    direct_dimension_measure: bool
+    latest_observation: AssessmentWorkspaceObservationData | None
+
+
+class AssessmentWorkspaceData(BaseModel):
+    assessment: AssessmentData
+    definition_code: str
+    definition_version: str
+    indicators: list[AssessmentWorkspaceIndicatorData]
+
+
+class AssessmentWorkspaceResponse(BaseModel):
+    data: AssessmentWorkspaceData

@@ -15,6 +15,10 @@ from hamoon.domains.assessment.api.schemas import (
     AssessmentReadinessData,
     AssessmentReadinessResponse,
     AssessmentResponse,
+    AssessmentWorkspaceData,
+    AssessmentWorkspaceIndicatorData,
+    AssessmentWorkspaceObservationData,
+    AssessmentWorkspaceResponse,
     ChangeObservationValidationRequest,
     ObservationData,
     ObservationResponse,
@@ -161,6 +165,127 @@ async def start_assessment(
             intervention_id=assessment.intervention_id,
             provider_result_id=assessment.provider_result_id,
             parent_assessment_id=assessment.parent_assessment_id,
+        )
+    )
+
+
+@router.get(
+    "/api/v1/assessments/{assessment_id}/workspace",
+    response_model=AssessmentWorkspaceResponse,
+)
+async def get_assessment_workspace(
+    assessment_id: UUID,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> AssessmentWorkspaceResponse:
+    assessment = await _assessment_with_scope(
+        assessment_id=assessment_id,
+        session=session,
+        context=context,
+    )
+    definitions = SqlAlchemyPGORDefinitionRepository(session)
+    bundle = await definitions.get_bundle(assessment.definition_version_id)
+    if bundle is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "PGOR_DEFINITION_NOT_FOUND"},
+        )
+
+    observations = await SqlAlchemyIndicatorObservationRepository(
+        session
+    ).list_for_assessment(assessment_id)
+    latest_by_indicator = {}
+    for observation in observations:
+        latest_by_indicator[observation.indicator_definition_id] = observation
+
+    validation_states = await SqlAlchemyObservationValidationRepository(
+        session
+    ).list_states_for_observations([item.id for item in observations])
+    accepted = await SqlAlchemyAcceptedObservationRepository(
+        session
+    ).list_for_assessment(assessment_id)
+    accepted_by_indicator = {
+        item.indicator_definition_id: item
+        for item in accepted
+    }
+
+    dimensions = {item.id: item for item in bundle.dimensions}
+    variables = {item.id: item for item in bundle.variables}
+    indicators: list[AssessmentWorkspaceIndicatorData] = []
+    for indicator in bundle.indicators:
+        dimension = dimensions[indicator.dimension_definition_id]
+        variable = variables[dimension.variable_definition_id]
+        latest = latest_by_indicator.get(indicator.id)
+        accepted_item = accepted_by_indicator.get(indicator.id)
+        validation = (
+            None if latest is None else validation_states.get(latest.id)
+        )
+        indicators.append(
+            AssessmentWorkspaceIndicatorData(
+                id=indicator.id,
+                variable_code=variable.code.value,
+                variable_name_fa=variable.name_fa,
+                dimension_code=dimension.code,
+                dimension_name_fa=dimension.name_fa,
+                code=indicator.code,
+                name_fa=indicator.name_fa,
+                score_min=indicator.score_min,
+                score_max=indicator.score_max,
+                required_for_complete_assessment=(
+                    indicator.required_for_complete_assessment
+                ),
+                direct_dimension_measure=indicator.direct_dimension_measure,
+                latest_observation=(
+                    None
+                    if latest is None
+                    else AssessmentWorkspaceObservationData(
+                        id=latest.id,
+                        raw_score_0_100=latest.raw_score_0_100,
+                        source_id=latest.source_id,
+                        source_detail=latest.source_detail,
+                        effective_at=latest.effective_at,
+                        observed_at=latest.observed_at,
+                        validation_status=(
+                            None if validation is None else validation.status
+                        ),
+                        validation_version=(
+                            None if validation is None else validation.version
+                        ),
+                        accepted=(
+                            accepted_item is not None
+                            and accepted_item.observation_id == latest.id
+                        ),
+                        accepted_projection_version=(
+                            None
+                            if accepted_item is None
+                            else accepted_item.projection_version
+                        ),
+                    )
+                ),
+            )
+        )
+
+    return AssessmentWorkspaceResponse(
+        data=AssessmentWorkspaceData(
+            assessment=AssessmentData(
+                id=assessment.id,
+                household_id=assessment.household_id,
+                assessment_type=assessment.assessment_type,
+                definition_version_id=assessment.definition_version_id,
+                status=assessment.status,
+                version=assessment.version,
+                started_at=assessment.started_at,
+                reason=assessment.reason,
+                intervention_id=assessment.intervention_id,
+                provider_result_id=assessment.provider_result_id,
+                parent_assessment_id=assessment.parent_assessment_id,
+            ),
+            definition_code=bundle.version.code,
+            definition_version=bundle.version.version,
+            indicators=indicators,
         )
     )
 
