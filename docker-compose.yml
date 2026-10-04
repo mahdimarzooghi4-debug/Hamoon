@@ -119,6 +119,22 @@ services:
     volumes:
       - hamoon_evidence:/data/evidence
 
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      HAMOON_WEB_API_BASE_URL: ""
+      HAMOON_WEB_OIDC_ISSUER_URL: http://localhost:8081/realms/hamoon-local
+      HAMOON_WEB_OIDC_CLIENT_ID: hamoon-web
+    depends_on:
+      api:
+        condition: service_started
+      keycloak:
+        condition: service_started
+    ports:
+      - "3000:80"
+
   outbox-worker:
     build: .
     command: ["python", "-m", "hamoon.infrastructure.events.outbox"]

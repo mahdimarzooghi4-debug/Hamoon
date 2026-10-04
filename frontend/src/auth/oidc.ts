@@ -1,10 +1,8 @@
+import { hamoonRuntimeConfig } from "../runtimeConfig";
 import { extractHamoonRoles } from "./claims";
 
-const issuer = (
-  import.meta.env.VITE_HAMOON_OIDC_ISSUER_URL ??
-  "http://localhost:8081/realms/hamoon-local"
-).replace(/\/$/, "");
-const clientId = import.meta.env.VITE_HAMOON_OIDC_CLIENT_ID ?? "hamoon-web";
+const issuer = hamoonRuntimeConfig.oidcIssuerUrl;
+const clientId = hamoonRuntimeConfig.oidcClientId;
 
 const ACCESS_TOKEN_KEY = "hamoon.access_token";
 const REFRESH_TOKEN_KEY = "hamoon.refresh_token";

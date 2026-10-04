@@ -1,6 +1,7 @@
 import { clearAuthSession, getAccessToken } from "../auth/oidc";
+import { hamoonRuntimeConfig } from "../runtimeConfig";
 
-const apiBaseUrl = (import.meta.env.VITE_HAMOON_API_BASE_URL ?? "").replace(/\/$/, "");
+const apiBaseUrl = hamoonRuntimeConfig.apiBaseUrl;
 
 export class ApiError extends Error {
   readonly status: number;

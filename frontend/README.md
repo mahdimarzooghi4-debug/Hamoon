@@ -14,11 +14,35 @@ npm run dev
 
 Vite proxies `/api` and `/health` to `http://localhost:8000`.
 
-For a non-proxied deployment:
+## Container runtime
+
+The production-shaped frontend is an immutable Nginx image:
 
 ```bash
-cp .env.example .env
-# set VITE_HAMOON_API_BASE_URL to the internal Hamoon API origin
+docker build -f frontend/Dockerfile -t hamoon-web .
+```
+
+The image serves the SPA, keeps deep links such as `/auth/callback` working, and
+reverse-proxies `/api`, `/health` and `/metrics` to the Hamoon API. This keeps
+browser API traffic same-origin.
+
+Environment-specific browser configuration is injected when the container starts,
+not when the JavaScript bundle is built:
+
+```text
+HAMOON_WEB_API_BASE_URL
+HAMOON_WEB_OIDC_ISSUER_URL
+HAMOON_WEB_OIDC_CLIENT_ID
+```
+
+This preserves the deployment rule of building one immutable artifact and promoting
+the same image through DEV, STAGE and PROD. `VITE_HAMOON_*` values remain development
+fallbacks only.
+
+The complete local stack exposes the web product at:
+
+```text
+http://localhost:3000
 ```
 
 Authentication uses Keycloak-compatible OIDC Authorization Code + PKCE. Browser access
@@ -41,4 +65,5 @@ RBAC and resource scope server-side.
 npm run typecheck
 npm run test:access
 npm run build
+docker build -f frontend/Dockerfile -t hamoon-web .
 ```

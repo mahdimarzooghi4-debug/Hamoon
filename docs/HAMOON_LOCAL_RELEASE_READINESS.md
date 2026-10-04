@@ -22,7 +22,7 @@ The local product boundary includes:
 - Structured PII-safe logs, Prometheus-compatible metrics and OpenTelemetry hooks.
 - Data Health and Machine Health aggregate read models.
 - Unit, contract, security, closed-loop Golden Path and infrastructure integration gates.
-- One-command local Docker Compose stack.
+- One-command local Docker Compose stack, including the real web frontend runtime.
 
 ## Intentionally deferred integrations
 
@@ -47,7 +47,13 @@ docker compose up --build
 ```
 
 The stack includes PostgreSQL, NATS JetStream, Keycloak, MinIO, Temporal, database
-migration, API, outbox worker and Temporal worker.
+migration, API, the Nginx-served React frontend, outbox worker and Temporal worker.
+
+Web product:
+
+```text
+http://localhost:3000
+```
 
 API:
 
@@ -104,7 +110,7 @@ UI/Figma work may start only when the current main commit has:
 9. Alembic topology and fresh-database migration green;
 10. container build green;
 11. PostgreSQL-to-JetStream integration gate green;
-12. complete local Docker Compose stack smoke green.
+12. complete local Docker Compose stack smoke green, including frontend SPA/deep-link/runtime-config/API-proxy checks.
 
 A red gate means the backend contract is not considered frozen for UI work.
 

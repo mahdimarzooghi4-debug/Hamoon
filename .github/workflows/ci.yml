@@ -30,6 +30,9 @@ jobs:
       - name: Frontend build
         run: npm --prefix frontend run build
 
+      - name: Frontend container build
+        run: docker build -f frontend/Dockerfile -t hamoon-web-ci .
+
 
   quality:
     runs-on: ubuntu-latest
@@ -183,6 +186,17 @@ jobs:
           curl --fail --silent http://localhost:8081/realms/hamoon-local/.well-known/openid-configuration >/dev/null
           curl --fail --silent http://localhost:9000/minio/health/live >/dev/null
           curl --fail --silent http://localhost:8222/healthz >/dev/null
+
+          for i in {1..60}; do
+            if curl --fail --silent http://localhost:3000/ >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://localhost:3000/ | grep 'id="root"'
+          curl --fail --silent http://localhost:3000/auth/callback | grep 'id="root"'
+          curl --fail --silent http://localhost:3000/config.js | grep 'http://localhost:8081/realms/hamoon-local'
+          curl --fail --silent http://localhost:3000/health/ready >/dev/null
 
       - name: Verify workers and one-shot bootstrap
         run: |
