@@ -23,6 +23,7 @@ The local product boundary includes:
 - Data Health and Machine Health aggregate read models.
 - Unit, contract, security, closed-loop Golden Path and infrastructure integration gates.
 - One-command local Docker Compose stack, including the real web frontend runtime.
+- Build-once release artifact chain: backend/frontend images are built once, scanned, smoke-tested by exact image ID, then packaged with a digest manifest.
 
 ## Intentionally deferred integrations
 
@@ -91,8 +92,9 @@ uv run pytest tests/unit/config/test_settings.py
 docker compose config --quiet
 uv run alembic heads
 docker build -t hamoon-local-release .
-# CI additionally scans both backend and frontend OCI images for
-# fixable HIGH/CRITICAL vulnerabilities before integration can run.
+# CI builds each application OCI image exactly once after integration,
+# scans those exact images, runs the complete stack from those exact image IDs,
+# and packages them with a SHA-256 manifest for later promotion.
 ```
 
 Infrastructure integration verification additionally requires local PostgreSQL and NATS:
@@ -117,10 +119,11 @@ UI/Figma work may start only when the current main commit has:
 7. closed-loop Golden Path green;
 8. diagnosis and outcome evaluation replay gates green;
 9. Alembic topology and fresh-database migration green;
-10. backend and frontend container builds green;
-11. both OCI images pass the pinned Trivy HIGH/CRITICAL vulnerability gate;
-12. PostgreSQL/JetStream integration gate green, including real S3-compatible Evidence round-trip against MinIO;
-13. complete local Docker Compose stack smoke green, including frontend SPA/deep-link/runtime-config/API-proxy checks.
+10. PostgreSQL/JetStream integration gate green, including real S3-compatible Evidence round-trip against MinIO;
+11. backend and frontend OCI images are each built exactly once for the release gate;
+12. those exact images pass the pinned Trivy HIGH/CRITICAL vulnerability gate;
+13. the complete local stack smoke uses those exact scanned image IDs, including frontend SPA/deep-link/runtime-config/API-proxy checks;
+14. successful main runs package both tested images plus commit/image/archive SHA-256 identity into an immutable GitHub Actions release artifact.
 
 A red gate means the backend contract is not considered frozen for UI work.
 

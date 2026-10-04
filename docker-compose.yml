@@ -87,6 +87,7 @@ services:
       - "7233:7233"
 
   migrate:
+    image: ${HAMOON_API_IMAGE:-hamoon-api:local}
     build: .
     command: ["alembic", "upgrade", "head"]
     environment:
@@ -97,6 +98,7 @@ services:
     restart: "no"
 
   api:
+    image: ${HAMOON_API_IMAGE:-hamoon-api:local}
     build: .
     command: ["uvicorn", "hamoon.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
@@ -124,6 +126,7 @@ services:
       - "8000:8000"
 
   web:
+    image: ${HAMOON_WEB_IMAGE:-hamoon-web:local}
     build:
       context: .
       dockerfile: frontend/Dockerfile
@@ -140,6 +143,7 @@ services:
       - "3000:80"
 
   outbox-worker:
+    image: ${HAMOON_API_IMAGE:-hamoon-api:local}
     build: .
     command: ["python", "-m", "hamoon.infrastructure.events.outbox"]
     restart: unless-stopped
@@ -154,6 +158,7 @@ services:
         condition: service_started
 
   temporal-worker:
+    image: ${HAMOON_API_IMAGE:-hamoon-api:local}
     build: .
     command: ["python", "-m", "hamoon.infrastructure.temporal.worker"]
     restart: unless-stopped

@@ -30,20 +30,6 @@ jobs:
       - name: Frontend build
         run: npm --prefix frontend run build
 
-      - name: Frontend container build
-        run: docker build -f frontend/Dockerfile -t hamoon-web-ci .
-
-      - name: Frontend image vulnerability scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: hamoon-web-ci
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: HIGH,CRITICAL
-
-
   quality:
     runs-on: ubuntu-latest
 
@@ -108,20 +94,6 @@ jobs:
 
       - name: Alembic topology
         run: uv run alembic heads
-
-      - name: Container build
-        run: docker build -t hamoon-ci .
-
-      - name: Backend image vulnerability scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: hamoon-ci
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: HIGH,CRITICAL
-
 
   integration:
     needs: [quality, frontend-quality]
@@ -205,17 +177,49 @@ jobs:
         run: docker compose down -v
 
 
-  local-stack-smoke:
+  release-artifact:
     needs: integration
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    env:
+      HAMOON_API_IMAGE: hamoon-api:${{ github.sha }}
+      HAMOON_WEB_IMAGE: hamoon-web:${{ github.sha }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Start complete local stack
-        run: docker compose up -d --build
+      - name: Build immutable backend image once
+        run: docker build --pull -t "$HAMOON_API_IMAGE" .
+
+      - name: Build immutable frontend image once
+        run: docker build --pull -f frontend/Dockerfile -t "$HAMOON_WEB_IMAGE" .
+
+      - name: Backend image vulnerability scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.HAMOON_API_IMAGE }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+
+      - name: Frontend image vulnerability scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.HAMOON_WEB_IMAGE }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+
+      - name: Build local-only MinIO helper
+        run: docker compose build minio
+
+      - name: Start complete stack from scanned images
+        run: docker compose up -d --no-build
 
       - name: Wait for local services
         run: |
@@ -250,12 +254,25 @@ jobs:
           curl --fail --silent http://localhost:3000/config.js | grep "$expected_oidc_b64"
           curl --fail --silent http://localhost:3000/health/ready >/dev/null
 
-      - name: Verify workers and one-shot bootstrap
+      - name: Verify workers, bootstrap and exact artifact identity
         run: |
           test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -a -q migrate)")" = "0"
           test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -a -q minio-init)")" = "0"
           test "$(docker inspect -f '{{.State.Running}}' "$(docker compose ps -q outbox-worker)")" = "true"
           test "$(docker inspect -f '{{.State.Running}}' "$(docker compose ps -q temporal-worker)")" = "true"
+
+          expected_api_id="$(docker image inspect "$HAMOON_API_IMAGE" --format '{{.Id}}')"
+          for service in migrate api outbox-worker temporal-worker; do
+            container_id="$(docker compose ps -a -q "$service")"
+            test -n "$container_id"
+            actual_id="$(docker inspect -f '{{.Image}}' "$container_id")"
+            test "$actual_id" = "$expected_api_id"
+          done
+
+          expected_web_id="$(docker image inspect "$HAMOON_WEB_IMAGE" --format '{{.Id}}')"
+          web_container_id="$(docker compose ps -q web)"
+          test -n "$web_container_id"
+          test "$(docker inspect -f '{{.Image}}' "$web_container_id")" = "$expected_web_id"
 
       - name: Show local stack diagnostics
         if: failure()
@@ -266,3 +283,37 @@ jobs:
       - name: Stop complete local stack
         if: always()
         run: docker compose down -v
+
+      - name: Package immutable release bundle
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p release
+          docker save "$HAMOON_API_IMAGE" -o release/hamoon-api.tar
+          docker save "$HAMOON_WEB_IMAGE" -o release/hamoon-web.tar
+
+          api_id="$(docker image inspect "$HAMOON_API_IMAGE" --format '{{.Id}}')"
+          web_id="$(docker image inspect "$HAMOON_WEB_IMAGE" --format '{{.Id}}')"
+          api_archive_sha256="$(sha256sum release/hamoon-api.tar | awk '{print $1}')"
+          web_archive_sha256="$(sha256sum release/hamoon-web.tar | awk '{print $1}')"
+
+          cat > release/manifest.json <<EOF
+          {
+            "commit_sha": "${GITHUB_SHA}",
+            "backend_image": "${HAMOON_API_IMAGE}",
+            "backend_image_id": "${api_id}",
+            "backend_archive_sha256": "${api_archive_sha256}",
+            "frontend_image": "${HAMOON_WEB_IMAGE}",
+            "frontend_image_id": "${web_id}",
+            "frontend_archive_sha256": "${web_archive_sha256}"
+          }
+          EOF
+
+      - name: Upload immutable release bundle
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamoon-release-${{ github.sha }}
+          path: release/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
