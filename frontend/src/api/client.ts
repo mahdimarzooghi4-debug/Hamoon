@@ -1,3 +1,5 @@
+import { clearAuthSession, getAccessToken } from "../auth/oidc";
+
 const apiBaseUrl = (import.meta.env.VITE_HAMOON_API_BASE_URL ?? "").replace(/\/$/, "");
 
 export class ApiError extends Error {
@@ -10,10 +12,6 @@ export class ApiError extends Error {
     this.status = status;
     this.code = code;
   }
-}
-
-function accessToken(): string | null {
-  return window.sessionStorage.getItem("hamoon.access_token");
 }
 
 type RequestOptions = RequestInit & {
@@ -47,7 +45,7 @@ export async function requestJson<T>(
   }
 
   if (options.auth !== false) {
-    const token = accessToken();
+    const token = await getAccessToken();
     if (token === null || token.length === 0) {
       throw new ApiError(401, "AUTH_REQUIRED");
     }
@@ -65,6 +63,10 @@ export async function requestJson<T>(
   }
 
   if (!response.ok) {
+    if (response.status === 401 && options.auth !== false) {
+      clearAuthSession();
+      throw new ApiError(401, "AUTH_REQUIRED");
+    }
     throw new ApiError(response.status, errorCode(payload, response.status));
   }
 

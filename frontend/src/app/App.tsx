@@ -5,6 +5,7 @@ import { HouseholdPage } from "../pages/HouseholdPage";
 import { HouseholdsPage } from "../pages/HouseholdsPage";
 import { WorkQueuePage } from "../pages/WorkQueuePage";
 import { LearningGovernancePage } from "../pages/LearningGovernancePage";
+import { AuthCallbackPage } from "../pages/AuthCallbackPage";
 
 export function App() {
   const path = useAppPath();
@@ -18,6 +19,8 @@ export function App() {
     page = <HouseholdPage householdId={path.slice("/households/".length)} />;
   } else if (path === "/admin/learning") {
     page = <LearningGovernancePage />;
+  } else if (path === "/auth/callback") {
+    page = <AuthCallbackPage />;
   }
 
   return <AppShell activePath={path}>{page}</AppShell>;

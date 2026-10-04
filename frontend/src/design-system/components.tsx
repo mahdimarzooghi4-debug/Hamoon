@@ -71,14 +71,17 @@ export function LoadingState({ label = "در حال دریافت اطلاعات�
 export function EmptyState({
   title,
   description,
+  action,
 }: {
   title: string;
   description: string;
+  action?: ReactNode;
 }) {
   return (
     <div className="hm-state hm-state--stacked">
       <strong>{title}</strong>
       <span>{description}</span>
+      {action}
     </div>
   );
 }

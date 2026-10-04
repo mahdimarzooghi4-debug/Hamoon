@@ -1,6 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import { getReadiness, type HealthResponse } from "../api/health";
+import {
+  beginLogin,
+  browserPrincipal,
+  hasAuthSession,
+  logout,
+} from "../auth/oidc";
 import { AppLink, type AppPath } from "../app/navigation";
 import { Badge } from "../design-system/components";
 
@@ -12,6 +18,8 @@ export function AppShell({
   children: ReactNode;
 }) {
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const authenticated = hasAuthSession();
+  const principal = browserPrincipal();
 
   useEffect(() => {
     let mounted = true;
@@ -38,8 +46,17 @@ export function AppShell({
           <div className="topbar__identity">
             <div className="avatar" aria-hidden="true">م</div>
             <div>
-              <strong>{adminActive ? "کنسول مدیریت" : "مددکار پرونده"}</strong>
-              <span>{adminActive ? "یادگیری و حاکمیت AI" : "هامون"}</span>
+              <strong>
+                {principal?.displayName ??
+                  (adminActive ? "کنسول مدیریت" : "کاربر سازمانی")}
+              </strong>
+              <span>
+                {adminActive
+                  ? "یادگیری و حاکمیت AI"
+                  : principal?.roles.includes("CASEWORKER")
+                    ? "مددکار پرونده"
+                    : "هامون"}
+              </span>
             </div>
           </div>
 
@@ -72,15 +89,36 @@ export function AppShell({
             </AppLink>
           </nav>
 
-          <div className="brand">
-            <div className="brand__copy">
-              <strong>هامون</strong>
-              <span>ماشین توانمندسازی هوشمند</span>
+          <div className="topbar__end">
+            <div className="topbar__auth">
+              {authenticated ? (
+                <button
+                  className="hm-button hm-button--quiet"
+                  onClick={logout}
+                  type="button"
+                >
+                  خروج
+                </button>
+              ) : (
+                <button
+                  className="hm-button hm-button--secondary"
+                  onClick={() => void beginLogin(activePath)}
+                  type="button"
+                >
+                  ورود سازمانی
+                </button>
+              )}
             </div>
-            <div className="brand__mark" aria-hidden="true">
-              <span />
-              <span />
-              <span />
+            <div className="brand">
+              <div className="brand__copy">
+                <strong>هامون</strong>
+                <span>ماشین توانمندسازی هوشمند</span>
+              </div>
+              <div className="brand__mark" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </div>
             </div>
           </div>
         </div>

@@ -2949,3 +2949,33 @@ a {
     flex-direction: column;
   }
 }
+
+
+.topbar__end {
+  display: flex;
+  align-items: center;
+  gap: var(--hamoon-space-12);
+}
+
+.topbar__auth {
+  display: flex;
+  align-items: center;
+}
+
+.auth-callback-page {
+  min-height: 58vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+}
+
+.auth-callback-card {
+  width: min(560px, 100%);
+}
+
+@media (max-width: 860px) {
+  .topbar__end {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

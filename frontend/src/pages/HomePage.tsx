@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "../api/client";
+import { beginLogin } from "../auth/oidc";
 import { getWorkQueue, type WorkItem } from "../api/operations";
 import { AppLink } from "../app/navigation";
 import {
@@ -114,7 +115,16 @@ export function HomePage() {
         {queue.kind === "auth-required" ? (
           <EmptyState
             title="برای مشاهده کارتابل وارد شوید"
-            description="اتصال ورود سازمانی در مرحله یکپارچه‌سازی هویت فعال می‌شود؛ تا آن زمان داده نمونه نمایش داده نمی‌شود."
+            description="ورود سازمانی با OIDC/PKCE انجام می‌شود و پس از احراز هویت به همین صفحه برمی‌گردید."
+            action={
+              <button
+                className="hm-button hm-button--primary"
+                onClick={() => void beginLogin("/")}
+                type="button"
+              >
+                ورود سازمانی
+              </button>
+            }
           />
         ) : null}
         {queue.kind === "error" ? (

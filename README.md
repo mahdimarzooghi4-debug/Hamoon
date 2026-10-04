@@ -98,5 +98,7 @@ npm run typecheck
 npm run build
 ```
 
-OIDC browser login remains outside this slice; authenticated calls require a real access token
-and never fall back to fake product data.
+Browser authentication uses OIDC Authorization Code + PKCE against the configured Keycloak
+issuer. The local `hamoon-web` client accepts the Vite development origin
+`http://localhost:5173`. Access and refresh tokens are session-scoped in the browser and
+authenticated API calls never fall back to fake product data.
