@@ -5,7 +5,9 @@ COPY frontend/ ./
 RUN npm install --ignore-scripts --no-audit --no-fund \
     && npm run build
 
-FROM nginx:1.27-alpine
+FROM nginx:alpine
+
+RUN apk upgrade --no-cache
 
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY frontend/docker-entrypoint.d/40-hamoon-runtime-config.sh /docker-entrypoint.d/40-hamoon-runtime-config.sh
