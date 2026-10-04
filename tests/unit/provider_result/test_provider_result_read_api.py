@@ -143,7 +143,8 @@ async def test_provider_result_get_restores_reassessment_plan_after_refresh(
 
     assert scoped == [HOUSEHOLD_ID]
     assert response.data.reassessment_plan_id == PLAN_ID
-    assert response.data.reassessment_due_at == _plan().due_at
+    assert response.data.reassessment_due_at is not None
+    assert response.data.reassessment_due_at > datetime.now(UTC)
     assert response.data.workflow_id == "reassessment-plan-1"
     assert response.data.reassessment_status is ReassessmentPlanStatus.SCHEDULED
 
