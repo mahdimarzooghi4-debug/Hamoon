@@ -12,17 +12,17 @@ WEB_IMAGE_ID = "sha256:" + "c" * 64
 DEPLOYMENT_ID = "prod-20261004-001"
 
 REQUIRED_METRICS = """# TYPE hamoon_http_requests_total counter
-hamoon_http_requests_total{route="/health/ready",method="GET",status_class="2xx"} {ready}
+hamoon_http_requests_total{{route="/health/ready",method="GET",status_class="2xx"}} {ready}
 # TYPE hamoon_http_request_errors_total counter
-hamoon_http_request_errors_total{route="/health/live",method="GET"} 0
+hamoon_http_request_errors_total{{route="/health/live",method="GET"}} 0
 # TYPE hamoon_http_request_duration_seconds histogram
-hamoon_http_request_duration_seconds_bucket{route="/health/ready",method="GET",le="1.0"} 1
+hamoon_http_request_duration_seconds_bucket{{route="/health/ready",method="GET",le="1.0"}} 1
 # TYPE hamoon_http_active_requests gauge
 hamoon_http_active_requests 0
 # TYPE hamoon_outbox_publish_success_total counter
-hamoon_outbox_publish_success_total{event_type="TestEvent"} 1
+hamoon_outbox_publish_success_total{{event_type="TestEvent"}} 1
 # TYPE hamoon_outbox_publish_failure_total counter
-hamoon_outbox_publish_failure_total{event_type="TestEvent"} 0
+hamoon_outbox_publish_failure_total{{event_type="TestEvent"}} 0
 """
 
 
