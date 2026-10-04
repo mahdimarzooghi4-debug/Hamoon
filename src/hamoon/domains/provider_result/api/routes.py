@@ -16,6 +16,7 @@ from hamoon.app.security.resource_scope import require_household_assignment
 from hamoon.domains.intervention.infrastructure.repositories import (
     SqlAlchemyInterventionRepository,
 )
+from hamoon.domains.operations.domain.entities import ReassessmentPlan
 from hamoon.domains.operations.infrastructure.repositories import (
     SqlAlchemyReassessmentPlanRepository,
 )
@@ -60,9 +61,7 @@ def _data(
     item: ProviderResult,
     *,
     duplicate: bool = False,
-    reassessment_plan_id: UUID | None = None,
-    reassessment_due_at: datetime | None = None,
-    workflow_id: str | None = None,
+    reassessment_plan: ReassessmentPlan | None = None,
 ) -> ProviderResultData:
     return ProviderResultData(
         id=item.id,
@@ -79,9 +78,18 @@ def _data(
         provider_reference=item.provider_reference,
         evidence=list(item.evidence_ids),
         duplicate=duplicate,
-        reassessment_plan_id=reassessment_plan_id,
-        reassessment_due_at=reassessment_due_at,
-        workflow_id=workflow_id,
+        reassessment_plan_id=(
+            None if reassessment_plan is None else reassessment_plan.id
+        ),
+        reassessment_due_at=(
+            None if reassessment_plan is None else reassessment_plan.due_at
+        ),
+        workflow_id=(
+            None if reassessment_plan is None else reassessment_plan.workflow_id
+        ),
+        reassessment_status=(
+            None if reassessment_plan is None else reassessment_plan.status
+        ),
     )
 
 
@@ -160,9 +168,7 @@ async def submit_provider_result(
         data=_data(
             result.result,
             duplicate=result.duplicate,
-            reassessment_plan_id=None if plan is None else plan.id,
-            reassessment_due_at=None if plan is None else plan.due_at,
-            workflow_id=None if plan is None else plan.workflow_id,
+            reassessment_plan=plan,
         )
     )
 
@@ -193,7 +199,16 @@ async def list_provider_results(
     results = await SqlAlchemyProviderResultRepository(session).list_for_referral(
         referral_id
     )
-    return ProviderResultListResponse(data=[_data(item) for item in results])
+    plans = SqlAlchemyReassessmentPlanRepository(session)
+    return ProviderResultListResponse(
+        data=[
+            _data(
+                item,
+                reassessment_plan=await plans.get_by_provider_result(item.id),
+            )
+            for item in results
+        ]
+    )
 
 
 @router.get(
@@ -225,4 +240,12 @@ async def get_provider_result(
         context=context,
         household_id=referral.household_id,
     )
-    return ProviderResultResponse(data=_data(item))
+    plan = await SqlAlchemyReassessmentPlanRepository(
+        session
+    ).get_by_provider_result(item.id)
+    return ProviderResultResponse(
+        data=_data(
+            item,
+            reassessment_plan=plan,
+        )
+    )

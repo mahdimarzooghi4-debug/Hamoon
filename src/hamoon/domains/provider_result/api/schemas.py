@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, JsonValue
 
+from hamoon.domains.operations.domain.entities import ReassessmentPlanStatus
+
 
 def _empty_uuid_list() -> list[UUID]:
     return []
@@ -38,6 +40,7 @@ class ProviderResultData(BaseModel):
     reassessment_plan_id: UUID | None = None
     reassessment_due_at: datetime | None = None
     workflow_id: str | None = None
+    reassessment_status: ReassessmentPlanStatus | None = None
 
 
 class ProviderResultResponse(BaseModel):
