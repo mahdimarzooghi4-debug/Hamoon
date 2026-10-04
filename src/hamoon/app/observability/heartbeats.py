@@ -142,10 +142,10 @@ async def read_operational_snapshot() -> OperationalSnapshot:
         ).mappings().all()
 
     pending_count = int(backlog[0] or 0)
-    oldest = backlog[1]
+    oldest_value: object = backlog[1]
     oldest_age_seconds = (
-        max(0.0, (now - oldest).total_seconds())
-        if oldest is not None
+        max(0.0, (now - oldest_value).total_seconds())
+        if isinstance(oldest_value, datetime)
         else 0.0
     )
     heartbeats = tuple(
