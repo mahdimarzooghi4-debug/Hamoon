@@ -15,7 +15,12 @@ from hamoon.domains.intelligence.api.schemas import (
     AIDecisionData,
     AIDecisionResponse,
     AIEvaluationRunData,
+    AIEvaluationRunListResponse,
     AIEvaluationRunResponse,
+    AIModelVersionCatalogData,
+    AIModelVersionCatalogResponse,
+    AIRoutingPolicyCatalogData,
+    AIRoutingPolicyCatalogResponse,
     AIRoutingPolicyDraftData,
     AIRoutingPolicyDraftResponse,
     AIRoutingPromotionData,
@@ -34,6 +39,8 @@ from hamoon.domains.intelligence.api.schemas import (
     GenerateDiagnosisRequest,
     GenerateDiagnosisResponse,
     ReviewDiagnosisData,
+    PromptPolicyVersionCatalogData,
+    PromptPolicyVersionCatalogResponse,
     ReviewDiagnosisResponse,
     StructuredDiagnosisReviewRequest,
 )
@@ -620,6 +627,155 @@ async def get_ai_decision_trace(
         )
     )
 
+
+
+@router.get(
+    "/api/v1/admin/ai/model-versions",
+    response_model=AIModelVersionCatalogResponse,
+)
+async def list_ai_model_versions(
+    _context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.ADMIN, Role.SECURITY_AUDITOR)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> AIModelVersionCatalogResponse:
+    values = await SqlAlchemyAIRuntimeRegistryRepository(session).list_model_versions()
+    return AIModelVersionCatalogResponse(
+        data=[
+            AIModelVersionCatalogData(
+                id=item.id,
+                ai_model_id=item.ai_model_id,
+                model_key=item.model_key,
+                purpose=item.purpose,
+                provider_id=item.provider_id,
+                provider_code=item.provider_code,
+                provider_status=item.provider_status.value,
+                version=item.version,
+                concrete_model_id=item.concrete_model_id,
+                status=item.status.value,
+                limitations=item.limitations,
+                approved_at=item.approved_at,
+                deployed_at=item.deployed_at,
+            )
+            for item in values
+        ]
+    )
+
+
+@router.get(
+    "/api/v1/admin/ai/prompt-policy-versions",
+    response_model=PromptPolicyVersionCatalogResponse,
+)
+async def list_prompt_policy_versions(
+    _context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.ADMIN, Role.SECURITY_AUDITOR)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> PromptPolicyVersionCatalogResponse:
+    values = await SqlAlchemyAIRuntimeRegistryRepository(
+        session
+    ).list_prompt_policy_versions()
+    return PromptPolicyVersionCatalogResponse(
+        data=[
+            PromptPolicyVersionCatalogData(
+                id=item.id,
+                prompt_policy_id=item.prompt_policy_id,
+                policy_name=item.policy_name,
+                purpose=item.purpose,
+                version=item.version,
+                output_schema_version=item.output_schema_version,
+                guardrail_version=item.guardrail_version,
+                status=item.status.value,
+                approved_at=item.approved_at,
+            )
+            for item in values
+        ]
+    )
+
+
+@router.get(
+    "/api/v1/admin/ai/evaluations",
+    response_model=AIEvaluationRunListResponse,
+)
+async def list_ai_evaluations(
+    _context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.ADMIN, Role.SECURITY_AUDITOR)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    task_class: AITaskClass | None = None,
+    limit: int = 100,
+) -> AIEvaluationRunListResponse:
+    if limit < 1 or limit > 500:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "INVALID_LIMIT"},
+        )
+    values = await SqlAlchemyAIRuntimeRegistryRepository(
+        session
+    ).list_evaluation_runs(task_class=task_class, limit=limit)
+    return AIEvaluationRunListResponse(
+        data=[
+            AIEvaluationRunData(
+                id=item.id,
+                task_class=item.task_class.value,
+                model_version_id=item.model_version_id,
+                prompt_policy_version_id=item.prompt_policy_version_id,
+                evaluation_policy_version=item.evaluation_policy_version,
+                dataset_version_id=item.dataset_version_id,
+                dataset_manifest_digest=item.dataset_manifest_digest,
+                report_digest=item.report_digest,
+                status=item.status.value,
+                passed=item.passed,
+                summary_metrics=item.summary_metrics,
+                started_at=item.started_at,
+                completed_at=item.completed_at,
+            )
+            for item in values
+        ]
+    )
+
+
+@router.get(
+    "/api/v1/admin/ai/routing-policies",
+    response_model=AIRoutingPolicyCatalogResponse,
+)
+async def list_ai_routing_policies(
+    _context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.ADMIN, Role.SECURITY_AUDITOR)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    task_class: AITaskClass | None = None,
+    limit: int = 100,
+) -> AIRoutingPolicyCatalogResponse:
+    if limit < 1 or limit > 500:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "INVALID_LIMIT"},
+        )
+    values = await SqlAlchemyAIRuntimeRegistryRepository(
+        session
+    ).list_routing_policies(task_class=task_class, limit=limit)
+    return AIRoutingPolicyCatalogResponse(
+        data=[
+            AIRoutingPolicyCatalogData(
+                id=item.id,
+                task_class=item.task_class.value,
+                version=item.version,
+                model_alias=item.model_alias,
+                model_version_id=item.model_version_id,
+                prompt_policy_version_id=item.prompt_policy_version_id,
+                evaluation_run_id=item.evaluation_run_id,
+                structured_output_required=item.structured_output_required,
+                status=item.status.value,
+                approved_at=item.approved_at,
+            )
+            for item in values
+        ]
+    )
 
 
 @router.post(

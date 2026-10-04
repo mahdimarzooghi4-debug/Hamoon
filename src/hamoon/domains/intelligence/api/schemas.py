@@ -192,3 +192,60 @@ class DiagnosisHistoryEntryData(BaseModel):
 
 class DiagnosisHistoryResponse(BaseModel):
     data: list[DiagnosisHistoryEntryData]
+
+
+class AIModelVersionCatalogData(BaseModel):
+    id: UUID
+    ai_model_id: UUID
+    model_key: str
+    purpose: str
+    provider_id: UUID
+    provider_code: str
+    provider_status: str
+    version: str
+    concrete_model_id: str
+    status: str
+    limitations: str | None
+    approved_at: datetime | None
+    deployed_at: datetime | None
+
+
+class AIModelVersionCatalogResponse(BaseModel):
+    data: list[AIModelVersionCatalogData]
+
+
+class PromptPolicyVersionCatalogData(BaseModel):
+    id: UUID
+    prompt_policy_id: UUID
+    policy_name: str
+    purpose: str
+    version: str
+    output_schema_version: str
+    guardrail_version: str
+    status: str
+    approved_at: datetime | None
+
+
+class PromptPolicyVersionCatalogResponse(BaseModel):
+    data: list[PromptPolicyVersionCatalogData]
+
+
+class AIEvaluationRunListResponse(BaseModel):
+    data: list[AIEvaluationRunData]
+
+
+class AIRoutingPolicyCatalogData(BaseModel):
+    id: UUID
+    task_class: str
+    version: str
+    model_alias: str
+    model_version_id: UUID
+    prompt_policy_version_id: UUID
+    evaluation_run_id: UUID
+    structured_output_required: bool
+    status: str
+    approved_at: datetime | None
+
+
+class AIRoutingPolicyCatalogResponse(BaseModel):
+    data: list[AIRoutingPolicyCatalogData]

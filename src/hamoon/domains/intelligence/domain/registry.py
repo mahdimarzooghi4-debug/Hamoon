@@ -84,3 +84,47 @@ class RoutingPolicyDraft:
     prompt_policy_version_id: UUID
     evaluation_run_id: UUID
     status: RoutingPolicyStatus
+
+
+@dataclass(frozen=True, slots=True)
+class AIModelVersionCatalogItem:
+    id: UUID
+    ai_model_id: UUID
+    model_key: str
+    purpose: str
+    provider_id: UUID
+    provider_code: str
+    provider_status: AIProviderStatus
+    version: str
+    concrete_model_id: str
+    status: AIModelVersionStatus
+    limitations: str | None
+    approved_at: datetime | None
+    deployed_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class PromptPolicyVersionCatalogItem:
+    id: UUID
+    prompt_policy_id: UUID
+    policy_name: str
+    purpose: str
+    version: str
+    output_schema_version: str
+    guardrail_version: str
+    status: PromptPolicyVersionStatus
+    approved_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class RoutingPolicyCatalogItem:
+    id: UUID
+    task_class: AITaskClass
+    version: str
+    model_alias: str
+    model_version_id: UUID
+    prompt_policy_version_id: UUID
+    evaluation_run_id: UUID
+    structured_output_required: bool
+    status: RoutingPolicyStatus
+    approved_at: datetime | None

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.domains.intelligence.domain.decisions import LearningSignalType
@@ -114,6 +114,40 @@ class SqlAlchemyLearningDatasetRepository:
             .order_by(LearningDatasetItemModel.ordinal)
         )
         return [_item(model) for model in result.scalars().all()]
+
+
+    async def list_versions(
+        self,
+        *,
+        status: DatasetVersionStatus | None = None,
+        limit: int = 100,
+    ) -> list[LearningDatasetVersion]:
+        query = select(LearningDatasetVersionModel)
+        if status is not None:
+            query = query.where(LearningDatasetVersionModel.status == status)
+        result = await self._session.execute(
+            query.order_by(LearningDatasetVersionModel.created_at.desc()).limit(limit)
+        )
+        return [_dataset(model) for model in result.scalars().all()]
+
+    async def item_counts(
+        self,
+        dataset_ids: list[UUID],
+    ) -> dict[UUID, int]:
+        if not dataset_ids:
+            return {}
+        result = await self._session.execute(
+            select(
+                LearningDatasetItemModel.dataset_version_id,
+                func.count(LearningDatasetItemModel.id),
+            )
+            .where(LearningDatasetItemModel.dataset_version_id.in_(dataset_ids))
+            .group_by(LearningDatasetItemModel.dataset_version_id)
+        )
+        return {
+            dataset_id: int(count)
+            for dataset_id, count in result.all()
+        }
 
     async def approve(
         self,

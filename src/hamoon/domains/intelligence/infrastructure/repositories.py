@@ -21,7 +21,10 @@ from hamoon.domains.intelligence.domain.registry import (
     AIModelVersionStatus,
     AIProviderStatus,
     EvaluationStatus,
+    AIModelVersionCatalogItem,
     EvaluationRunState,
+    PromptPolicyVersionCatalogItem,
+    RoutingPolicyCatalogItem,
     PromptPolicyVersionStatus,
     ResolvedAIRoute,
     RoutingPolicyDraft,
@@ -626,6 +629,124 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             evaluation_run_id=evaluation.id,
             evaluation_completed_at=evaluation.completed_at,
         )
+
+    async def list_model_versions(
+        self,
+    ) -> list[AIModelVersionCatalogItem]:
+        result = await self._session.execute(
+            select(
+                AIModelVersionModel,
+                AIModelModel,
+                AIProviderModel,
+            )
+            .join(
+                AIModelModel,
+                AIModelModel.id == AIModelVersionModel.ai_model_id,
+            )
+            .join(
+                AIProviderModel,
+                AIProviderModel.id == AIModelModel.provider_id,
+            )
+            .order_by(
+                AIModelModel.model_key,
+                AIModelVersionModel.version,
+            )
+        )
+        return [
+            AIModelVersionCatalogItem(
+                id=version.id,
+                ai_model_id=model.id,
+                model_key=model.model_key,
+                purpose=model.purpose,
+                provider_id=provider.id,
+                provider_code=provider.code,
+                provider_status=provider.status,
+                version=version.version,
+                concrete_model_id=version.concrete_model_id,
+                status=version.status,
+                limitations=version.limitations,
+                approved_at=version.approved_at,
+                deployed_at=version.deployed_at,
+            )
+            for version, model, provider in result.all()
+        ]
+
+    async def list_prompt_policy_versions(
+        self,
+    ) -> list[PromptPolicyVersionCatalogItem]:
+        result = await self._session.execute(
+            select(
+                PromptPolicyVersionModel,
+                PromptPolicyModel,
+            )
+            .join(
+                PromptPolicyModel,
+                PromptPolicyModel.id == PromptPolicyVersionModel.prompt_policy_id,
+            )
+            .order_by(
+                PromptPolicyModel.name,
+                PromptPolicyVersionModel.version,
+            )
+        )
+        return [
+            PromptPolicyVersionCatalogItem(
+                id=version.id,
+                prompt_policy_id=policy.id,
+                policy_name=policy.name,
+                purpose=policy.purpose,
+                version=version.version,
+                output_schema_version=version.output_schema_version,
+                guardrail_version=version.guardrail_version,
+                status=version.status,
+                approved_at=version.approved_at,
+            )
+            for version, policy in result.all()
+        ]
+
+    async def list_evaluation_runs(
+        self,
+        *,
+        task_class: AITaskClass | None = None,
+        limit: int = 100,
+    ) -> list[EvaluationRunState]:
+        query = select(EvaluationRunModel)
+        if task_class is not None:
+            query = query.where(EvaluationRunModel.task_class == task_class)
+        result = await self._session.execute(
+            query.order_by(EvaluationRunModel.started_at.desc()).limit(limit)
+        )
+        return [_evaluation_run_state(model) for model in result.scalars().all()]
+
+    async def list_routing_policies(
+        self,
+        *,
+        task_class: AITaskClass | None = None,
+        limit: int = 100,
+    ) -> list[RoutingPolicyCatalogItem]:
+        query = select(ModelRoutingPolicyModel)
+        if task_class is not None:
+            query = query.where(ModelRoutingPolicyModel.task_class == task_class)
+        result = await self._session.execute(
+            query.order_by(
+                ModelRoutingPolicyModel.approved_at.desc(),
+                ModelRoutingPolicyModel.version.desc(),
+            ).limit(limit)
+        )
+        return [
+            RoutingPolicyCatalogItem(
+                id=model.id,
+                task_class=model.task_class,
+                version=model.version,
+                model_alias=model.model_alias,
+                model_version_id=model.model_version_id,
+                prompt_policy_version_id=model.prompt_policy_version_id,
+                evaluation_run_id=model.evaluation_run_id,
+                structured_output_required=model.structured_output_required,
+                status=model.status,
+                approved_at=model.approved_at,
+            )
+            for model in result.scalars().all()
+        ]
 
     async def create_evaluation_run(
         self,

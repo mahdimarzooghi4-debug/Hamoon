@@ -31,6 +31,7 @@ from hamoon.domains.learning.api.schemas import (
     LearningDatasetExportCase,
     LearningDatasetExportData,
     LearningDatasetExportResponse,
+    LearningDatasetListResponse,
     LearningDatasetResponse,
     LearningSignalData,
     LearningSignalListResponse,
@@ -48,6 +49,7 @@ from hamoon.domains.learning.application.handlers import (
     CreateOutcomeDatasetHandler,
     CurateLearningSignalHandler,
 )
+from hamoon.domains.learning.domain.entities import DatasetVersionStatus
 from hamoon.domains.learning.domain.errors import (
     LearningCurationError,
     LearningDatasetError,
@@ -185,6 +187,50 @@ async def curate_learning_signal(
             detail={"code": code},
         ) from exc
     return LearningSignalResponse(data=_signal_data(signal))
+
+
+@router.get(
+    "/api/v1/admin/learning/datasets",
+    response_model=LearningDatasetListResponse,
+)
+async def list_learning_datasets(
+    _context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.ADMIN, Role.SECURITY_AUDITOR)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    dataset_status: Annotated[
+        DatasetVersionStatus | None,
+        Query(alias="status"),
+    ] = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> LearningDatasetListResponse:
+    repository = SqlAlchemyLearningDatasetRepository(session)
+    datasets = await repository.list_versions(
+        status=dataset_status,
+        limit=limit,
+    )
+    counts = await repository.item_counts([item.id for item in datasets])
+    return LearningDatasetListResponse(
+        data=[
+            LearningDatasetData(
+                id=dataset.id,
+                dataset_key=dataset.dataset_key,
+                version=dataset.version,
+                purpose=dataset.purpose,
+                selection_policy_version=dataset.selection_policy_version,
+                status=dataset.status,
+                manifest_ref=dataset.manifest_ref,
+                manifest_digest=dataset.manifest_digest,
+                item_count=counts.get(dataset.id, 0),
+                created_at=dataset.created_at,
+                created_by=dataset.created_by,
+                approved_at=dataset.approved_at,
+                approved_by=dataset.approved_by,
+            )
+            for dataset in datasets
+        ]
+    )
 
 
 @router.post(

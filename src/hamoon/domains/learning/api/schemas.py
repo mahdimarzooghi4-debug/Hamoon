@@ -95,3 +95,7 @@ class CreateEvaluationRunRequest(BaseModel):
     prompt_policy_version_id: UUID
     dataset_version_id: UUID
     evaluation_policy_version: str = Field(min_length=1, max_length=100)
+
+
+class LearningDatasetListResponse(BaseModel):
+    data: list[LearningDatasetData]
