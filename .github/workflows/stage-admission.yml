@@ -89,7 +89,7 @@ jobs:
           chmod a+rwx .stage-otel
           docker run --rm \
             -v "$PWD/ops/observability/otel-collector-stage.yaml:/etc/otelcol-contrib/config.yaml:ro" \
-            otel/opentelemetry-collector-contrib:0.162.0 \
+            otel/opentelemetry-collector-contrib:0.161.0 \
             validate --config=/etc/otelcol-contrib/config.yaml
 
       - name: Start clean Stage-admission stack from promoted images
