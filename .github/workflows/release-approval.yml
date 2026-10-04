@@ -1,0 +1,177 @@
+name: Release Approval
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact 40-character commit SHA to authorize for Production
+        required: true
+        type: string
+      confirmation:
+        description: Type APPROVE to issue the release approval
+        required: true
+        type: string
+      change_reference:
+        description: Change/release ticket or governance reference
+        required: true
+        type: string
+      approval_note:
+        description: Human approval rationale
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  approve-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PROMOTED_SHA: ${{ inputs.commit_sha }}
+
+    steps:
+      - name: Validate explicit human approval input
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          APPROVER: ${{ github.actor }}
+        run: |
+          test "$CONFIRMATION" = "APPROVE"
+          printf '%s' "$PROMOTED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test -n "$APPROVER"
+          case "$APPROVER" in
+            *"[bot]") echo "bot identities cannot issue release approval"; exit 1 ;;
+          esac
+
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Require candidate to belong to main history
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$PROMOTED_SHA" origin/main
+
+      - name: Resolve successful Stage Admission
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          stage_run_id="$(
+            gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow "Stage Admission" \
+              --commit "$PROMOTED_SHA" \
+              --status success \
+              --limit 20 \
+              --json databaseId,headSha,conclusion \
+              --jq '[.[] | select(.headSha == env.PROMOTED_SHA and .conclusion == "success")][0].databaseId'
+          )"
+          test -n "$stage_run_id"
+          echo "STAGE_ADMISSION_RUN_ID=$stage_run_id" >> "$GITHUB_ENV"
+
+      - name: Download Stage attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p approval-input/stage
+          gh run download "$STAGE_ADMISSION_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-stage-admission-$PROMOTED_SHA" \
+            --dir approval-input/stage
+
+      - name: Resolve source CI run from Stage attestation
+        run: |
+          source_ci_run_id="$(
+            python3 -c 'import json; print(json.load(open("approval-input/stage/stage-attestation.json"))["source_ci_run_id"])'
+          )"
+          printf '%s' "$source_ci_run_id" | grep -Eq '^[0-9]+$'
+          echo "SOURCE_CI_RUN_ID=$source_ci_run_id" >> "$GITHUB_ENV"
+
+      - name: Download exact release bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p approval-input/release
+          gh run download "$SOURCE_CI_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-release-$PROMOTED_SHA" \
+            --dir approval-input/release
+
+      - name: Re-verify release and Stage evidence
+        run: |
+          python3 scripts/verify_release_bundle.py approval-input/release
+          python3 scripts/verify_stage_attestation.py \
+            approval-input/release \
+            approval-input/stage/stage-attestation.json
+
+      - name: Create explicit human release approval
+        env:
+          APPROVER: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          APPROVAL_RUN_ID: ${{ github.run_id }}
+          CHANGE_REFERENCE: ${{ inputs.change_reference }}
+          APPROVAL_NOTE: ${{ inputs.approval_note }}
+        run: |
+          mkdir -p release-approval
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          release_manifest_path = Path("approval-input/release/manifest.json")
+          stage_attestation_path = Path(
+              "approval-input/stage/stage-attestation.json"
+          )
+          manifest = json.loads(release_manifest_path.read_text())
+          stage = json.loads(stage_attestation_path.read_text())
+
+          approval = {
+              "schema_version": 1,
+              "status": "APPROVED",
+              "approval_scope": "RELEASE_TO_PRODUCTION",
+              "authorization_only": True,
+              "production_deployed": False,
+              "commit_sha": os.environ["PROMOTED_SHA"],
+              "source_ci_run_id": os.environ["SOURCE_CI_RUN_ID"],
+              "stage_admission_run_id": os.environ["STAGE_ADMISSION_RUN_ID"],
+              "release_manifest_sha256": hashlib.sha256(
+                  release_manifest_path.read_bytes()
+              ).hexdigest(),
+              "stage_attestation_sha256": hashlib.sha256(
+                  stage_attestation_path.read_bytes()
+              ).hexdigest(),
+              "backend_image_id": manifest["backend"]["image_id"],
+              "frontend_image_id": manifest["frontend"]["image_id"],
+              "approver": os.environ["APPROVER"],
+              "triggering_actor": os.environ["TRIGGERING_ACTOR"],
+              "approval_run_id": os.environ["APPROVAL_RUN_ID"],
+              "change_reference": os.environ["CHANGE_REFERENCE"].strip(),
+              "approval_note": os.environ["APPROVAL_NOTE"].strip(),
+              "approved_at": datetime.now(UTC).isoformat(),
+              "stage_status": stage["status"],
+          }
+          Path("release-approval/release-approval.json").write_text(
+              json.dumps(approval, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Verify release approval artifact
+        run: |
+          python3 scripts/verify_release_approval.py \
+            approval-input/release \
+            approval-input/stage/stage-attestation.json \
+            release-approval/release-approval.json
+
+      - name: Upload immutable Release Approval
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamoon-release-approval-${{ inputs.commit_sha }}
+          path: release-approval/
+          if-no-files-found: error
+          retention-days: 30
