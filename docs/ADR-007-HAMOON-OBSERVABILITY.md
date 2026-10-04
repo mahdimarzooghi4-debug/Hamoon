@@ -1243,6 +1243,17 @@ migration_version
 deployment_id
 ```
 
+Hamoon exposes this non-sensitive runtime identity through:
+
+```text
+GET /health/release
+```
+
+The endpoint reads the active Alembic version from PostgreSQL and reports the
+application version, immutable Git commit baked into the OCI image, and runtime
+deployment ID. Release/Stage/Production verification must compare these values with
+the promoted release evidence before declaring a deployment healthy.
+
 AI/PGOR versionها جدا هستند.
 
 ---

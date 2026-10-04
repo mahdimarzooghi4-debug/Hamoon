@@ -26,3 +26,11 @@ async def check_database() -> bool:
         return True
     except Exception:
         return False
+
+
+async def database_migration_versions() -> tuple[str, ...]:
+    async with engine.connect() as connection:
+        result = await connection.execute(
+            text("SELECT version_num FROM alembic_version ORDER BY version_num")
+        )
+        return tuple(str(row[0]) for row in result)

@@ -1,8 +1,16 @@
 FROM python:3.12-slim
 
+ARG HAMOON_APPLICATION_VERSION=0.1.0
+ARG HAMOON_GIT_COMMIT=development
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/app/.venv/bin:$PATH" \
+    HAMOON_APPLICATION_VERSION="${HAMOON_APPLICATION_VERSION}" \
+    HAMOON_GIT_COMMIT="${HAMOON_GIT_COMMIT}"
+
+LABEL org.opencontainers.image.version="${HAMOON_APPLICATION_VERSION}" \
+      org.opencontainers.image.revision="${HAMOON_GIT_COMMIT}"
 
 WORKDIR /app
 

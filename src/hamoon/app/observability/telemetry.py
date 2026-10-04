@@ -32,7 +32,10 @@ def configure_telemetry(
         resource=Resource.create(
             {
                 "service.name": settings.otel_service_name,
+                "service.version": settings.application_version,
                 "deployment.environment.name": settings.environment,
+                "hamoon.git_commit": settings.git_commit,
+                "hamoon.deployment_id": settings.deployment_id,
             }
         )
     )

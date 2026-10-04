@@ -91,6 +91,7 @@ services:
     build: .
     command: ["alembic", "upgrade", "head"]
     environment:
+      HAMOON_DEPLOYMENT_ID: ${HAMOON_DEPLOYMENT_ID:-local-compose}
       HAMOON_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hamoon}:${POSTGRES_PASSWORD:-hamoon}@postgres:5432/${POSTGRES_DB:-hamoon}
     depends_on:
       postgres:
@@ -102,6 +103,7 @@ services:
     build: .
     command: ["uvicorn", "hamoon.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
+      HAMOON_DEPLOYMENT_ID: ${HAMOON_DEPLOYMENT_ID:-local-compose}
       HAMOON_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hamoon}:${POSTGRES_PASSWORD:-hamoon}@postgres:5432/${POSTGRES_DB:-hamoon}
       HAMOON_NATS_URL: nats://nats:4222
       HAMOON_TEMPORAL_ADDRESS: temporal:7233
@@ -148,6 +150,7 @@ services:
     command: ["python", "-m", "hamoon.infrastructure.events.outbox"]
     restart: unless-stopped
     environment:
+      HAMOON_DEPLOYMENT_ID: ${HAMOON_DEPLOYMENT_ID:-local-compose}
       HAMOON_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hamoon}:${POSTGRES_PASSWORD:-hamoon}@postgres:5432/${POSTGRES_DB:-hamoon}
       HAMOON_NATS_URL: nats://nats:4222
       HAMOON_OTEL_ENABLED: "false"
@@ -163,6 +166,7 @@ services:
     command: ["python", "-m", "hamoon.infrastructure.temporal.worker"]
     restart: unless-stopped
     environment:
+      HAMOON_DEPLOYMENT_ID: ${HAMOON_DEPLOYMENT_ID:-local-compose}
       HAMOON_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hamoon}:${POSTGRES_PASSWORD:-hamoon}@postgres:5432/${POSTGRES_DB:-hamoon}
       HAMOON_TEMPORAL_ADDRESS: temporal:7233
       HAMOON_OTEL_ENABLED: "false"

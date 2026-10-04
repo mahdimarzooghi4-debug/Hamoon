@@ -184,16 +184,30 @@ jobs:
     env:
       HAMOON_API_IMAGE: hamoon-api:${{ github.sha }}
       HAMOON_WEB_IMAGE: hamoon-web:${{ github.sha }}
+      HAMOON_DEPLOYMENT_ID: release-smoke-${{ github.run_id }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Build immutable backend image once
-        run: docker build --pull -t "$HAMOON_API_IMAGE" .
+        run: |
+          app_version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          docker build --pull \
+            --build-arg HAMOON_APPLICATION_VERSION="$app_version" \
+            --build-arg HAMOON_GIT_COMMIT="$GITHUB_SHA" \
+            -t "$HAMOON_API_IMAGE" .
+          test "$(docker image inspect "$HAMOON_API_IMAGE" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$GITHUB_SHA"
 
       - name: Build immutable frontend image once
-        run: docker build --pull -f frontend/Dockerfile -t "$HAMOON_WEB_IMAGE" .
+        run: |
+          app_version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          docker build --pull \
+            --build-arg HAMOON_APPLICATION_VERSION="$app_version" \
+            --build-arg HAMOON_GIT_COMMIT="$GITHUB_SHA" \
+            -f frontend/Dockerfile \
+            -t "$HAMOON_WEB_IMAGE" .
+          test "$(docker image inspect "$HAMOON_WEB_IMAGE" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$GITHUB_SHA"
 
       - name: Backend image vulnerability scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -252,6 +266,17 @@ jobs:
           done
           curl --fail --silent http://localhost:8000/health/live
           curl --fail --silent http://localhost:8000/health/ready
+          curl --fail --silent http://localhost:8000/health/release > /tmp/hamoon-release-health.json
+          python3 - <<'PY'
+          import json
+          import os
+
+          payload = json.load(open("/tmp/hamoon-release-health.json"))
+          assert payload["status"] == "ready"
+          assert payload["git_commit"] == os.environ["GITHUB_SHA"]
+          assert payload["deployment_id"] == os.environ["HAMOON_DEPLOYMENT_ID"]
+          assert payload["database_migration_versions"]
+          PY
 
           for i in {1..120}; do
             if curl --fail --silent http://localhost:8081/realms/hamoon-local/.well-known/openid-configuration >/dev/null; then

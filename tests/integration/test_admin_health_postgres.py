@@ -7,6 +7,7 @@ from hamoon.app.config.settings import get_settings
 from hamoon.app.security.context import AuthorizationContext, Role
 from hamoon.domains.admin.api.routes import get_data_health, get_machine_health
 from hamoon.domains.identity.domain.entities import ActorType
+from hamoon.infrastructure.db.session import database_migration_versions
 
 
 @pytest.mark.asyncio
@@ -34,5 +35,9 @@ async def test_admin_health_projections_execute_on_real_postgres() -> None:
     assert machine.data.learning_signal_raw >= 0
     assert machine.data.evaluation_pending >= 0
     assert machine.data.active_routing_policies >= 0
+
+    migration_versions = await database_migration_versions()
+    assert migration_versions
+    assert all(migration_version for migration_version in migration_versions)
 
     await engine.dispose()

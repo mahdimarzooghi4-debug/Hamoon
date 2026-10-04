@@ -18,7 +18,7 @@ def create_app() -> FastAPI:
     )
     application = FastAPI(
         title=settings.app_name,
-        version="0.1.0",
+        version=settings.application_version,
     )
     if settings.metrics_enabled:
         application.add_middleware(MetricsMiddleware)

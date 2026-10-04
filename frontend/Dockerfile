@@ -7,6 +7,15 @@ RUN npm install --ignore-scripts --no-audit --no-fund \
 
 FROM nginx:alpine
 
+ARG HAMOON_APPLICATION_VERSION=0.1.0
+ARG HAMOON_GIT_COMMIT=development
+
+ENV HAMOON_APPLICATION_VERSION="${HAMOON_APPLICATION_VERSION}" \
+    HAMOON_GIT_COMMIT="${HAMOON_GIT_COMMIT}"
+
+LABEL org.opencontainers.image.version="${HAMOON_APPLICATION_VERSION}" \
+      org.opencontainers.image.revision="${HAMOON_GIT_COMMIT}"
+
 RUN apk upgrade --no-cache
 
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf

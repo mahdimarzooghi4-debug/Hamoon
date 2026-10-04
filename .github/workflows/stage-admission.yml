@@ -16,6 +16,9 @@ jobs:
           github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      PROMOTED_SHA: ${{ github.event.workflow_run.head_sha }}
+      HAMOON_DEPLOYMENT_ID: stage-admission-${{ github.run_id }}
 
     steps:
       - name: Checkout exact promoted commit
@@ -89,6 +92,18 @@ jobs:
           done
           curl --fail --silent http://localhost:8000/health/live
           curl --fail --silent http://localhost:8000/health/ready
+          curl --fail --silent http://localhost:8000/health/release > /tmp/hamoon-stage-release-health.json
+          python3 - <<'PY'
+          import json
+          import os
+
+          payload = json.load(open("/tmp/hamoon-stage-release-health.json"))
+          assert payload["status"] == "ready"
+          assert payload["environment"] == "stage"
+          assert payload["git_commit"] == os.environ["PROMOTED_SHA"]
+          assert payload["deployment_id"] == os.environ["HAMOON_DEPLOYMENT_ID"]
+          assert payload["database_migration_versions"]
+          PY
 
           for i in {1..120}; do
             if curl --fail --silent http://localhost:8081/realms/hamoon-local/.well-known/openid-configuration >/dev/null; then

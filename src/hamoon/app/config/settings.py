@@ -1,4 +1,5 @@
 from functools import lru_cache
+import re
 from typing import Self
 from urllib.parse import urlsplit
 
@@ -6,6 +7,7 @@ from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "0.0.0.0", "::1", "::"})
+_GIT_COMMIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
 def _endpoint_host(value: str) -> str | None:
@@ -41,6 +43,9 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "Hamoon"
+    application_version: str = "0.1.0"
+    git_commit: str = "development"
+    deployment_id: str = "local"
     environment: str = "local"
     database_url: str = "postgresql+asyncpg://hamoon:hamoon@localhost:5432/hamoon"
     nats_url: str = "nats://localhost:4222"
@@ -95,6 +100,18 @@ class Settings(BaseSettings):
             return self
 
         errors: list[str] = []
+
+        if not self.application_version.strip():
+            errors.append("PRODUCTION_APPLICATION_VERSION_REQUIRED")
+        if _GIT_COMMIT_RE.fullmatch(self.git_commit.strip()) is None:
+            errors.append("PRODUCTION_GIT_COMMIT_REQUIRED")
+        if self.deployment_id.strip().lower() in {
+            "",
+            "local",
+            "development",
+            "unknown",
+        }:
+            errors.append("PRODUCTION_DEPLOYMENT_ID_REQUIRED")
 
         if not self.database_url.startswith("postgresql"):
             errors.append("PRODUCTION_POSTGRESQL_REQUIRED")
