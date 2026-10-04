@@ -1019,3 +1019,330 @@ a {
     width: 100%;
   }
 }
+
+
+.diagnosis-panel {
+  display: grid;
+  gap: var(--hamoon-space-20);
+}
+
+.diagnosis-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--hamoon-space-12);
+}
+
+.diagnosis-current {
+  display: grid;
+  gap: var(--hamoon-space-16);
+}
+
+.diagnosis-summary {
+  padding: 18px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-14);
+  background: linear-gradient(180deg, #f4fdff 0%, var(--hamoon-white) 100%);
+}
+
+.diagnosis-summary__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}
+
+.diagnosis-summary h3 {
+  margin: 14px 0 0;
+  color: var(--hamoon-blue);
+  font-size: 22px;
+  line-height: 1.7;
+}
+
+.diagnosis-final-summary {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-success-soft);
+}
+
+.diagnosis-final-summary span {
+  color: var(--hamoon-success);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.diagnosis-final-summary strong {
+  color: var(--hamoon-ink);
+}
+
+.diagnosis-items {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--hamoon-space-12);
+}
+
+.diagnosis-item {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-14);
+  background: var(--hamoon-white);
+}
+
+.diagnosis-item__top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.diagnosis-item > strong {
+  color: var(--hamoon-blue);
+  font-size: 16px;
+}
+
+.diagnosis-item > p {
+  margin: 0;
+  color: var(--hamoon-muted);
+  line-height: 1.9;
+}
+
+.diagnosis-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.diagnosis-refs span {
+  padding: 4px 8px;
+  border-radius: var(--hamoon-radius-pill);
+  background: var(--hamoon-page);
+  color: var(--hamoon-muted);
+  direction: ltr;
+  font-size: 10px;
+}
+
+.diagnosis-flags {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-warning-soft);
+}
+
+.diagnosis-flags > strong {
+  color: var(--hamoon-warning);
+  font-size: 13px;
+}
+
+.diagnosis-flags > div,
+.diagnosis-actions,
+.diagnosis-terminal,
+.diagnosis-review-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.diagnosis-actions {
+  padding-top: 4px;
+}
+
+.diagnosis-terminal {
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-page);
+  color: var(--hamoon-muted);
+  font-size: 12px;
+}
+
+.diagnosis-review-form {
+  display: grid;
+  gap: var(--hamoon-space-16);
+  padding: 18px;
+  border: 1px solid var(--hamoon-cyan);
+  border-radius: var(--hamoon-radius-14);
+  background: #f8feff;
+}
+
+.diagnosis-review-form__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hamoon-space-12);
+}
+
+.diagnosis-review-form__heading h3 {
+  margin: 4px 0 0;
+  color: var(--hamoon-blue);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.form-grid label,
+.diagnosis-editor > label {
+  display: grid;
+  gap: 6px;
+}
+
+.form-grid label > span,
+.diagnosis-editor label > span {
+  color: var(--hamoon-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.form-grid input,
+.form-grid textarea,
+.form-grid select,
+.diagnosis-editor input,
+.diagnosis-editor textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-white);
+  color: var(--hamoon-ink);
+  outline: none;
+}
+
+.form-grid textarea,
+.diagnosis-editor textarea {
+  resize: vertical;
+  line-height: 1.8;
+}
+
+.form-grid input:focus,
+.form-grid textarea:focus,
+.form-grid select:focus,
+.diagnosis-editor input:focus,
+.diagnosis-editor textarea:focus {
+  border-color: var(--hamoon-cyan);
+  box-shadow: 0 0 0 3px rgb(24 195 209 / 12%);
+}
+
+.form-grid__wide {
+  grid-column: 1 / -1;
+}
+
+.diagnosis-editor {
+  display: grid;
+  gap: var(--hamoon-space-16);
+}
+
+.diagnosis-editor__items {
+  display: grid;
+  gap: var(--hamoon-space-12);
+}
+
+.diagnosis-editor-item {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-white);
+}
+
+.diagnosis-editor-item__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.diagnosis-history {
+  display: grid;
+  gap: var(--hamoon-space-12);
+  padding-top: 8px;
+  border-top: 1px solid var(--hamoon-border);
+}
+
+.diagnosis-history h3 {
+  margin: 4px 0 0;
+  color: var(--hamoon-blue);
+}
+
+.diagnosis-history__list {
+  display: grid;
+  gap: var(--hamoon-space-8);
+}
+
+.diagnosis-history-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-page);
+}
+
+.diagnosis-history-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}
+
+.diagnosis-history-card > strong {
+  color: var(--hamoon-ink);
+}
+
+.diagnosis-history-card > span {
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}
+
+.diagnosis-history-card__decision {
+  padding: 10px;
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-white);
+}
+
+.diagnosis-history-card__decision b {
+  color: var(--hamoon-blue);
+  font-size: 12px;
+}
+
+.diagnosis-history-card__decision p {
+  margin: 6px 0 0;
+  color: var(--hamoon-muted);
+  line-height: 1.8;
+}
+
+@media (max-width: 860px) {
+  .diagnosis-items,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid__wide {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 620px) {
+  .diagnosis-actions,
+  .diagnosis-review-form__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .diagnosis-actions .hm-button,
+  .diagnosis-review-form__actions .hm-button {
+    width: 100%;
+  }
+}
