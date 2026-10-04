@@ -28,6 +28,7 @@ export function AppShell({
   }, []);
 
   const ready = health?.status === "ready";
+  const householdsActive = activePath === "/households" || activePath.startsWith("/households/");
 
   return (
     <div className="app-shell">
@@ -47,6 +48,12 @@ export function AppShell({
               to="/"
             >
               خانه
+            </AppLink>
+            <AppLink
+              className={householdsActive ? "topbar__link is-active" : "topbar__link"}
+              to="/households"
+            >
+              پرونده‌ها
             </AppLink>
             <AppLink
               className={

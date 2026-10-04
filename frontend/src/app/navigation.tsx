@@ -1,9 +1,19 @@
 import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
 
-export type AppPath = "/" | "/work-queue";
+export type AppPath =
+  | "/"
+  | "/work-queue"
+  | "/households"
+  | `/households/${string}`;
 
 function currentPath(): AppPath {
-  return window.location.pathname === "/work-queue" ? "/work-queue" : "/";
+  const path = window.location.pathname;
+  if (path === "/work-queue") return "/work-queue";
+  if (path === "/households") return "/households";
+  if (path.startsWith("/households/") && path.length > "/households/".length) {
+    return path as AppPath;
+  }
+  return "/";
 }
 
 export function useAppPath(): AppPath {
