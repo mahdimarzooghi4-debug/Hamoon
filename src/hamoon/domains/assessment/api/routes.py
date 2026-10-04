@@ -46,7 +46,11 @@ from hamoon.domains.assessment.application.handlers import (
     ResolveAcceptedObservationHandler,
     StartAssessmentHandler,
 )
-from hamoon.domains.assessment.domain.entities import Assessment, AssessmentType
+from hamoon.domains.assessment.domain.entities import (
+    Assessment,
+    AssessmentType,
+    IndicatorObservation,
+)
 from hamoon.domains.assessment.domain.errors import (
     AcceptedObservationVersionConflictError,
     DefinitionNotAvailableError,
@@ -197,7 +201,7 @@ async def get_assessment_workspace(
     observations = await SqlAlchemyIndicatorObservationRepository(
         session
     ).list_for_assessment(assessment_id)
-    latest_by_indicator = {}
+    latest_by_indicator: dict[UUID, IndicatorObservation] = {}
     for observation in observations:
         latest_by_indicator[observation.indicator_definition_id] = observation
 
