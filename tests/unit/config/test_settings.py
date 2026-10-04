@@ -4,13 +4,17 @@ from pydantic import ValidationError
 from hamoon.app.config.settings import Settings
 
 
-def _production_settings(**overrides: str) -> Settings:
-    values: dict[str, str] = {
+def _production_settings(**overrides: object) -> Settings:
+    values: dict[str, object] = {
         "environment": "production",
         "application_version": "0.1.0",
         "git_commit": "a" * 40,
         "image_id": "sha256:" + "b" * 64,
         "deployment_id": "hamoon-prod-20261004-001",
+        "metrics_enabled": True,
+        "metrics_access_token": "m" * 32,
+        "otel_enabled": True,
+        "otel_exporter_otlp_endpoint": "https://otel.internal/v1/traces",
         "database_url": (
             "postgresql+asyncpg://hamoon:strong-password@db.internal:5432/hamoon"
         ),
@@ -60,6 +64,26 @@ def test_production_configuration_accepts_remote_secure_dependencies() -> None:
             "deployment_id",
             "local",
             "PRODUCTION_DEPLOYMENT_ID_REQUIRED",
+        ),
+        (
+            "metrics_enabled",
+            False,
+            "PRODUCTION_METRICS_REQUIRED",
+        ),
+        (
+            "metrics_access_token",
+            "short",
+            "PRODUCTION_METRICS_ACCESS_TOKEN_REQUIRED",
+        ),
+        (
+            "otel_enabled",
+            False,
+            "PRODUCTION_OTEL_REQUIRED",
+        ),
+        (
+            "otel_exporter_otlp_endpoint",
+            "http://otel.internal/v1/traces",
+            "PRODUCTION_OTEL_EXPORTER_HTTPS_REQUIRED",
         ),
         (
             "database_url",
@@ -115,7 +139,7 @@ def test_production_configuration_accepts_remote_secure_dependencies() -> None:
 )
 def test_production_configuration_rejects_unsafe_values(
     field: str,
-    value: str,
+    value: object,
     code: str,
 ) -> None:
     with pytest.raises(ValidationError, match=code):

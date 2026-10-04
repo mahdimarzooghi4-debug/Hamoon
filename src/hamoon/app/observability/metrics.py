@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import secrets
 import time
 
 from fastapi import Request
@@ -73,8 +74,20 @@ class MetricsMiddleware(BaseHTTPMiddleware):
         return response
 
 
-async def metrics_endpoint(_request: Request) -> Response:
+async def metrics_endpoint(request: Request) -> Response:
+    expected_token = getattr(request.app.state, "metrics_access_token", None)
+    if isinstance(expected_token, str) and expected_token:
+        provided_token = request.headers.get("X-Hamoon-Metrics-Token", "")
+        if not secrets.compare_digest(provided_token, expected_token):
+            return Response(
+                content="unauthorized\n",
+                status_code=401,
+                media_type="text/plain",
+                headers={"Cache-Control": "no-store"},
+            )
+
     return Response(
         content=generate_latest(),
         media_type=CONTENT_TYPE_LATEST,
+        headers={"Cache-Control": "no-store"},
     )

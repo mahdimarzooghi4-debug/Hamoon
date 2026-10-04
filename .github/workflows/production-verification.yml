@@ -168,6 +168,15 @@ jobs:
             --max-time 20 --retry 5 --retry-all-errors \
             "$base/" | grep 'id="root"'
 
+          metrics_status="$(
+            curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code}' \
+              --proto '=https' --proto-redir '=https' --tlsv1.2 \
+              --max-time 20 --retry 5 --retry-all-errors \
+              "$base/metrics"
+          )"
+          test "$metrics_status" = "401"
+
       - name: Verify deployed backend and frontend identity
         run: |
           python3 - <<'PY'

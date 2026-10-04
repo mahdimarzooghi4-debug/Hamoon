@@ -3,7 +3,7 @@ import re
 from typing import Self
 from urllib.parse import urlsplit
 
-from pydantic import model_validator
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "0.0.0.0", "::1", "::"})
@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     otel_service_name: str = "hamoon-api"
     otel_exporter_otlp_endpoint: str | None = None
     metrics_enabled: bool = True
+    metrics_access_token: SecretStr | None = None
     structured_logging: bool = True
 
     evidence_storage_backend: str = "local"
@@ -116,6 +117,23 @@ class Settings(BaseSettings):
             or _DEPLOYMENT_ID_RE.fullmatch(self.deployment_id.strip()) is None
         ):
             errors.append("PRODUCTION_DEPLOYMENT_ID_REQUIRED")
+
+        if not self.metrics_enabled:
+            errors.append("PRODUCTION_METRICS_REQUIRED")
+        metrics_token = (
+            self.metrics_access_token.get_secret_value().strip()
+            if self.metrics_access_token is not None
+            else ""
+        )
+        if len(metrics_token) < 32:
+            errors.append("PRODUCTION_METRICS_ACCESS_TOKEN_REQUIRED")
+        if not self.otel_enabled:
+            errors.append("PRODUCTION_OTEL_REQUIRED")
+        if (
+            self.otel_exporter_otlp_endpoint is None
+            or not _is_remote_https(self.otel_exporter_otlp_endpoint)
+        ):
+            errors.append("PRODUCTION_OTEL_EXPORTER_HTTPS_REQUIRED")
 
         if not self.database_url.startswith("postgresql"):
             errors.append("PRODUCTION_POSTGRESQL_REQUIRED")

@@ -1045,6 +1045,13 @@ Production observability باید:
 
 باشد.
 
+Production Prometheus metrics are protected by a dedicated monitoring credential.
+Unauthenticated requests to `/metrics` must return HTTP 401. The credential is
+separate from end-user OIDC tokens and must not appear in logs or artifacts.
+
+Production configuration also requires OpenTelemetry export to a non-local HTTPS
+collector endpoint. A deploy that disables metrics or OTEL is configuration-invalid.
+
 ---
 
 # 49. Observability Access

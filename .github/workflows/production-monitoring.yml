@@ -1,0 +1,230 @@
+name: Production Monitoring Baseline
+
+on:
+  workflow_run:
+    workflows: ["Production Verification"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  monitoring-baseline:
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SOURCE_VERIFICATION_RUN_ID: ${{ github.event.workflow_run.id }}
+      METRICS_TOKEN: ${{ secrets.HAMOON_PRODUCTION_METRICS_TOKEN }}
+
+    steps:
+      - name: Resolve verified Production artifact
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test -n "$METRICS_TOKEN"
+          artifact_name="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_VERIFICATION_RUN_ID/artifacts" \
+              --jq '[.artifacts[] | select(.expired == false and (.name | startswith("hamoon-production-verification-")))][0].name'
+          )"
+          test -n "$artifact_name"
+          promoted_sha="${artifact_name#hamoon-production-verification-}"
+          printf '%s' "$promoted_sha" | grep -Eq '^[0-9a-f]{40}$'
+          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
+          echo "promoted_sha=$promoted_sha" >> "$GITHUB_OUTPUT"
+          echo "VERIFICATION_ARTIFACT_NAME=$artifact_name" >> "$GITHUB_ENV"
+          echo "PROMOTED_SHA=$promoted_sha" >> "$GITHUB_ENV"
+
+      - name: Checkout exact verified commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ steps.resolve.outputs.promoted_sha }}
+
+      - name: Download Production verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p monitoring-input
+          gh run download "$SOURCE_VERIFICATION_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$VERIFICATION_ARTIFACT_NAME" \
+            --dir monitoring-input
+
+      - name: Bind monitoring to successful Production verification
+        run: |
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          import os
+          from pathlib import Path
+
+          verification = json.loads(
+              Path("monitoring-input/production-verification.json").read_text()
+          )
+          assert verification["status"] == "VERIFIED"
+          assert verification["production_deployed"] is True
+          assert verification["runtime_identity_verified"] is True
+          assert verification["commit_sha"] == os.environ["PROMOTED_SHA"]
+          assert (
+              verification["production_verification_run_id"]
+              == os.environ["SOURCE_VERIFICATION_RUN_ID"]
+          )
+
+          print(f'PRODUCTION_ENDPOINT={verification["production_endpoint"]}')
+          print(f'EXPECTED_DEPLOYMENT_ID={verification["deployment_id"]}')
+          print(f'EXPECTED_API_IMAGE_ID={verification["backend_image_id"]}')
+          print(f'EXPECTED_WEB_IMAGE_ID={verification["frontend_image_id"]}')
+          print(f'EXPECTED_APPLICATION_VERSION={verification["application_version"]}')
+          PY
+
+      - name: Require metrics authentication boundary
+        run: |
+          base="${PRODUCTION_ENDPOINT%/}"
+          status="$(
+            curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code}' \
+              --proto '=https' --proto-redir '=https' --tlsv1.2 \
+              --max-time 20 --retry 5 --retry-all-errors \
+              "$base/metrics"
+          )"
+          test "$status" = "401"
+          echo "UNAUTHENTICATED_METRICS_STATUS=$status" >> "$GITHUB_ENV"
+
+      - name: Capture protected metrics baseline
+        run: |
+          mkdir -p monitoring-observed
+          base="${PRODUCTION_ENDPOINT%/}"
+          curl --fail --silent --show-error \
+            --header "X-Hamoon-Metrics-Token: $METRICS_TOKEN" \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 5 --retry-all-errors \
+            "$base/metrics" > monitoring-observed/metrics-before.prom
+
+      - name: Run safe synthetic readiness probes
+        run: |
+          base="${PRODUCTION_ENDPOINT%/}"
+          for i in 1 2 3 4 5; do
+            curl --fail --silent --show-error \
+              --proto '=https' --proto-redir '=https' --tlsv1.2 \
+              --max-time 20 --retry 5 --retry-all-errors \
+              "$base/health/ready" >/dev/null
+            curl --fail --silent --show-error \
+              --proto '=https' --proto-redir '=https' --tlsv1.2 \
+              --max-time 20 --retry 5 --retry-all-errors \
+              "$base/health/release" >/dev/null
+          done
+
+      - name: Capture protected metrics after probes
+        run: |
+          base="${PRODUCTION_ENDPOINT%/}"
+          curl --fail --silent --show-error \
+            --header "X-Hamoon-Metrics-Token: $METRICS_TOKEN" \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 5 --retry-all-errors \
+            "$base/metrics" > monitoring-observed/metrics-after.prom
+
+      - name: Re-check exact runtime identity after monitoring probes
+        run: |
+          base="${PRODUCTION_ENDPOINT%/}"
+          curl --fail --silent --show-error \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 5 --retry-all-errors \
+            "$base/health/release" > monitoring-observed/backend-release.json
+          curl --fail --silent --show-error \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 5 --retry-all-errors \
+            "$base/release.json" > monitoring-observed/frontend-release.json
+
+      - name: Create Production monitoring baseline attestation
+        env:
+          MONITORING_RUN_ID: ${{ github.run_id }}
+        run: |
+          mkdir -p production-monitoring
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          verification_path = Path(
+              "monitoring-input/production-verification.json"
+          )
+          before_path = Path("monitoring-observed/metrics-before.prom")
+          after_path = Path("monitoring-observed/metrics-after.prom")
+          backend_path = Path("monitoring-observed/backend-release.json")
+          frontend_path = Path("monitoring-observed/frontend-release.json")
+          verification = json.loads(verification_path.read_text())
+
+          monitoring = {
+              "schema_version": 1,
+              "status": "BASELINE_PASSED",
+              "monitoring_scope": "BUILTIN_PROMETHEUS_SYNTHETIC_BASELINE",
+              "production_deployed": True,
+              "production_verified": True,
+              "metrics_auth_verified": True,
+              "unauthenticated_metrics_status": int(
+                  os.environ["UNAUTHENTICATED_METRICS_STATUS"]
+              ),
+              "external_observability_backend_verified": False,
+              "commit_sha": os.environ["PROMOTED_SHA"],
+              "production_verification_run_id": os.environ[
+                  "SOURCE_VERIFICATION_RUN_ID"
+              ],
+              "production_monitoring_run_id": os.environ[
+                  "MONITORING_RUN_ID"
+              ],
+              "production_endpoint": verification["production_endpoint"],
+              "deployment_id": verification["deployment_id"],
+              "backend_image_id": verification["backend_image_id"],
+              "frontend_image_id": verification["frontend_image_id"],
+              "application_version": verification["application_version"],
+              "database_migration_versions": verification[
+                  "database_migration_versions"
+              ],
+              "synthetic_ready_probe_count": 5,
+              "production_verification_sha256": hashlib.sha256(
+                  verification_path.read_bytes()
+              ).hexdigest(),
+              "metrics_before_sha256": hashlib.sha256(
+                  before_path.read_bytes()
+              ).hexdigest(),
+              "metrics_after_sha256": hashlib.sha256(
+                  after_path.read_bytes()
+              ).hexdigest(),
+              "backend_release_sha256": hashlib.sha256(
+                  backend_path.read_bytes()
+              ).hexdigest(),
+              "frontend_release_sha256": hashlib.sha256(
+                  frontend_path.read_bytes()
+              ).hexdigest(),
+              "observed_at": datetime.now(UTC).isoformat(),
+          }
+          Path(
+              "production-monitoring/production-monitoring-baseline.json"
+          ).write_text(
+              json.dumps(monitoring, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Verify Production monitoring baseline
+        run: |
+          python3 scripts/verify_production_monitoring.py \
+            monitoring-input/production-verification.json \
+            monitoring-observed/backend-release.json \
+            monitoring-observed/frontend-release.json \
+            monitoring-observed/metrics-before.prom \
+            monitoring-observed/metrics-after.prom \
+            production-monitoring/production-monitoring-baseline.json
+
+      - name: Upload immutable Production monitoring baseline
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamoon-production-monitoring-${{ env.PROMOTED_SHA }}
+          path: production-monitoring/
+          if-no-files-found: error
+          retention-days: 90

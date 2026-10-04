@@ -20,6 +20,12 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version=settings.application_version,
     )
+    metrics_access_token = (
+        settings.metrics_access_token.get_secret_value().strip()
+        if settings.metrics_access_token is not None
+        else ""
+    )
+    application.state.metrics_access_token = metrics_access_token or None
     if settings.metrics_enabled:
         application.add_middleware(MetricsMiddleware)
         application.add_route(

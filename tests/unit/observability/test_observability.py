@@ -3,6 +3,8 @@ import logging
 
 from fastapi.testclient import TestClient
 
+from hamoon.app import main as main_module
+from hamoon.app.config.settings import Settings
 from hamoon.app.main import create_app
 from hamoon.app.observability.json_logging import (
     SafeJsonFormatter,
@@ -52,3 +54,28 @@ def test_metrics_endpoint_exposes_low_cardinality_http_metrics() -> None:
     assert "hamoon_http_requests_total" in metrics.text
     assert 'route="/health/live"' in metrics.text
     assert "X-Request-Id" in response.headers
+
+
+def test_metrics_endpoint_requires_configured_access_token(monkeypatch) -> None:
+    settings = Settings(
+        _env_file=None,
+        metrics_access_token="m" * 32,
+    )
+    monkeypatch.setattr(main_module, "get_settings", lambda: settings)
+    client = TestClient(main_module.create_app())
+
+    missing = client.get("/metrics")
+    wrong = client.get(
+        "/metrics",
+        headers={"X-Hamoon-Metrics-Token": "wrong"},
+    )
+    allowed = client.get(
+        "/metrics",
+        headers={"X-Hamoon-Metrics-Token": "m" * 32},
+    )
+
+    assert missing.status_code == 401
+    assert wrong.status_code == 401
+    assert allowed.status_code == 200
+    assert "hamoon_http_requests_total" in allowed.text
+    assert allowed.headers["Cache-Control"] == "no-store"
