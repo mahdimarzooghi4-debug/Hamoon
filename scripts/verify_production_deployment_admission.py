@@ -161,6 +161,13 @@ def main() -> None:
         isinstance(production_target, str) and production_target.strip(),
         "production_target missing",
     )
+    expected_deployment_id = admission.get("expected_deployment_id")
+    require(
+        isinstance(expected_deployment_id, str)
+        and re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", expected_deployment_id)
+        is not None,
+        "expected_deployment_id invalid",
+    )
     require(
         production_endpoint_valid(admission.get("production_endpoint")),
         "production_endpoint must be a non-local HTTPS endpoint",
@@ -262,6 +269,7 @@ def main() -> None:
                 "deployer": deployer,
                 "production_target": production_target,
                 "production_endpoint": admission.get("production_endpoint"),
+                "expected_deployment_id": expected_deployment_id,
             },
             sort_keys=True,
         )

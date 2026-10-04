@@ -35,6 +35,7 @@ def configure_telemetry(
                 "service.version": settings.application_version,
                 "deployment.environment.name": settings.environment,
                 "hamoon.git_commit": settings.git_commit,
+                "hamoon.image_id": settings.image_id,
                 "hamoon.deployment_id": settings.deployment_id,
             }
         )

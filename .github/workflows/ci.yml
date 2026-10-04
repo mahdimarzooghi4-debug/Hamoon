@@ -209,6 +209,11 @@ jobs:
             -t "$HAMOON_WEB_IMAGE" .
           test "$(docker image inspect "$HAMOON_WEB_IMAGE" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$GITHUB_SHA"
 
+      - name: Export exact application image IDs
+        run: |
+          echo "HAMOON_API_IMAGE_ID=$(docker image inspect "$HAMOON_API_IMAGE" --format '{{.Id}}')" >> "$GITHUB_ENV"
+          echo "HAMOON_WEB_IMAGE_ID=$(docker image inspect "$HAMOON_WEB_IMAGE" --format '{{.Id}}')" >> "$GITHUB_ENV"
+
       - name: Backend image vulnerability scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -274,6 +279,7 @@ jobs:
           payload = json.load(open("/tmp/hamoon-release-health.json"))
           assert payload["status"] == "ready"
           assert payload["git_commit"] == os.environ["GITHUB_SHA"]
+          assert payload["image_id"] == os.environ["HAMOON_API_IMAGE_ID"]
           assert payload["deployment_id"] == os.environ["HAMOON_DEPLOYMENT_ID"]
           assert payload["database_migration_versions"]
           PY
@@ -296,6 +302,16 @@ jobs:
           done
           curl --fail --silent http://localhost:3000/ | grep 'id="root"'
           curl --fail --silent http://localhost:3000/auth/callback | grep 'id="root"'
+          curl --fail --silent http://localhost:3000/release.json > /tmp/hamoon-web-release.json
+          python3 - <<'PY'
+          import json
+          import os
+
+          payload = json.load(open("/tmp/hamoon-web-release.json"))
+          assert payload["git_commit"] == os.environ["GITHUB_SHA"]
+          assert payload["image_id"] == os.environ["HAMOON_WEB_IMAGE_ID"]
+          assert payload["deployment_id"] == os.environ["HAMOON_DEPLOYMENT_ID"]
+          PY
           expected_oidc_b64="$(printf '%s' 'http://localhost:8081/realms/hamoon-local' | base64 | tr -d '\n')"
           curl --fail --silent http://localhost:3000/config.js | grep "$expected_oidc_b64"
           curl --fail --silent http://localhost:3000/health/ready >/dev/null

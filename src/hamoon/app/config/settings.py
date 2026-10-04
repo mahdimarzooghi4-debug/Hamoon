@@ -8,6 +8,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "0.0.0.0", "::1", "::"})
 _GIT_COMMIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
+_IMAGE_ID_RE = re.compile(r"^sha256:[0-9a-fA-F]{64}$")
+_DEPLOYMENT_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 
 
 def _endpoint_host(value: str) -> str | None:
@@ -45,6 +47,7 @@ class Settings(BaseSettings):
     app_name: str = "Hamoon"
     application_version: str = "0.1.0"
     git_commit: str = "development"
+    image_id: str = "local"
     deployment_id: str = "local"
     environment: str = "local"
     database_url: str = "postgresql+asyncpg://hamoon:hamoon@localhost:5432/hamoon"
@@ -105,12 +108,13 @@ class Settings(BaseSettings):
             errors.append("PRODUCTION_APPLICATION_VERSION_REQUIRED")
         if _GIT_COMMIT_RE.fullmatch(self.git_commit.strip()) is None:
             errors.append("PRODUCTION_GIT_COMMIT_REQUIRED")
-        if self.deployment_id.strip().lower() in {
-            "",
-            "local",
-            "development",
-            "unknown",
-        }:
+        if _IMAGE_ID_RE.fullmatch(self.image_id.strip()) is None:
+            errors.append("PRODUCTION_IMAGE_ID_REQUIRED")
+        if (
+            self.deployment_id.strip().lower()
+            in {"", "local", "development", "unknown"}
+            or _DEPLOYMENT_ID_RE.fullmatch(self.deployment_id.strip()) is None
+        ):
             errors.append("PRODUCTION_DEPLOYMENT_ID_REQUIRED")
 
         if not self.database_url.startswith("postgresql"):

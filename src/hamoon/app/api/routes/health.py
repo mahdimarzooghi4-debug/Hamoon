@@ -24,6 +24,7 @@ class ReleaseIdentityResponse(BaseModel):
     environment: str
     application_version: str
     git_commit: str
+    image_id: str
     deployment_id: str
     database_migration_versions: list[str]
 
@@ -74,6 +75,7 @@ async def release_identity(
             environment=settings.environment,
             application_version=settings.application_version,
             git_commit=settings.git_commit,
+            image_id=settings.image_id,
             deployment_id=settings.deployment_id,
             database_migration_versions=[],
         )
@@ -90,6 +92,7 @@ async def release_identity(
         environment=settings.environment,
         application_version=settings.application_version,
         git_commit=settings.git_commit,
+        image_id=settings.image_id,
         deployment_id=settings.deployment_id,
         database_migration_versions=migration_versions,
     )

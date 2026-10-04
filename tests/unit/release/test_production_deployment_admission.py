@@ -94,6 +94,7 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
             "change_reference": "REL-2026-001",
             "production_target": "hamoon-prod-primary",
             "production_endpoint": "https://hamoon.example.com",
+            "expected_deployment_id": "prod-20261004-001",
             "stage_status": "PASSED",
             "release_approval_status": "APPROVED",
             "admitted_at": "2026-10-04T17:00:00+00:00",
@@ -170,3 +171,17 @@ def test_production_admission_rejects_tampered_approval(
 
     assert result.returncode != 0
     assert "Release Approval SHA-256 mismatch" in result.stderr
+
+
+def test_production_admission_rejects_invalid_deployment_id(
+    tmp_path: Path,
+) -> None:
+    release, stage, approval, admission = _chain(tmp_path)
+    value = json.loads(admission.read_text())
+    value["expected_deployment_id"] = "bad deployment id"
+    _write_json(admission, value)
+
+    result = _verify(release, stage, approval, admission)
+
+    assert result.returncode != 0
+    assert "expected_deployment_id invalid" in result.stderr

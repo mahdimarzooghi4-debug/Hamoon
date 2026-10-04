@@ -13,6 +13,7 @@ The workflow is manual and requires:
 - explicit `DEPLOY` confirmation;
 - a stable Production target identifier;
 - a non-local HTTPS Production endpoint;
+- an expected runtime deployment identifier;
 - a successful immutable Release Approval artifact for the exact commit.
 
 It resolves the Release Approval first, follows that evidence to the exact Stage
@@ -40,7 +41,8 @@ The attestation binds the deployment target to:
 - release approver;
 - deployment operator;
 - change reference;
-- Production target and HTTPS endpoint.
+- Production target and HTTPS endpoint;
+- expected runtime deployment identifier.
 
 The artifact deliberately records `production_deployed=false`.
 

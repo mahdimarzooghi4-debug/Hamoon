@@ -67,6 +67,8 @@ jobs:
           manifest = json.loads(Path("stage-release/manifest.json").read_text())
           print(f'HAMOON_API_IMAGE={manifest["backend"]["image"]}')
           print(f'HAMOON_WEB_IMAGE={manifest["frontend"]["image"]}')
+          print(f'HAMOON_API_IMAGE_ID={manifest["backend"]["image_id"]}')
+          print(f'HAMOON_WEB_IMAGE_ID={manifest["frontend"]["image_id"]}')
           PY
 
       - name: Verify loaded image identity against release manifest
@@ -101,6 +103,7 @@ jobs:
           assert payload["status"] == "ready"
           assert payload["environment"] == "stage"
           assert payload["git_commit"] == os.environ["PROMOTED_SHA"]
+          assert payload["image_id"] == os.environ["HAMOON_API_IMAGE_ID"]
           assert payload["deployment_id"] == os.environ["HAMOON_DEPLOYMENT_ID"]
           assert payload["database_migration_versions"]
           PY
@@ -123,6 +126,16 @@ jobs:
           done
           curl --fail --silent http://localhost:3000/ | grep 'id="root"'
           curl --fail --silent http://localhost:3000/auth/callback | grep 'id="root"'
+          curl --fail --silent http://localhost:3000/release.json > /tmp/hamoon-stage-web-release.json
+          python3 - <<'PY'
+          import json
+          import os
+
+          payload = json.load(open("/tmp/hamoon-stage-web-release.json"))
+          assert payload["git_commit"] == os.environ["PROMOTED_SHA"]
+          assert payload["image_id"] == os.environ["HAMOON_WEB_IMAGE_ID"]
+          assert payload["deployment_id"] == os.environ["HAMOON_DEPLOYMENT_ID"]
+          PY
           curl --fail --silent http://localhost:3000/health/ready >/dev/null
 
           test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -a -q migrate)")" = "0"

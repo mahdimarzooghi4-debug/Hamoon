@@ -9,6 +9,7 @@ def _production_settings(**overrides: str) -> Settings:
         "environment": "production",
         "application_version": "0.1.0",
         "git_commit": "a" * 40,
+        "image_id": "sha256:" + "b" * 64,
         "deployment_id": "hamoon-prod-20261004-001",
         "database_url": (
             "postgresql+asyncpg://hamoon:strong-password@db.internal:5432/hamoon"
@@ -49,6 +50,11 @@ def test_production_configuration_accepts_remote_secure_dependencies() -> None:
             "git_commit",
             "development",
             "PRODUCTION_GIT_COMMIT_REQUIRED",
+        ),
+        (
+            "image_id",
+            "local",
+            "PRODUCTION_IMAGE_ID_REQUIRED",
         ),
         (
             "deployment_id",

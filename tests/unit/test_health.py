@@ -46,6 +46,7 @@ def test_release_identity_reports_build_and_migration_metadata(
         _env_file=None,
         application_version="1.2.3",
         git_commit="a" * 40,
+        image_id="sha256:" + "b" * 64,
         deployment_id="test-deployment",
     )
     try:
@@ -58,6 +59,7 @@ def test_release_identity_reports_build_and_migration_metadata(
     assert payload["status"] == "ready"
     assert payload["application_version"] == "1.2.3"
     assert payload["git_commit"] == "a" * 40
+    assert payload["image_id"] == "sha256:" + "b" * 64
     assert payload["deployment_id"] == "test-deployment"
     assert payload["database_migration_versions"] == [
         "20261004_release_identity"

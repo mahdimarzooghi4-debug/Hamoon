@@ -1,0 +1,279 @@
+name: Production Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact admitted 40-character commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: Type VERIFY to verify the deployed Production runtime
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PROMOTED_SHA: ${{ inputs.commit_sha }}
+
+    steps:
+      - name: Validate explicit verification input
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          test "$CONFIRMATION" = "VERIFY"
+          printf '%s' "$PROMOTED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+
+      - name: Checkout exact admitted commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Require candidate to belong to main history
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$PROMOTED_SHA" origin/main
+
+      - name: Resolve immutable Production deployment admission
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          artifact_name="hamoon-production-deployment-admission-$PROMOTED_SHA"
+          artifact_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$artifact_name&per_page=100" \
+              --jq '[.artifacts[] | select(.expired == false)][0].id'
+          )"
+          test -n "$artifact_id"
+
+          admission_run_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id" \
+              --jq '.workflow_run.id'
+          )"
+          test -n "$admission_run_id"
+
+          admission_conclusion="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$admission_run_id" \
+              --jq '.conclusion'
+          )"
+          test "$admission_conclusion" = "success"
+
+          echo "DEPLOYMENT_ADMISSION_RUN_ID=$admission_run_id" >> "$GITHUB_ENV"
+
+      - name: Download Production deployment admission
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p verification-input/admission
+          gh run download "$DEPLOYMENT_ADMISSION_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-production-deployment-admission-$PROMOTED_SHA" \
+            --dir verification-input/admission
+
+      - name: Resolve governance evidence chain
+        run: |
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          from pathlib import Path
+
+          admission = json.loads(
+              Path(
+                  "verification-input/admission/"
+                  "production-deployment-admission.json"
+              ).read_text()
+          )
+          print(f'SOURCE_CI_RUN_ID={admission["source_ci_run_id"]}')
+          print(f'STAGE_ADMISSION_RUN_ID={admission["stage_admission_run_id"]}')
+          print(f'RELEASE_APPROVAL_RUN_ID={admission["release_approval_run_id"]}')
+          print(f'PRODUCTION_ENDPOINT={admission["production_endpoint"]}')
+          print(f'EXPECTED_DEPLOYMENT_ID={admission["expected_deployment_id"]}')
+          print(f'EXPECTED_API_IMAGE_ID={admission["backend_image_id"]}')
+          print(f'EXPECTED_WEB_IMAGE_ID={admission["frontend_image_id"]}')
+          PY
+
+      - name: Download exact release, Stage and approval evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p \
+            verification-input/release \
+            verification-input/stage \
+            verification-input/approval
+
+          gh run download "$SOURCE_CI_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-release-$PROMOTED_SHA" \
+            --dir verification-input/release
+
+          gh run download "$STAGE_ADMISSION_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-stage-admission-$PROMOTED_SHA" \
+            --dir verification-input/stage
+
+          gh run download "$RELEASE_APPROVAL_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-release-approval-$PROMOTED_SHA" \
+            --dir verification-input/approval
+
+      - name: Re-verify complete governance evidence
+        run: |
+          python3 scripts/verify_release_bundle.py verification-input/release
+          python3 scripts/verify_stage_attestation.py \
+            verification-input/release \
+            verification-input/stage/stage-attestation.json
+          python3 scripts/verify_release_approval.py \
+            verification-input/release \
+            verification-input/stage/stage-attestation.json \
+            verification-input/approval/release-approval.json
+          python3 scripts/verify_production_deployment_admission.py \
+            verification-input/release \
+            verification-input/stage/stage-attestation.json \
+            verification-input/approval/release-approval.json \
+            verification-input/admission/production-deployment-admission.json
+
+      - name: Probe Hosted Production runtime identity
+        run: |
+          mkdir -p production-observed
+          base="${PRODUCTION_ENDPOINT%/}"
+
+          curl --fail --silent --show-error \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 5 --retry-all-errors \
+            "$base/health/live" > production-observed/live.json
+
+          curl --fail --silent --show-error \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 5 --retry-all-errors \
+            "$base/health/ready" > production-observed/ready.json
+
+          curl --fail --silent --show-error \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 5 --retry-all-errors \
+            "$base/health/release" > production-observed/backend-release.json
+
+          curl --fail --silent --show-error \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 5 --retry-all-errors \
+            "$base/release.json" > production-observed/frontend-release.json
+
+          curl --fail --silent --show-error \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 5 --retry-all-errors \
+            "$base/" | grep 'id="root"'
+
+      - name: Verify deployed backend and frontend identity
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+
+          backend = json.load(open("production-observed/backend-release.json"))
+          frontend = json.load(open("production-observed/frontend-release.json"))
+          ready = json.load(open("production-observed/ready.json"))
+
+          assert ready["status"] == "ready"
+          assert backend["status"] == "ready"
+          assert backend["environment"].lower() in {"prod", "production"}
+          assert backend["git_commit"] == os.environ["PROMOTED_SHA"]
+          assert backend["image_id"] == os.environ["EXPECTED_API_IMAGE_ID"]
+          assert backend["deployment_id"] == os.environ["EXPECTED_DEPLOYMENT_ID"]
+          assert backend["database_migration_versions"]
+
+          assert frontend["git_commit"] == os.environ["PROMOTED_SHA"]
+          assert frontend["image_id"] == os.environ["EXPECTED_WEB_IMAGE_ID"]
+          assert frontend["deployment_id"] == os.environ["EXPECTED_DEPLOYMENT_ID"]
+          assert frontend["application_version"] == backend["application_version"]
+          PY
+
+      - name: Create Production verification attestation
+        env:
+          VERIFIER: ${{ github.actor }}
+          VERIFICATION_RUN_ID: ${{ github.run_id }}
+        run: |
+          mkdir -p production-verification
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          admission_path = Path(
+              "verification-input/admission/"
+              "production-deployment-admission.json"
+          )
+          backend_path = Path("production-observed/backend-release.json")
+          frontend_path = Path("production-observed/frontend-release.json")
+
+          admission = json.loads(admission_path.read_text())
+          backend = json.loads(backend_path.read_text())
+          frontend = json.loads(frontend_path.read_text())
+
+          verification = {
+              "schema_version": 1,
+              "status": "VERIFIED",
+              "verification_scope": "HOSTED_PRODUCTION_RUNTIME",
+              "production_deployed": True,
+              "runtime_identity_verified": True,
+              "commit_sha": os.environ["PROMOTED_SHA"],
+              "source_ci_run_id": admission["source_ci_run_id"],
+              "stage_admission_run_id": admission["stage_admission_run_id"],
+              "release_approval_run_id": admission["release_approval_run_id"],
+              "deployment_admission_run_id": admission[
+                  "deployment_admission_run_id"
+              ],
+              "production_verification_run_id": os.environ[
+                  "VERIFICATION_RUN_ID"
+              ],
+              "production_target": admission["production_target"],
+              "production_endpoint": admission["production_endpoint"],
+              "deployment_id": backend["deployment_id"],
+              "backend_image_id": backend["image_id"],
+              "frontend_image_id": frontend["image_id"],
+              "application_version": backend["application_version"],
+              "database_migration_versions": backend[
+                  "database_migration_versions"
+              ],
+              "deployment_admission_sha256": hashlib.sha256(
+                  admission_path.read_bytes()
+              ).hexdigest(),
+              "backend_release_observation_sha256": hashlib.sha256(
+                  backend_path.read_bytes()
+              ).hexdigest(),
+              "frontend_release_observation_sha256": hashlib.sha256(
+                  frontend_path.read_bytes()
+              ).hexdigest(),
+              "verifier": os.environ["VERIFIER"],
+              "verified_at": datetime.now(UTC).isoformat(),
+          }
+
+          Path(
+              "production-verification/production-verification.json"
+          ).write_text(
+              json.dumps(verification, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Verify Production verification attestation
+        run: |
+          python3 scripts/verify_production_verification.py \
+            verification-input/admission/production-deployment-admission.json \
+            production-observed/backend-release.json \
+            production-observed/frontend-release.json \
+            production-verification/production-verification.json
+
+      - name: Upload immutable Production verification
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamoon-production-verification-${{ inputs.commit_sha }}
+          path: production-verification/
+          if-no-files-found: error
+          retention-days: 90
