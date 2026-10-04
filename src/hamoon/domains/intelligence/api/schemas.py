@@ -160,3 +160,35 @@ class AIRoutingPolicyDraftData(BaseModel):
 
 class AIRoutingPolicyDraftResponse(BaseModel):
     data: AIRoutingPolicyDraftData
+
+
+class DiagnosisHumanDecisionData(BaseModel):
+    id: UUID
+    actor_id: UUID
+    action: HumanDecisionAction
+    reason_code: str | None
+    reason_text: str | None
+    accepted_payload: dict[str, JsonValue] | None
+    modified_payload: dict[str, JsonValue] | None
+    decided_at: datetime
+
+
+class DiagnosisHistoryEntryData(BaseModel):
+    id: UUID
+    household_id: UUID
+    ai_decision_id: UUID
+    status: DiagnosisStatus
+    version: int
+    machine_proposal: dict[str, JsonValue]
+    accepted_payload: dict[str, JsonValue] | None
+    model_alias: str
+    output_schema_version: str
+    generated_at: datetime
+    created_at: datetime
+    reviewed_at: datetime | None
+    reviewed_by: UUID | None
+    human_decisions: list[DiagnosisHumanDecisionData]
+
+
+class DiagnosisHistoryResponse(BaseModel):
+    data: list[DiagnosisHistoryEntryData]

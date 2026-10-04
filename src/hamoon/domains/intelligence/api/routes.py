@@ -26,6 +26,9 @@ from hamoon.domains.intelligence.api.schemas import (
     DecisionTraceData,
     DecisionTraceResponse,
     DiagnosisData,
+    DiagnosisHistoryEntryData,
+    DiagnosisHistoryResponse,
+    DiagnosisHumanDecisionData,
     DiagnosisResponse,
     GenerateDiagnosisData,
     GenerateDiagnosisRequest,
@@ -216,6 +219,79 @@ async def generate_diagnosis(
             trace_id=ai_decision.trace_id,
         )
     )
+
+@router.get(
+    "/api/v1/households/{household_id}/diagnoses",
+    response_model=DiagnosisHistoryResponse,
+)
+async def list_household_diagnoses(
+    household_id: UUID,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    limit: int = 50,
+) -> DiagnosisHistoryResponse:
+    await require_household_assignment(
+        session=session,
+        context=context,
+        household_id=household_id,
+    )
+    if limit < 1 or limit > 100:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "INVALID_LIMIT"},
+        )
+
+    diagnoses = await SqlAlchemyDiagnosisRepository(session).list_for_household(
+        household_id,
+        limit=limit,
+    )
+    ai_decisions = await SqlAlchemyAIDecisionRepository(session).list_by_ids(
+        [item.ai_decision_id for item in diagnoses]
+    )
+    human_decisions = await SqlAlchemyHumanDecisionRepository(
+        session
+    ).list_for_diagnoses([item.id for item in diagnoses])
+
+    data: list[DiagnosisHistoryEntryData] = []
+    for diagnosis in diagnoses:
+        ai_decision = ai_decisions.get(diagnosis.ai_decision_id)
+        if ai_decision is None:
+            continue
+        data.append(
+            DiagnosisHistoryEntryData(
+                id=diagnosis.id,
+                household_id=diagnosis.household_id,
+                ai_decision_id=diagnosis.ai_decision_id,
+                status=diagnosis.status,
+                version=diagnosis.version,
+                machine_proposal=ai_decision.structured_output,
+                accepted_payload=diagnosis.accepted_payload,
+                model_alias=ai_decision.model_alias,
+                output_schema_version=ai_decision.output_schema_version,
+                generated_at=ai_decision.generated_at,
+                created_at=diagnosis.created_at,
+                reviewed_at=diagnosis.reviewed_at,
+                reviewed_by=diagnosis.reviewed_by,
+                human_decisions=[
+                    DiagnosisHumanDecisionData(
+                        id=decision.id,
+                        actor_id=decision.actor_id,
+                        action=decision.action,
+                        reason_code=decision.reason_code,
+                        reason_text=decision.reason_text,
+                        accepted_payload=decision.accepted_payload,
+                        modified_payload=decision.modified_payload,
+                        decided_at=decision.decided_at,
+                    )
+                    for decision in human_decisions.get(diagnosis.id, [])
+                ],
+            )
+        )
+    return DiagnosisHistoryResponse(data=data)
+
 
 @router.get(
     "/api/v1/diagnoses/{diagnosis_id}",

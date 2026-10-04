@@ -230,6 +230,21 @@ class SqlAlchemyAIDecisionRepository:
         model = await self._session.get(AIDecisionModel, decision_id)
         return None if model is None else _ai_decision(model)
 
+
+    async def list_by_ids(
+        self,
+        decision_ids: list[UUID],
+    ) -> dict[UUID, AIDecision]:
+        if not decision_ids:
+            return {}
+        result = await self._session.execute(
+            select(AIDecisionModel).where(AIDecisionModel.id.in_(decision_ids))
+        )
+        return {
+            model.id: _ai_decision(model)
+            for model in result.scalars().all()
+        }
+
 class SqlAlchemyDiagnosisRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -253,6 +268,21 @@ class SqlAlchemyDiagnosisRepository:
     async def get(self, diagnosis_id: UUID) -> Diagnosis | None:
         model = await self._session.get(DiagnosisModel, diagnosis_id)
         return None if model is None else _diagnosis(model)
+
+
+    async def list_for_household(
+        self,
+        household_id: UUID,
+        *,
+        limit: int,
+    ) -> list[Diagnosis]:
+        result = await self._session.execute(
+            select(DiagnosisModel)
+            .where(DiagnosisModel.household_id == household_id)
+            .order_by(DiagnosisModel.created_at.desc())
+            .limit(limit)
+        )
+        return [_diagnosis(model) for model in result.scalars().all()]
 
     async def update(
         self,
@@ -310,6 +340,27 @@ class SqlAlchemyHumanDecisionRepository:
     async def get(self, decision_id: UUID) -> HumanDecision | None:
         model = await self._session.get(HumanDecisionModel, decision_id)
         return None if model is None else _human_decision(model)
+
+
+    async def list_for_diagnoses(
+        self,
+        diagnosis_ids: list[UUID],
+    ) -> dict[UUID, list[HumanDecision]]:
+        if not diagnosis_ids:
+            return {}
+        result = await self._session.execute(
+            select(HumanDecisionModel)
+            .where(HumanDecisionModel.diagnosis_id.in_(diagnosis_ids))
+            .order_by(HumanDecisionModel.decided_at.desc())
+        )
+        grouped: dict[UUID, list[HumanDecision]] = {}
+        for model in result.scalars().all():
+            if model.diagnosis_id is None:
+                continue
+            grouped.setdefault(model.diagnosis_id, []).append(
+                _human_decision(model)
+            )
+        return grouped
 
 class SqlAlchemyDecisionTraceRepository:
     def __init__(self, session: AsyncSession) -> None:
