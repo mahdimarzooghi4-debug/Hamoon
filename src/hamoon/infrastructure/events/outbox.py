@@ -14,6 +14,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from hamoon.app.config.settings import Settings, get_settings
+from hamoon.app.observability.heartbeats import record_worker_heartbeat_safe
 from hamoon.app.observability.metrics import (
     OUTBOX_PUBLISH_FAILURE,
     OUTBOX_PUBLISH_SUCCESS,
@@ -342,9 +343,33 @@ async def run_outbox_worker(settings: Settings | None = None) -> None:
     )
     try:
         while True:
-            stats = await service.deliver_once(
-                batch_size=effective.outbox_batch_size,
-                lease_seconds=effective.outbox_lease_seconds,
+            try:
+                stats = await service.deliver_once(
+                    batch_size=effective.outbox_batch_size,
+                    lease_seconds=effective.outbox_lease_seconds,
+                )
+            except Exception:
+                logger.exception(
+                    "Outbox delivery cycle failed",
+                    extra={
+                        "operation": "outbox_delivery",
+                        "error_code": "OUTBOX_DELIVERY_CYCLE_FAILED",
+                    },
+                )
+                await record_worker_heartbeat_safe(
+                    worker_name="outbox-worker",
+                    settings=effective,
+                    status="DEGRADED",
+                    error_code="OUTBOX_DELIVERY_CYCLE_FAILED",
+                )
+                await asyncio.sleep(effective.outbox_poll_seconds)
+                continue
+
+            await record_worker_heartbeat_safe(
+                worker_name="outbox-worker",
+                settings=effective,
+                status="READY" if stats.failed == 0 else "DEGRADED",
+                error_code="OUTBOX_PUBLISH_FAILURE" if stats.failed else None,
             )
             if stats.claimed < effective.outbox_batch_size:
                 await asyncio.sleep(effective.outbox_poll_seconds)

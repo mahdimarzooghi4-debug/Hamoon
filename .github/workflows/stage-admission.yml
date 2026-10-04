@@ -143,6 +143,20 @@ jobs:
           test "$(docker inspect -f '{{.State.Running}}' "$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -q outbox-worker)")" = "true"
           test "$(docker inspect -f '{{.State.Running}}' "$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -q temporal-worker)")" = "true"
 
+          for i in {1..45}; do
+            metrics="$(curl --fail --silent http://localhost:8000/metrics || true)"
+            if echo "$metrics" | grep -q 'hamoon_worker_healthy{worker="outbox-worker"} 1.0' \
+              && echo "$metrics" | grep -q 'hamoon_worker_healthy{worker="temporal-worker"} 1.0'; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://localhost:8000/metrics | grep 'hamoon_dependency_health{dependency="postgresql"} 1.0'
+          curl --fail --silent http://localhost:8000/metrics | grep 'hamoon_outbox_pending_count'
+          curl --fail --silent http://localhost:8000/metrics | grep 'hamoon_outbox_oldest_age_seconds'
+          curl --fail --silent http://localhost:8000/metrics | grep 'hamoon_worker_healthy{worker="outbox-worker"} 1.0'
+          curl --fail --silent http://localhost:8000/metrics | grep 'hamoon_worker_healthy{worker="temporal-worker"} 1.0'
+
       - name: Verify exact promoted images are running
         run: |
           expected_api_id="$(docker image inspect "$HAMOON_API_IMAGE" --format '{{.Id}}')"

@@ -7,6 +7,10 @@ from hamoon.app.config.settings import get_settings
 from hamoon.app.security.context import AuthorizationContext, Role
 from hamoon.domains.admin.api.routes import get_data_health, get_machine_health
 from hamoon.domains.identity.domain.entities import ActorType
+from hamoon.app.observability.heartbeats import (
+    read_operational_snapshot,
+    record_worker_heartbeat,
+)
 from hamoon.infrastructure.db.session import database_migration_versions
 
 
@@ -39,5 +43,21 @@ async def test_admin_health_projections_execute_on_real_postgres() -> None:
     migration_versions = await database_migration_versions()
     assert migration_versions
     assert all(migration_version for migration_version in migration_versions)
+
+    await record_worker_heartbeat(
+        worker_name="outbox-worker",
+        settings=settings,
+    )
+    await record_worker_heartbeat(
+        worker_name="temporal-worker",
+        settings=settings,
+    )
+    snapshot = await read_operational_snapshot()
+    assert snapshot.outbox_pending_count >= 0
+    assert snapshot.outbox_oldest_age_seconds >= 0
+    assert {heartbeat.worker_name for heartbeat in snapshot.heartbeats} >= {
+        "outbox-worker",
+        "temporal-worker",
+    }
 
     await engine.dispose()

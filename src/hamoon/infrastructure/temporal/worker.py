@@ -5,7 +5,8 @@ from temporalio.client import Client
 from temporalio.exceptions import WorkflowAlreadyStartedError
 from temporalio.worker import Worker
 
-from hamoon.app.config.settings import get_settings
+from hamoon.app.config.settings import Settings, get_settings
+from hamoon.app.observability.heartbeats import record_worker_heartbeat_safe
 from hamoon.domains.operations.domain.entities import (
     ReassessmentPlan,
     ReassessmentPlanStatus,
@@ -101,6 +102,15 @@ async def _reconcile(client: Client, task_queue: str) -> None:
         await asyncio.sleep(30)
 
 
+async def _heartbeat_loop(settings: Settings) -> None:
+    while True:
+        await record_worker_heartbeat_safe(
+            worker_name="temporal-worker",
+            settings=settings,
+        )
+        await asyncio.sleep(15)
+
+
 async def run() -> None:
     settings = get_settings()
     client = await Client.connect(
@@ -121,6 +131,7 @@ async def run() -> None:
     await asyncio.gather(
         worker.run(),
         _reconcile(client, settings.temporal_core_task_queue),
+        _heartbeat_loop(settings),
     )
 
 

@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "status": "ENFORCED",
+  "exported_metric_families": [
+    "hamoon_http_requests_total",
+    "hamoon_http_request_errors_total",
+    "hamoon_dependency_health",
+    "hamoon_outbox_pending_count",
+    "hamoon_outbox_oldest_age_seconds",
+    "hamoon_worker_healthy",
+    "hamoon_worker_heartbeat_age_seconds",
+    "hamoon_operational_metrics_refresh_failures_total"
+  ],
+  "alerts": [
+    {
+      "id": "HAMOON_METRICS_MISSING",
+      "severity": "critical",
+      "category": "platform",
+      "for_seconds": 300,
+      "expression": "absent(hamoon_http_requests_total) == 1",
+      "summary": "Hamoon metrics have disappeared from the monitoring backend.",
+      "runbook": "docs/runbooks/HAMOON_METRICS_MISSING.md"
+    },
+    {
+      "id": "HAMOON_API_CRITICAL_ERROR_SPIKE",
+      "severity": "critical",
+      "category": "platform",
+      "for_seconds": 600,
+      "expression": "sum(rate(hamoon_http_request_errors_total[5m])) / clamp_min(sum(rate(hamoon_http_requests_total[5m])), 0.001) > 0.05",
+      "summary": "Production API 5xx error ratio is above 5 percent.",
+      "runbook": "docs/runbooks/HAMOON_API_CRITICAL_ERROR_SPIKE.md"
+    },
+    {
+      "id": "HAMOON_POSTGRES_UNAVAILABLE",
+      "severity": "critical",
+      "category": "database",
+      "for_seconds": 120,
+      "expression": "hamoon_dependency_health{dependency=\"postgresql\"} == 0",
+      "summary": "The API metrics scraper cannot successfully query PostgreSQL.",
+      "runbook": "docs/runbooks/HAMOON_POSTGRES_UNAVAILABLE.md"
+    },
+    {
+      "id": "HAMOON_OUTBOX_STUCK",
+      "severity": "critical",
+      "category": "events",
+      "for_seconds": 600,
+      "expression": "hamoon_outbox_pending_count > 100 and hamoon_outbox_oldest_age_seconds > 300",
+      "summary": "The durable outbox backlog is both large and old.",
+      "runbook": "docs/runbooks/HAMOON_OUTBOX_STUCK.md"
+    },
+    {
+      "id": "HAMOON_OUTBOX_WORKER_STALE",
+      "severity": "critical",
+      "category": "workers",
+      "for_seconds": 120,
+      "expression": "hamoon_worker_healthy{worker=\"outbox-worker\"} == 0",
+      "summary": "The exact-release Outbox worker heartbeat is missing, stale, or degraded.",
+      "runbook": "docs/runbooks/HAMOON_WORKER_STALE.md"
+    },
+    {
+      "id": "HAMOON_TEMPORAL_WORKER_STALE",
+      "severity": "critical",
+      "category": "workers",
+      "for_seconds": 120,
+      "expression": "hamoon_worker_healthy{worker=\"temporal-worker\"} == 0",
+      "summary": "The exact-release Temporal worker heartbeat is missing or stale.",
+      "runbook": "docs/runbooks/HAMOON_WORKER_STALE.md"
+    },
+    {
+      "id": "HAMOON_OPERATIONAL_METRICS_REFRESH_FAILURE",
+      "severity": "warning",
+      "category": "observability",
+      "for_seconds": 300,
+      "expression": "increase(hamoon_operational_metrics_refresh_failures_total{dependency=\"postgresql\"}[5m]) > 0",
+      "summary": "DB-backed operational metric refreshes are failing.",
+      "runbook": "docs/runbooks/HAMOON_POSTGRES_UNAVAILABLE.md"
+    }
+  ]
+}

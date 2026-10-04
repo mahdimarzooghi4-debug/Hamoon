@@ -813,6 +813,14 @@ V1:
 - evidence quarantine spike
 - integration mapping failure spike
 
+The first production alert contract is machine-readable at
+`ops/observability/alert-policy.json`. It is intentionally limited to signals that
+Hamoon can currently prove are exported centrally: API availability/error rate,
+PostgreSQL health, durable outbox backlog/age, and exact-release worker heartbeat for
+Outbox and Temporal workers. Rules for NATS consumer lag, provider dispatch, AI,
+audit, and evidence quarantine remain incomplete until those metric families are
+implemented; the contract must not pretend those alerts exist.
+
 ---
 
 # 35. AI Drift Monitoring
