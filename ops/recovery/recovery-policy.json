@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "status": "ENFORCED",
+  "rehearsal_scope": "STAGE_RECOVERY_REHEARSAL",
+  "required_assets": [
+    {"id": "postgresql", "backup_method": "pg_dump_custom", "restore_test": "required"},
+    {"id": "evidence_object_storage", "backup_method": "object_mirror_archive", "restore_test": "required"},
+    {"id": "release_bundle", "backup_method": "immutable_release_artifact", "restore_test": "integrity_required"}
+  ],
+  "required_stage_assertions": [
+    "postgresql_backup_restored",
+    "postgresql_schema_verified",
+    "postgresql_probe_verified",
+    "evidence_backup_restored",
+    "evidence_probe_verified",
+    "release_bundle_integrity_verified"
+  ],
+  "production_claims_forbidden_from_stage": [
+    "production_managed_backup_verified",
+    "production_pitr_verified",
+    "external_backup_retention_verified"
+  ],
+  "conditional_production_recovery_assets": [
+    {"id": "nats_jetstream", "required_when": "self_hosted"},
+    {"id": "temporal_persistence", "required_when": "self_hosted"},
+    {"id": "keycloak_database_and_config", "required_when": "self_hosted"}
+  ],
+  "rpo_rto_policy_status": "PENDING_OPERATIONS_POLICY",
+  "runbook": "docs/runbooks/HAMOON_RECOVERY_REHEARSAL.md"
+}

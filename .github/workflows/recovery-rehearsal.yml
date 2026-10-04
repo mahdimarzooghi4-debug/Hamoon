@@ -1,0 +1,398 @@
+name: Recovery Rehearsal
+
+on:
+  workflow_run:
+    workflows: ["Stage Admission"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  recovery-rehearsal:
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PROMOTED_SHA: ${{ github.event.workflow_run.head_sha }}
+      STAGE_ADMISSION_RUN_ID: ${{ github.event.workflow_run.id }}
+      HAMOON_DEPLOYMENT_ID: recovery-rehearsal-${{ github.run_id }}
+
+    steps:
+      - name: Checkout exact Stage-admitted commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Download immutable Stage admission evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p recovery-input/stage
+          gh run download "$STAGE_ADMISSION_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-stage-admission-$PROMOTED_SHA" \
+            --dir recovery-input/stage
+
+      - name: Resolve exact source CI run
+        run: |
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          import os
+          from pathlib import Path
+
+          stage = json.loads(
+              Path(
+                  "recovery-input/stage/stage-attestation.json"
+              ).read_text()
+          )
+          assert stage["status"] == "PASSED"
+          assert stage["commit_sha"] == os.environ["PROMOTED_SHA"]
+          assert (
+              stage["stage_admission_run_id"]
+              == os.environ["STAGE_ADMISSION_RUN_ID"]
+          )
+          print(f'SOURCE_CI_RUN_ID={stage["source_ci_run_id"]}')
+          PY
+
+      - name: Download immutable release bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p recovery-input/release
+          gh run download "$SOURCE_CI_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-release-$PROMOTED_SHA" \
+            --dir recovery-input/release
+
+      - name: Verify release and Stage evidence before recovery
+        run: |
+          python3 scripts/verify_release_bundle.py recovery-input/release
+          python3 scripts/verify_stage_attestation.py \
+            recovery-input/release \
+            recovery-input/stage/stage-attestation.json
+          python3 scripts/verify_recovery_policy.py \
+            ops/recovery/recovery-policy.json .
+
+      - name: Load exact backend image without rebuild
+        run: |
+          docker load -i recovery-input/release/hamoon-api.tar
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(
+              Path("recovery-input/release/manifest.json").read_text()
+          )
+          print(f'HAMOON_API_IMAGE={manifest["backend"]["image"]}')
+          print(f'HAMOON_API_IMAGE_ID={manifest["backend"]["image_id"]}')
+          PY
+
+      - name: Build recovery-only MinIO helper
+        run: docker compose build minio
+
+      - name: Start isolated recovery source dependencies
+        run: |
+          rm -rf recovery
+          mkdir -p recovery/evidence-backup recovery/evidence-restore-source
+          docker compose up -d --no-build postgres minio minio-init
+
+          for i in {1..60}; do
+            if docker compose exec -T postgres \
+              pg_isready -U hamoon -d hamoon >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          docker compose exec -T postgres pg_isready -U hamoon -d hamoon
+
+          for i in {1..60}; do
+            if curl --fail --silent \
+              http://localhost:9000/minio/health/live >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent \
+            http://localhost:9000/minio/health/live >/dev/null
+
+          for i in {1..60}; do
+            init_id="$(docker compose ps -a -q minio-init)"
+            if [ -n "$init_id" ] \
+              && [ "$(docker inspect -f '{{.State.Status}}' "$init_id")" = "exited" ]; then
+              break
+            fi
+            sleep 1
+          done
+          test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -a -q minio-init)")" = "0"
+
+          docker compose up -d --no-build migrate
+          for i in {1..60}; do
+            migrate_id="$(docker compose ps -a -q migrate)"
+            if [ -n "$migrate_id" ] \
+              && [ "$(docker inspect -f '{{.State.Status}}' "$migrate_id")" = "exited" ]; then
+              break
+            fi
+            sleep 1
+          done
+          test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -a -q migrate)")" = "0"
+
+      - name: Seed synthetic recovery markers
+        run: |
+          probe_id="recovery-$GITHUB_RUN_ID"
+          echo "RECOVERY_PROBE_ID=$probe_id" >> "$GITHUB_ENV"
+
+          docker compose exec -T postgres psql \
+            -U hamoon -d hamoon -v ON_ERROR_STOP=1 <<SQL
+          INSERT INTO operational_worker_heartbeat (
+              worker_name,
+              status,
+              deployment_id,
+              git_commit,
+              image_id,
+              last_error_code,
+              observed_at
+          ) VALUES (
+              '$probe_id',
+              'READY',
+              '$HAMOON_DEPLOYMENT_ID',
+              '$PROMOTED_SHA',
+              '$HAMOON_API_IMAGE_ID',
+              NULL,
+              now()
+          );
+          SQL
+
+          printf 'hamoon-recovery-probe:%s\n' "$probe_id" \
+            > recovery/source-evidence-probe.txt
+
+          docker compose run --rm --no-deps \
+            -e RECOVERY_PROBE_ID="$probe_id" \
+            -v "$PWD/recovery:/backup" \
+            --entrypoint /bin/sh minio-init -c '
+              set -eu
+              mc alias set local http://minio:9000 minio minio12345
+              mc cp /backup/source-evidence-probe.txt \
+                "local/hamoon-evidence/recovery/${RECOVERY_PROBE_ID}.txt"
+            '
+
+      - name: Create PostgreSQL and evidence backups
+        run: |
+          docker compose exec -T postgres pg_dump \
+            -U hamoon -d hamoon -Fc > recovery/postgres.dump
+          test -s recovery/postgres.dump
+
+          docker compose exec -T postgres psql \
+            -U hamoon -d hamoon -At \
+            -c 'SELECT version_num FROM alembic_version ORDER BY version_num' \
+            | tr -d '\r' > recovery/source-alembic-versions.txt
+          test -s recovery/source-alembic-versions.txt
+
+          docker compose run --rm --no-deps \
+            -v "$PWD/recovery:/backup" \
+            --entrypoint /bin/sh minio-init -c '
+              set -eu
+              mc alias set local http://minio:9000 minio minio12345
+              mc mirror --overwrite \
+                local/hamoon-evidence /backup/evidence-backup
+            '
+          tar -C recovery/evidence-backup \
+            -cf recovery/evidence-backup.tar .
+          test -s recovery/evidence-backup.tar
+
+      - name: Restore PostgreSQL into separate database
+        run: |
+          docker compose exec -T postgres dropdb \
+            --if-exists -U hamoon hamoon_restore
+          docker compose exec -T postgres createdb \
+            -U hamoon hamoon_restore
+          docker compose exec -T postgres pg_restore \
+            -U hamoon -d hamoon_restore --exit-on-error \
+            < recovery/postgres.dump
+
+          docker compose exec -T postgres psql \
+            -U hamoon -d hamoon_restore -At \
+            -c 'SELECT version_num FROM alembic_version ORDER BY version_num' \
+            | tr -d '\r' > recovery/restored-alembic-versions.txt
+
+          cmp \
+            recovery/source-alembic-versions.txt \
+            recovery/restored-alembic-versions.txt
+
+          restored_probe="$(
+            docker compose exec -T postgres psql \
+              -U hamoon -d hamoon_restore -At \
+              -c "SELECT count(*) FROM operational_worker_heartbeat WHERE worker_name = '$RECOVERY_PROBE_ID'" \
+              | tr -d '\r'
+          )"
+          test "$restored_probe" = "1"
+
+      - name: Restore evidence into separate bucket
+        run: |
+          tar -C recovery/evidence-restore-source \
+            -xf recovery/evidence-backup.tar
+
+          docker compose run --rm --no-deps \
+            -e RECOVERY_PROBE_ID="$RECOVERY_PROBE_ID" \
+            -v "$PWD/recovery:/backup" \
+            --entrypoint /bin/sh minio-init -c '
+              set -eu
+              mc alias set local http://minio:9000 minio minio12345
+              mc mb --ignore-existing local/hamoon-evidence-restore
+              mc mirror --overwrite \
+                /backup/evidence-restore-source \
+                local/hamoon-evidence-restore
+              mc cp \
+                "local/hamoon-evidence-restore/recovery/${RECOVERY_PROBE_ID}.txt" \
+                /backup/restored-evidence-probe.txt
+            '
+
+          cmp \
+            recovery/source-evidence-probe.txt \
+            recovery/restored-evidence-probe.txt
+
+      - name: Create recovery backup metadata
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          def digest(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          dump_path = Path("recovery/postgres.dump")
+          evidence_path = Path("recovery/evidence-backup.tar")
+          source_probe = Path("recovery/source-evidence-probe.txt")
+          restored_probe = Path("recovery/restored-evidence-probe.txt")
+          source_versions = [
+              line.strip()
+              for line in Path(
+                  "recovery/source-alembic-versions.txt"
+              ).read_text().splitlines()
+              if line.strip()
+          ]
+          restored_versions = [
+              line.strip()
+              for line in Path(
+                  "recovery/restored-alembic-versions.txt"
+              ).read_text().splitlines()
+              if line.strip()
+          ]
+
+          metadata = {
+              "postgres_dump_sha256": digest(dump_path),
+              "postgres_dump_bytes": dump_path.stat().st_size,
+              "evidence_archive_sha256": digest(evidence_path),
+              "evidence_archive_bytes": evidence_path.stat().st_size,
+              "source_alembic_versions": source_versions,
+              "restored_alembic_versions": restored_versions,
+              "source_evidence_probe_sha256": digest(source_probe),
+              "restored_evidence_probe_sha256": digest(restored_probe),
+              "postgres_probe_restored": True,
+          }
+          Path("recovery/backup-metadata.json").write_text(
+              json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Create recovery rehearsal attestation
+        env:
+          RECOVERY_REHEARSAL_RUN_ID: ${{ github.run_id }}
+        run: |
+          mkdir -p recovery-attestation
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          def digest(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          policy = Path("ops/recovery/recovery-policy.json")
+          manifest = Path("recovery-input/release/manifest.json")
+          stage = Path(
+              "recovery-input/stage/stage-attestation.json"
+          )
+          metadata = Path("recovery/backup-metadata.json")
+          postgres_dump = Path("recovery/postgres.dump")
+          evidence_archive = Path("recovery/evidence-backup.tar")
+
+          attestation = {
+              "schema_version": 1,
+              "status": "PASSED",
+              "verification_scope": "STAGE_BACKUP_RESTORE",
+              "production_managed_backup_verified": False,
+              "production_pitr_verified": False,
+              "external_backup_retention_verified": False,
+              "commit_sha": os.environ["PROMOTED_SHA"],
+              "source_ci_run_id": os.environ["SOURCE_CI_RUN_ID"],
+              "stage_admission_run_id": os.environ[
+                  "STAGE_ADMISSION_RUN_ID"
+              ],
+              "recovery_rehearsal_run_id": os.environ[
+                  "RECOVERY_REHEARSAL_RUN_ID"
+              ],
+              "postgresql_backup_restored": True,
+              "postgresql_schema_verified": True,
+              "postgresql_probe_verified": True,
+              "evidence_backup_restored": True,
+              "evidence_probe_verified": True,
+              "release_bundle_integrity_verified": True,
+              "policy_sha256": digest(policy),
+              "release_manifest_sha256": digest(manifest),
+              "stage_attestation_sha256": digest(stage),
+              "backup_metadata_sha256": digest(metadata),
+              "postgres_dump_sha256": digest(postgres_dump),
+              "evidence_archive_sha256": digest(evidence_archive),
+              "verified_at": datetime.now(UTC).isoformat(),
+          }
+
+          Path(
+              "recovery-attestation/recovery-rehearsal.json"
+          ).write_text(
+              json.dumps(attestation, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          Path(
+              "recovery-attestation/backup-metadata.json"
+          ).write_bytes(metadata.read_bytes())
+          PY
+
+      - name: Verify recovery rehearsal evidence
+        run: |
+          python3 scripts/verify_recovery_rehearsal.py \
+            ops/recovery/recovery-policy.json \
+            recovery-input/release \
+            recovery-input/stage/stage-attestation.json \
+            recovery/backup-metadata.json \
+            recovery/postgres.dump \
+            recovery/evidence-backup.tar \
+            recovery-attestation/recovery-rehearsal.json
+
+      - name: Upload immutable recovery rehearsal evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamoon-recovery-rehearsal-${{ env.PROMOTED_SHA }}
+          path: recovery-attestation/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Show recovery diagnostics
+        if: failure()
+        run: |
+          docker compose ps -a
+          docker compose logs --no-color --tail=200 postgres minio migrate
+
+      - name: Destroy recovery environment and raw backups
+        if: always()
+        run: |
+          docker compose down -v
+          rm -rf recovery recovery-input
