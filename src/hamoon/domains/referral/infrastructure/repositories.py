@@ -158,6 +158,22 @@ class SqlAlchemyReferralRepository:
         model = await self._session.get(ReferralModel, referral_id)
         return None if model is None else await self._hydrate(model)
 
+    async def get_latest_for_intervention(
+        self,
+        intervention_id: UUID,
+    ) -> Referral | None:
+        result = await self._session.execute(
+            select(ReferralModel)
+            .where(ReferralModel.intervention_id == intervention_id)
+            .order_by(
+                ReferralModel.created_at.desc(),
+                ReferralModel.id.desc(),
+            )
+            .limit(1)
+        )
+        model = result.scalar_one_or_none()
+        return None if model is None else await self._hydrate(model)
+
     async def get_by_provider_reference(
         self,
         *,

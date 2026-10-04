@@ -55,7 +55,9 @@ class ReferralData(BaseModel):
     provider_match_id: UUID
     provider_selection_id: UUID
     provider_id: UUID
+    provider_name: str
     provider_service_id: UUID
+    service_title: str
     human_decision_id: UUID | None = None
     learning_signal_id: UUID | None = None
     status: ReferralStatus

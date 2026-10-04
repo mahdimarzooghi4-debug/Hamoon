@@ -75,12 +75,20 @@ from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
 router = APIRouter(tags=["referral"])
 
 
-def _data(
+async def _data(
     item: Referral,
     *,
+    registry: SqlAlchemyProviderRegistryRepository,
     human_decision_id: UUID | None = None,
     learning_signal_id: UUID | None = None,
 ) -> ReferralData:
+    provider = await registry.get_provider(item.provider_id)
+    service = await registry.get_service(item.provider_service_id)
+    if provider is None or service is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "REFERRAL_PROVIDER_REFERENCE_MISSING"},
+        )
     return ReferralData(
         id=item.id,
         household_id=item.household_id,
@@ -88,7 +96,9 @@ def _data(
         provider_match_id=item.provider_match_id,
         provider_selection_id=item.provider_selection_id,
         provider_id=item.provider_id,
+        provider_name=provider.name,
         provider_service_id=item.provider_service_id,
+        service_title=service.title,
         human_decision_id=human_decision_id,
         learning_signal_id=learning_signal_id,
         status=item.status,
@@ -165,9 +175,10 @@ async def create_referral(
                 context=context,
                 household_id=intervention.household_id,
             )
+            registry = SqlAlchemyProviderRegistryRepository(session)
             referral, _selection, human, signal = await CreateReferralHandler(
                 interventions=interventions,
-                registry=SqlAlchemyProviderRegistryRepository(session),
+                registry=registry,
                 matches=SqlAlchemyProviderMatchRepository(session),
                 selections=SqlAlchemyProviderSelectionRepository(session),
                 referrals=SqlAlchemyReferralRepository(session),
@@ -203,8 +214,9 @@ async def create_referral(
         ) from exc
 
     return ReferralResponse(
-        data=_data(
+        data=await _data(
             referral,
+            registry=registry,
             human_decision_id=human.id,
             learning_signal_id=signal.id,
         )
@@ -327,7 +339,12 @@ async def transition_referral(
     except (ReferralTransitionError, ReferralVersionConflictError) as exc:
         raise _map_lifecycle_error(exc) from exc
 
-    return ReferralResponse(data=_data(updated))
+    return ReferralResponse(
+        data=await _data(
+            updated,
+            registry=SqlAlchemyProviderRegistryRepository(session),
+        )
+    )
 
 
 @router.get("/api/v1/referrals/{referral_id}", response_model=ReferralResponse)
@@ -350,7 +367,52 @@ async def get_referral(
         context=context,
         household_id=item.household_id,
     )
-    return ReferralResponse(data=_data(item))
+    return ReferralResponse(
+        data=await _data(
+            item,
+            registry=SqlAlchemyProviderRegistryRepository(session),
+        )
+    )
+
+
+@router.get(
+    "/api/v1/interventions/{intervention_id}/referral",
+    response_model=ReferralResponse,
+)
+async def get_latest_referral(
+    intervention_id: UUID,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ReferralResponse:
+    interventions = SqlAlchemyInterventionRepository(session)
+    intervention = await interventions.get(intervention_id)
+    if intervention is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RESOURCE_NOT_FOUND"},
+        )
+    await require_household_assignment(
+        session=session,
+        context=context,
+        household_id=intervention.household_id,
+    )
+    item = await SqlAlchemyReferralRepository(
+        session
+    ).get_latest_for_intervention(intervention_id)
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "REFERRAL_NOT_FOUND"},
+        )
+    return ReferralResponse(
+        data=await _data(
+            item,
+            registry=SqlAlchemyProviderRegistryRepository(session),
+        )
+    )
 
 
 @router.get(
