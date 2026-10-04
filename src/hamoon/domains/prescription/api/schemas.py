@@ -85,3 +85,39 @@ class PrescriptionReviewData(BaseModel):
 
 class PrescriptionReviewResponse(BaseModel):
     data: PrescriptionReviewData
+
+
+class PrescriptionHumanDecisionData(BaseModel):
+    id: UUID
+    actor_id: UUID
+    action: HumanDecisionAction
+    reason_code: str | None
+    reason_text: str | None
+    accepted_payload: dict[str, JsonValue] | None
+    modified_payload: dict[str, JsonValue] | None
+    decided_at: datetime
+
+
+class PrescriptionHistoryEntryData(BaseModel):
+    id: UUID
+    household_id: UUID
+    diagnosis_id: UUID
+    ai_decision_id: UUID
+    pgor_snapshot_id: UUID
+    status: PrescriptionStatus
+    version: int
+    machine_proposal: dict[str, JsonValue]
+    accepted_payload: dict[str, JsonValue] | None
+    model_alias: str
+    output_schema_version: str
+    generated_at: datetime
+    created_at: datetime
+    created_by: UUID
+    accepted_at: datetime | None
+    accepted_by: UUID | None
+    human_decisions: list[PrescriptionHumanDecisionData]
+    accepted_items: list[PrescriptionItemData]
+
+
+class PrescriptionHistoryResponse(BaseModel):
+    data: list[PrescriptionHistoryEntryData]

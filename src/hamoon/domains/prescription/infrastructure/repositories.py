@@ -79,6 +79,21 @@ class SqlAlchemyPrescriptionRepository:
         model = await self._session.get(PrescriptionModel, prescription_id)
         return None if model is None else _prescription(model)
 
+
+    async def list_for_household(
+        self,
+        household_id: UUID,
+        *,
+        limit: int,
+    ) -> list[Prescription]:
+        result = await self._session.execute(
+            select(PrescriptionModel)
+            .where(PrescriptionModel.household_id == household_id)
+            .order_by(PrescriptionModel.created_at.desc())
+            .limit(limit)
+        )
+        return [_prescription(model) for model in result.scalars().all()]
+
     async def update(
         self,
         prescription: Prescription,
@@ -151,6 +166,26 @@ class SqlAlchemyPrescriptionRepository:
             .order_by(PrescriptionItemModel.priority)
         )
         return [_item(model) for model in result.scalars().all()]
+
+
+    async def list_items_for_prescriptions(
+        self,
+        prescription_ids: list[UUID],
+    ) -> dict[UUID, list[PrescriptionItem]]:
+        if not prescription_ids:
+            return {}
+        result = await self._session.execute(
+            select(PrescriptionItemModel)
+            .where(PrescriptionItemModel.prescription_id.in_(prescription_ids))
+            .order_by(
+                PrescriptionItemModel.prescription_id,
+                PrescriptionItemModel.priority,
+            )
+        )
+        grouped: dict[UUID, list[PrescriptionItem]] = {}
+        for model in result.scalars().all():
+            grouped.setdefault(model.prescription_id, []).append(_item(model))
+        return grouped
 
     async def mark_item_activated(self, item_id: UUID) -> None:
         result = await self._session.execute(

@@ -28,6 +28,9 @@ from hamoon.domains.prescription.api.schemas import (
     GeneratePrescriptionRequest,
     GeneratePrescriptionResponse,
     PrescriptionData,
+    PrescriptionHistoryEntryData,
+    PrescriptionHistoryResponse,
+    PrescriptionHumanDecisionData,
     PrescriptionItemData,
     PrescriptionResponse,
     PrescriptionReviewRequest,
@@ -174,6 +177,91 @@ async def generate_prescription(
             trace_id=ai_decision.trace_id,
         )
     )
+
+
+@router.get(
+    "/api/v1/households/{household_id}/prescriptions",
+    response_model=PrescriptionHistoryResponse,
+)
+async def list_household_prescriptions(
+    household_id: UUID,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    limit: int = 50,
+) -> PrescriptionHistoryResponse:
+    await require_household_assignment(
+        session=session,
+        context=context,
+        household_id=household_id,
+    )
+    if limit < 1 or limit > 100:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "INVALID_LIMIT"},
+        )
+
+    repository = SqlAlchemyPrescriptionRepository(session)
+    prescriptions = await repository.list_for_household(
+        household_id,
+        limit=limit,
+    )
+    prescription_ids = [item.id for item in prescriptions]
+    ai_decisions = await SqlAlchemyAIDecisionRepository(session).list_by_ids(
+        [item.ai_decision_id for item in prescriptions]
+    )
+    human_decisions = await SqlAlchemyHumanDecisionRepository(
+        session
+    ).list_for_prescriptions(prescription_ids)
+    accepted_items = await repository.list_items_for_prescriptions(
+        prescription_ids
+    )
+
+    data: list[PrescriptionHistoryEntryData] = []
+    for prescription in prescriptions:
+        ai_decision = ai_decisions.get(prescription.ai_decision_id)
+        if ai_decision is None:
+            continue
+        data.append(
+            PrescriptionHistoryEntryData(
+                id=prescription.id,
+                household_id=prescription.household_id,
+                diagnosis_id=prescription.diagnosis_id,
+                ai_decision_id=prescription.ai_decision_id,
+                pgor_snapshot_id=prescription.pgor_snapshot_id,
+                status=prescription.status,
+                version=prescription.version,
+                machine_proposal=ai_decision.structured_output,
+                accepted_payload=prescription.accepted_payload,
+                model_alias=ai_decision.model_alias,
+                output_schema_version=ai_decision.output_schema_version,
+                generated_at=ai_decision.generated_at,
+                created_at=prescription.created_at,
+                created_by=prescription.created_by,
+                accepted_at=prescription.accepted_at,
+                accepted_by=prescription.accepted_by,
+                human_decisions=[
+                    PrescriptionHumanDecisionData(
+                        id=decision.id,
+                        actor_id=decision.actor_id,
+                        action=decision.action,
+                        reason_code=decision.reason_code,
+                        reason_text=decision.reason_text,
+                        accepted_payload=decision.accepted_payload,
+                        modified_payload=decision.modified_payload,
+                        decided_at=decision.decided_at,
+                    )
+                    for decision in human_decisions.get(prescription.id, [])
+                ],
+                accepted_items=[
+                    _item_data(item)
+                    for item in accepted_items.get(prescription.id, [])
+                ],
+            )
+        )
+    return PrescriptionHistoryResponse(data=data)
 
 
 @router.get(

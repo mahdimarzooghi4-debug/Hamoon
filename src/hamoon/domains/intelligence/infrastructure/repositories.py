@@ -362,6 +362,27 @@ class SqlAlchemyHumanDecisionRepository:
             )
         return grouped
 
+
+    async def list_for_prescriptions(
+        self,
+        prescription_ids: list[UUID],
+    ) -> dict[UUID, list[HumanDecision]]:
+        if not prescription_ids:
+            return {}
+        result = await self._session.execute(
+            select(HumanDecisionModel)
+            .where(HumanDecisionModel.prescription_id.in_(prescription_ids))
+            .order_by(HumanDecisionModel.decided_at.desc())
+        )
+        grouped: dict[UUID, list[HumanDecision]] = {}
+        for model in result.scalars().all():
+            if model.prescription_id is None:
+                continue
+            grouped.setdefault(model.prescription_id, []).append(
+                _human_decision(model)
+            )
+        return grouped
+
 class SqlAlchemyDecisionTraceRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
