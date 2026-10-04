@@ -133,7 +133,6 @@ def test_monitoring_verifier_accepts_protected_advancing_metrics(
 
 def test_monitoring_verifier_rejects_stalled_telemetry(tmp_path: Path) -> None:
     chain = list(_chain(tmp_path))
-    before = chain[3]
     after = chain[4]
     monitoring = chain[5]
     after.write_text(REQUIRED_METRICS.format(ready=10), encoding="utf-8")
