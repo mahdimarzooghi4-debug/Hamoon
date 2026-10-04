@@ -2063,3 +2063,445 @@ a {
     grid-template-columns: auto 1fr;
   }
 }
+
+
+.measurement-panel {
+  display: grid;
+  gap: var(--hamoon-space-20);
+}
+
+.measurement-result-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--hamoon-space-12);
+  align-items: end;
+}
+
+.measurement-result-picker label,
+.indicator-entry-grid label,
+.outcome-review-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.measurement-result-picker label > span,
+.indicator-entry-grid label > span,
+.outcome-review-form label > span {
+  color: var(--hamoon-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.measurement-result-picker select,
+.indicator-entry-grid input,
+.indicator-entry-grid select,
+.outcome-review-form select,
+.outcome-review-form textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-white);
+  color: var(--hamoon-ink);
+  outline: none;
+}
+
+.measurement-result-picker select:focus,
+.indicator-entry-grid input:focus,
+.indicator-entry-grid select:focus,
+.outcome-review-form select:focus,
+.outcome-review-form textarea:focus {
+  border-color: var(--hamoon-cyan);
+  box-shadow: 0 0 0 3px rgb(24 195 209 / 12%);
+}
+
+.provider-result-card,
+.reassessment-plan-card,
+.reassessment-workspace,
+.post-pgor-card,
+.outcome-review-card {
+  display: grid;
+  gap: var(--hamoon-space-16);
+  padding: 18px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-14);
+  background: var(--hamoon-white);
+}
+
+.provider-result-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--hamoon-space-12);
+}
+
+.provider-result-card__top h3,
+.reassessment-plan-card h3,
+.reassessment-workspace h3,
+.post-pgor-card h3,
+.outcome-review-card h3 {
+  margin: 4px 0 0;
+  color: var(--hamoon-blue);
+}
+
+.provider-result-card__facts,
+.reassessment-plan-grid,
+.readiness-strip,
+.post-pgor-grid,
+.outcome-delta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--hamoon-space-8);
+}
+
+.provider-result-card__facts > div,
+.reassessment-plan-grid > div,
+.readiness-strip > div,
+.post-pgor-grid > div,
+.outcome-delta-grid > div {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-page);
+}
+
+.provider-result-card__facts span,
+.reassessment-plan-grid span,
+.readiness-strip span,
+.post-pgor-grid span,
+.outcome-delta-grid span {
+  color: var(--hamoon-muted);
+  font-size: 10px;
+}
+
+.provider-result-card__facts strong,
+.reassessment-plan-grid strong,
+.readiness-strip strong,
+.post-pgor-grid strong,
+.outcome-delta-grid strong {
+  color: var(--hamoon-ink);
+  font-size: 13px;
+}
+
+.provider-result-card > p {
+  margin: 0;
+  color: var(--hamoon-muted);
+  line-height: 1.9;
+}
+
+.measurement-safety-note,
+.measurement-waiting,
+.referral-terminal-note {
+  padding: 12px 14px;
+  border-radius: var(--hamoon-radius-10);
+  line-height: 1.9;
+  font-size: 11px;
+}
+
+.measurement-safety-note {
+  background: var(--hamoon-cyan-soft);
+  color: var(--hamoon-ink);
+}
+
+.measurement-waiting {
+  background: var(--hamoon-warning-soft);
+  color: var(--hamoon-warning);
+}
+
+.measurement-blockers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.indicator-workspace-list {
+  display: grid;
+  gap: var(--hamoon-space-12);
+}
+
+.indicator-workspace-row {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-14);
+  background: var(--hamoon-page);
+}
+
+.indicator-workspace-row__title {
+  display: grid;
+  gap: 6px;
+}
+
+.indicator-workspace-row__title > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.indicator-workspace-row__title > strong {
+  color: var(--hamoon-blue);
+  font-size: 15px;
+}
+
+.indicator-workspace-row__title > span {
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}
+
+.indicator-entry-grid {
+  display: grid;
+  grid-template-columns: 130px minmax(180px, 0.8fr) minmax(220px, 1fr) auto;
+  gap: var(--hamoon-space-8);
+  align-items: end;
+}
+
+.observation-state-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.6fr) minmax(140px, 0.5fr) minmax(260px, 1fr);
+  gap: var(--hamoon-space-8);
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--hamoon-border);
+}
+
+.observation-state-row > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.observation-state-row > div:first-child span,
+.observation-state-row > div:first-child small {
+  color: var(--hamoon-muted);
+  font-size: 10px;
+}
+
+.observation-state-row > div:first-child strong {
+  color: var(--hamoon-blue);
+  font-size: 18px;
+}
+
+.observation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.pgor-calculation-gate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hamoon-space-16);
+  padding: 16px;
+  border-radius: var(--hamoon-radius-14);
+  background: var(--hamoon-navy);
+}
+
+.pgor-calculation-gate > div {
+  display: grid;
+  gap: 4px;
+}
+
+.pgor-calculation-gate strong {
+  color: var(--hamoon-white);
+}
+
+.pgor-calculation-gate span {
+  color: #b9d9e5;
+  font-size: 11px;
+}
+
+.post-pgor-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.post-pgor-grid__e {
+  background: var(--hamoon-navy) !important;
+}
+
+.post-pgor-grid__e span,
+.post-pgor-grid__e strong {
+  color: var(--hamoon-white) !important;
+}
+
+.outcome-delta-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.outcome-delta-grid strong {
+  color: var(--hamoon-blue);
+  font-size: 18px;
+}
+
+.outcome-pre-post {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr);
+  align-items: center;
+  gap: var(--hamoon-space-12);
+  padding: 14px;
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-page);
+  text-align: center;
+}
+
+.outcome-pre-post > div {
+  display: grid;
+  gap: 4px;
+}
+
+.outcome-pre-post span {
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}
+
+.outcome-pre-post strong {
+  color: var(--hamoon-blue);
+  font-size: 22px;
+}
+
+.outcome-ai-proposal {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--hamoon-cyan);
+  border-radius: var(--hamoon-radius-14);
+  background: #f7feff;
+}
+
+.outcome-ai-proposal__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  color: var(--hamoon-muted);
+  font-size: 10px;
+}
+
+.outcome-ai-proposal > strong {
+  color: var(--hamoon-blue);
+  font-size: 18px;
+}
+
+.outcome-ai-proposal > p,
+.outcome-final-state > p {
+  margin: 0;
+  color: var(--hamoon-muted);
+  line-height: 1.9;
+}
+
+.outcome-supporting-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.outcome-supporting-refs span {
+  padding: 5px 8px;
+  border-radius: var(--hamoon-radius-pill);
+  background: var(--hamoon-page);
+  color: var(--hamoon-muted);
+  direction: ltr;
+  font-size: 10px;
+}
+
+.outcome-review-actions,
+.outcome-review-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.outcome-review-form {
+  display: grid;
+  gap: var(--hamoon-space-12);
+  padding: 16px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-14);
+  background: var(--hamoon-page);
+}
+
+.outcome-review-form textarea {
+  resize: vertical;
+  line-height: 1.8;
+}
+
+.outcome-review-form__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hamoon-space-12);
+}
+
+.outcome-review-form__top h4 {
+  margin: 4px 0 0;
+  color: var(--hamoon-blue);
+}
+
+.outcome-final-state {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border-radius: var(--hamoon-radius-14);
+  background: var(--hamoon-success-soft);
+}
+
+.outcome-final-state > strong {
+  color: var(--hamoon-blue);
+}
+
+.outcome-final-state > span {
+  color: var(--hamoon-muted);
+  font-size: 11px;
+  line-height: 1.8;
+}
+
+@media (max-width: 1050px) {
+  .indicator-entry-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .observation-state-row {
+    grid-template-columns: 1fr;
+  }
+
+  .observation-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .measurement-result-picker,
+  .provider-result-card__facts,
+  .reassessment-plan-grid,
+  .readiness-strip,
+  .post-pgor-grid,
+  .outcome-delta-grid,
+  .indicator-entry-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .provider-result-card__top,
+  .pgor-calculation-gate,
+  .outcome-review-form__top {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .outcome-pre-post {
+    grid-template-columns: 1fr;
+  }
+
+  .outcome-review-actions,
+  .outcome-review-form__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .outcome-review-actions .hm-button,
+  .outcome-review-form__actions .hm-button {
+    width: 100%;
+  }
+}

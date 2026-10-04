@@ -11,6 +11,7 @@ import { AppLink } from "../app/navigation";
 import { DiagnosisSection } from "../components/DiagnosisSection";
 import { PrescriptionSection } from "../components/PrescriptionSection";
 import { ProviderReferralSection } from "../components/ProviderReferralSection";
+import { OutcomeMeasurementSection } from "../components/OutcomeMeasurementSection";
 import {
   Badge,
   EmptyState,
@@ -307,18 +308,7 @@ export function HouseholdPage({ householdId }: { householdId: string }) {
 
       <ProviderReferralSection householdId={item.id} />
 
-      <Panel>
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">مسیر Canonical بعدی</span>
-            <h2>نتیجه ارائه‌دهنده و بازسنجی</h2>
-          </div>
-        </div>
-        <EmptyState
-          title="نتیجه خدمت و بازسنجی در vertical slice بعدی متصل می‌شود"
-          description="پس از اجرای ارجاع، نتیجه ساختاریافته ارائه‌دهنده، برنامه بازسنجی و ادامه مسیر Outcome به همین پرونده متصل خواهند شد."
-        />
-      </Panel>
+      <OutcomeMeasurementSection householdId={item.id} />
     </div>
   );
 }
