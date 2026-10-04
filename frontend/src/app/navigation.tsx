@@ -4,12 +4,14 @@ export type AppPath =
   | "/"
   | "/work-queue"
   | "/households"
+  | "/admin/learning"
   | `/households/${string}`;
 
 function currentPath(): AppPath {
   const path = window.location.pathname;
   if (path === "/work-queue") return "/work-queue";
   if (path === "/households") return "/households";
+  if (path === "/admin/learning") return "/admin/learning";
   if (path.startsWith("/households/") && path.length > "/households/".length) {
     return path as AppPath;
   }

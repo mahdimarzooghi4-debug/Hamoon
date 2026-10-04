@@ -2505,3 +2505,447 @@ a {
     width: 100%;
   }
 }
+
+
+.admin-learning-page {
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.admin-learning-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--hamoon-space-20);
+  padding: 24px;
+  border-radius: var(--hamoon-radius-18);
+  background: var(--hamoon-navy);
+  color: var(--hamoon-white);
+  box-shadow: var(--hamoon-shadow-card);
+}
+
+.admin-learning-hero h1 {
+  margin: 6px 0 8px;
+  font-size: clamp(28px, 4vw, 42px);
+}
+
+.admin-learning-hero p {
+  max-width: 840px;
+  margin: 0;
+  color: #c6e2eb;
+  line-height: 1.9;
+}
+
+.admin-success-message {
+  padding: 12px 14px;
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-success-soft);
+  color: var(--hamoon-success);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--hamoon-space-12);
+}
+
+.governance-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 14px 18px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-14);
+  background: var(--hamoon-white);
+}
+
+.governance-flow span {
+  padding: 6px 10px;
+  border-radius: var(--hamoon-radius-pill);
+  background: var(--hamoon-page);
+  color: var(--hamoon-blue);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.governance-flow b {
+  color: var(--hamoon-muted);
+}
+
+.admin-section {
+  display: grid;
+  gap: var(--hamoon-space-20);
+}
+
+.admin-section h2 {
+  margin: 4px 0 0;
+  color: var(--hamoon-blue);
+}
+
+.admin-filter-bar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 280px));
+  gap: var(--hamoon-space-12);
+}
+
+.admin-filter-bar label,
+.admin-form-grid label,
+.curation-form label,
+.attestation-form label,
+.promotion-confirmation label {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-filter-bar label > span,
+.admin-form-grid label > span,
+.curation-form label > span {
+  color: var(--hamoon-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.admin-filter-bar select,
+.admin-form-grid select,
+.admin-form-grid input,
+.curation-form select,
+.curation-form input,
+.attestation-form textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-white);
+  color: var(--hamoon-ink);
+  outline: none;
+}
+
+.admin-filter-bar select:focus,
+.admin-form-grid select:focus,
+.admin-form-grid input:focus,
+.curation-form select:focus,
+.curation-form input:focus,
+.attestation-form textarea:focus {
+  border-color: var(--hamoon-cyan);
+  box-shadow: 0 0 0 3px rgb(24 195 209 / 12%);
+}
+
+.learning-signal-list,
+.dataset-list,
+.evaluation-list,
+.routing-list {
+  display: grid;
+  gap: var(--hamoon-space-8);
+}
+
+.learning-signal-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--hamoon-space-12);
+  padding: 14px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-page);
+}
+
+.learning-signal-row__check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--hamoon-blue);
+}
+
+.learning-signal-row__main {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.learning-signal-row__main > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.learning-signal-row__main strong {
+  color: var(--hamoon-ink);
+}
+
+.learning-signal-row__main span:not(.hm-badge) {
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}
+
+.learning-signal-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.learning-signal-row__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.curation-form,
+.attestation-form,
+.promotion-confirmation {
+  display: grid;
+  gap: var(--hamoon-space-12);
+  padding: 16px;
+  border: 1px solid var(--hamoon-cyan);
+  border-radius: var(--hamoon-radius-14);
+  background: #f8feff;
+}
+
+.curation-form > div:first-child,
+.attestation-form > div:first-child,
+.promotion-confirmation > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.curation-form__actions,
+.attestation-form__actions,
+.promotion-confirmation > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dataset-builder,
+.evaluation-builder,
+.routing-builder {
+  display: grid;
+  gap: var(--hamoon-space-12);
+  padding: 16px;
+  border-radius: var(--hamoon-radius-14);
+  background: var(--hamoon-page);
+}
+
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--hamoon-space-12);
+}
+
+.admin-form-grid--four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dataset-invariants {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}
+
+.dataset-card,
+.routing-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hamoon-space-16);
+  padding: 14px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-white);
+}
+
+.dataset-card > div:first-child,
+.routing-card > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.dataset-card strong,
+.routing-card strong {
+  color: var(--hamoon-blue);
+}
+
+.dataset-card span:not(.hm-badge),
+.routing-card span:not(.hm-badge) {
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}
+
+.digest-value {
+  overflow: hidden;
+  max-width: 700px;
+  direction: ltr;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dataset-card__actions,
+.routing-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.dataset-export-preview {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-navy);
+  color: var(--hamoon-white);
+}
+
+.dataset-export-preview > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dataset-export-preview > span {
+  color: #c6e2eb;
+  font-size: 11px;
+}
+
+.dataset-export-preview code {
+  overflow-wrap: anywhere;
+  color: #c6e2eb;
+  direction: ltr;
+}
+
+.evaluation-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-white);
+}
+
+.evaluation-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--hamoon-space-12);
+}
+
+.evaluation-card__top > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.evaluation-card__top strong {
+  color: var(--hamoon-blue);
+}
+
+.evaluation-card__top span:not(.hm-badge) {
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}
+
+.evaluation-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}
+
+.attestation-form p,
+.promotion-confirmation p {
+  margin: 0;
+  color: var(--hamoon-muted);
+  line-height: 1.9;
+  font-size: 12px;
+}
+
+.attestation-form textarea {
+  resize: vertical;
+  direction: ltr;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1.6;
+}
+
+.promotion-section {
+  border: 1px solid var(--hamoon-cyan);
+}
+
+.promotion-confirmation {
+  border-color: var(--hamoon-warning);
+  background: var(--hamoon-warning-soft);
+}
+
+.promotion-confirmation label {
+  grid-template-columns: auto 1fr;
+  align-items: start;
+}
+
+.promotion-confirmation label input {
+  margin-top: 4px;
+  accent-color: var(--hamoon-blue);
+}
+
+.promotion-confirmation label span {
+  color: var(--hamoon-ink);
+  font-size: 12px;
+  line-height: 1.9;
+}
+
+@media (max-width: 1100px) {
+  .admin-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-form-grid,
+  .admin-form-grid--four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-learning-hero,
+  .dataset-card,
+  .routing-card,
+  .evaluation-card__top {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-metric-grid,
+  .admin-filter-bar,
+  .admin-form-grid,
+  .admin-form-grid--four {
+    grid-template-columns: 1fr;
+  }
+
+  .learning-signal-row {
+    grid-template-columns: auto 1fr;
+  }
+
+  .learning-signal-row__actions {
+    grid-column: 1 / -1;
+  }
+
+  .dataset-card__actions,
+  .routing-card__actions {
+    justify-content: flex-start;
+  }
+
+  .curation-form__actions,
+  .attestation-form__actions,
+  .promotion-confirmation > div:last-child {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

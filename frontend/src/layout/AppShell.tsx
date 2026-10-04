@@ -29,6 +29,7 @@ export function AppShell({
 
   const ready = health?.status === "ready";
   const householdsActive = activePath === "/households" || activePath.startsWith("/households/");
+  const adminActive = activePath === "/admin/learning";
 
   return (
     <div className="app-shell">
@@ -37,8 +38,8 @@ export function AppShell({
           <div className="topbar__identity">
             <div className="avatar" aria-hidden="true">م</div>
             <div>
-              <strong>مددکار پرونده</strong>
-              <span>هامون</span>
+              <strong>{adminActive ? "کنسول مدیریت" : "مددکار پرونده"}</strong>
+              <span>{adminActive ? "یادگیری و حاکمیت AI" : "هامون"}</span>
             </div>
           </div>
 
@@ -62,6 +63,12 @@ export function AppShell({
               to="/work-queue"
             >
               کارتابل
+            </AppLink>
+            <AppLink
+              className={adminActive ? "topbar__link is-active" : "topbar__link"}
+              to="/admin/learning"
+            >
+              یادگیری و حاکمیت
             </AppLink>
           </nav>
 
