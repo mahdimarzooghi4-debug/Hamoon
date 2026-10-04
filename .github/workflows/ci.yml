@@ -195,7 +195,8 @@ jobs:
           done
           curl --fail --silent http://localhost:3000/ | grep 'id="root"'
           curl --fail --silent http://localhost:3000/auth/callback | grep 'id="root"'
-          curl --fail --silent http://localhost:3000/config.js | grep 'http://localhost:8081/realms/hamoon-local'
+          expected_oidc_b64="$(printf '%s' 'http://localhost:8081/realms/hamoon-local' | base64 | tr -d '\n')"
+          curl --fail --silent http://localhost:3000/config.js | grep "$expected_oidc_b64"
           curl --fail --silent http://localhost:3000/health/ready >/dev/null
 
       - name: Verify workers and one-shot bootstrap
