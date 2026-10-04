@@ -19,8 +19,12 @@ from hamoon.domains.provider.api.schemas import (
     ProviderData,
     ProviderListResponse,
     ProviderMatchCandidateData,
+    ProviderMatchContextData,
+    ProviderMatchContextFactData,
+    ProviderMatchContextResponse,
     ProviderMatchData,
     ProviderMatchResponse,
+    ProviderMatchServiceTypeData,
     ProviderResponse,
     ProviderServiceData,
     ProviderServiceListResponse,
@@ -199,6 +203,72 @@ async def get_provider_service(
 
 
 @router.get(
+    "/api/v1/interventions/{intervention_id}/provider-match-context",
+    response_model=ProviderMatchContextResponse,
+)
+async def get_provider_match_context(
+    intervention_id: UUID,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ProviderMatchContextResponse:
+    intervention = await SqlAlchemyInterventionRepository(session).get(intervention_id)
+    if intervention is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RESOURCE_NOT_FOUND"},
+        )
+    await require_household_assignment(
+        session=session,
+        context=context,
+        household_id=intervention.household_id,
+    )
+
+    accepted_state = SqlAlchemyAcceptedStateRepository(session)
+    accepted = await accepted_state.list_for_household(intervention.household_id)
+    context_version = await accepted_state.context_version(intervention.household_id)
+
+    registry = SqlAlchemyProviderRegistryRepository(session)
+    active_services = await registry.list_active_services()
+    compatible = [
+        item
+        for item in active_services
+        if intervention.intervention_type in item.supported_intervention_types
+    ]
+    grouped: dict[str, list[str]] = {}
+    for item in compatible:
+        grouped.setdefault(item.service_type, []).append(item.title)
+
+    return ProviderMatchContextResponse(
+        data=ProviderMatchContextData(
+            intervention_id=intervention.id,
+            intervention_type=intervention.intervention_type.value,
+            target_pgor_variable=intervention.target_pgor_variable.value,
+            household_context_version=context_version,
+            service_types=[
+                ProviderMatchServiceTypeData(
+                    service_type=service_type,
+                    service_titles=list(dict.fromkeys(titles)),
+                    active_service_count=len(titles),
+                )
+                for service_type, titles in grouped.items()
+            ],
+            shareable_facts=[
+                ProviderMatchContextFactData(
+                    fact_id=item.fact_id,
+                    fact_type=item.fact_type,
+                    projection_version=item.projection_version,
+                    effective_from=item.effective_from,
+                )
+                for item in accepted
+            ],
+        )
+    )
+
+
+@router.get(
     "/api/v1/interventions/{intervention_id}/provider-match",
     response_model=ProviderMatchResponse,
 )
@@ -269,10 +339,27 @@ async def match_providers(
                 context=context,
                 household_id=intervention.household_id,
             )
+            accepted_state = SqlAlchemyAcceptedStateRepository(session)
+            current_context_version = await accepted_state.context_version(
+                intervention.household_id
+            )
+            if current_context_version < 1:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={"code": "ACCEPTED_STATE_REQUIRED"},
+                )
+            if body.household_context_version != current_context_version:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail={
+                        "code": "HOUSEHOLD_CONTEXT_VERSION_CONFLICT",
+                        "current_version": current_context_version,
+                    },
+                )
             registry = SqlAlchemyProviderRegistryRepository(session)
             match = await MatchProvidersHandler(
                 interventions=interventions,
-                accepted_state=SqlAlchemyAcceptedStateRepository(session),
+                accepted_state=accepted_state,
                 registry=registry,
                 matches=SqlAlchemyProviderMatchRepository(session),
                 events=SqlAlchemyDomainEventRecorder(session),

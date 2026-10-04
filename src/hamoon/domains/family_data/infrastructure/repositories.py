@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.domains.family_data.domain.entities import (
@@ -243,6 +243,15 @@ class SqlAlchemyAcceptedStateRepository:
             .order_by(CurrentAcceptedFactModel.fact_type)
         )
         return [_to_accepted(model) for model in result.scalars().all()]
+
+
+    async def context_version(self, household_id: UUID) -> int:
+        result = await self._session.execute(
+            select(func.count(AcceptedStateChangeModel.id)).where(
+                AcceptedStateChangeModel.household_id == household_id
+            )
+        )
+        return int(result.scalar_one())
 
     async def set_current(
         self,

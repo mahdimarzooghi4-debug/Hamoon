@@ -81,3 +81,29 @@ class ProviderMatchData(BaseModel):
 
 class ProviderMatchResponse(BaseModel):
     data: ProviderMatchData
+
+
+class ProviderMatchContextFactData(BaseModel):
+    fact_id: UUID
+    fact_type: str
+    projection_version: int
+    effective_from: datetime
+
+
+class ProviderMatchServiceTypeData(BaseModel):
+    service_type: str
+    service_titles: list[str]
+    active_service_count: int
+
+
+class ProviderMatchContextData(BaseModel):
+    intervention_id: UUID
+    intervention_type: str
+    target_pgor_variable: str
+    household_context_version: int
+    service_types: list[ProviderMatchServiceTypeData]
+    shareable_facts: list[ProviderMatchContextFactData]
+
+
+class ProviderMatchContextResponse(BaseModel):
+    data: ProviderMatchContextData

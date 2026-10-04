@@ -119,6 +119,18 @@ class SqlAlchemyProviderRegistryRepository:
         )
         return [_provider(model) for model in result.scalars().all()]
 
+
+    async def list_active_services(self) -> list[ProviderService]:
+        result = await self._session.execute(
+            select(ProviderServiceModel)
+            .where(ProviderServiceModel.active.is_(True))
+            .order_by(
+                ProviderServiceModel.service_type,
+                ProviderServiceModel.title,
+            )
+        )
+        return [_service(model) for model in result.scalars().all()]
+
     async def get_service(self, service_id: UUID) -> ProviderService | None:
         model = await self._session.get(ProviderServiceModel, service_id)
         return None if model is None else _service(model)
