@@ -19,6 +19,7 @@ jobs:
     env:
       PROMOTED_SHA: ${{ github.event.workflow_run.head_sha }}
       HAMOON_DEPLOYMENT_ID: stage-admission-${{ github.run_id }}
+      HAMOON_METRICS_ACCESS_TOKEN: stage-admission-monitoring-${{ github.run_id }}-token
 
     steps:
       - name: Checkout exact promoted commit
@@ -81,6 +82,16 @@ jobs:
       - name: Build Stage-admission-only dependency helper
         run: docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml build minio
 
+      - name: Prepare Stage telemetry capture
+        run: |
+          rm -rf .stage-otel
+          mkdir -p .stage-otel
+          chmod a+rwx .stage-otel
+          docker run --rm \
+            -v "$PWD/ops/observability/otel-collector-stage.yaml:/etc/otelcol-contrib/config.yaml:ro" \
+            otel/opentelemetry-collector-contrib:0.162.0 \
+            validate --config=/etc/otelcol-contrib/config.yaml
+
       - name: Start clean Stage-admission stack from promoted images
         run: docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml up -d --no-build
 
@@ -138,24 +149,62 @@ jobs:
           PY
           curl --fail --silent http://localhost:3000/health/ready >/dev/null
 
+          curl --fail --silent --request POST \
+            --header "X-Hamoon-Metrics-Token: $HAMOON_METRICS_ACCESS_TOKEN" \
+            http://localhost:8000/health/telemetry-probe \
+            > /tmp/hamoon-telemetry-probe.json
+
+          python3 - <<'PY'
+          import json
+
+          payload = json.load(open("/tmp/hamoon-telemetry-probe.json"))
+          assert payload["status"] == "emitted"
+          assert payload["environment"] == "stage"
+          assert payload["probe_id"].startswith("hamoon-otel-")
+          assert len(payload["trace_id"]) == 32
+          PY
+          TELEMETRY_PROBE_ID="$(
+            python3 -c 'import json; print(json.load(open("/tmp/hamoon-telemetry-probe.json"))["probe_id"])'
+          )"
+          TELEMETRY_PROBE_TRACE_ID="$(
+            python3 -c 'import json; print(json.load(open("/tmp/hamoon-telemetry-probe.json"))["trace_id"])'
+          )"
+          export TELEMETRY_PROBE_ID TELEMETRY_PROBE_TRACE_ID
+
+          for i in {1..30}; do
+            if grep -q "$TELEMETRY_PROBE_ID" .stage-otel/traces.json 2>/dev/null \
+              && grep -q "$TELEMETRY_PROBE_ID" .stage-otel/logs.json 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          grep "$TELEMETRY_PROBE_ID" .stage-otel/traces.json
+          grep "$TELEMETRY_PROBE_ID" .stage-otel/logs.json
+          grep "$PROMOTED_SHA" .stage-otel/traces.json
+          grep "$PROMOTED_SHA" .stage-otel/logs.json
+          grep "$HAMOON_DEPLOYMENT_ID" .stage-otel/traces.json
+          grep "$HAMOON_DEPLOYMENT_ID" .stage-otel/logs.json
+          grep "Observability verification probe emitted" .stage-otel/logs.json
+          ! grep -q "$HAMOON_METRICS_ACCESS_TOKEN" .stage-otel/logs.json
+
           test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -a -q migrate)")" = "0"
           test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -a -q minio-init)")" = "0"
           test "$(docker inspect -f '{{.State.Running}}' "$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -q outbox-worker)")" = "true"
           test "$(docker inspect -f '{{.State.Running}}' "$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -q temporal-worker)")" = "true"
 
           for i in {1..45}; do
-            metrics="$(curl --fail --silent http://localhost:8000/metrics || true)"
+            metrics="$(curl --fail --silent --header "X-Hamoon-Metrics-Token: $HAMOON_METRICS_ACCESS_TOKEN" http://localhost:8000/metrics || true)"
             if echo "$metrics" | grep -q 'hamoon_worker_healthy{worker="outbox-worker"} 1.0' \
               && echo "$metrics" | grep -q 'hamoon_worker_healthy{worker="temporal-worker"} 1.0'; then
               break
             fi
             sleep 1
           done
-          curl --fail --silent http://localhost:8000/metrics | grep 'hamoon_dependency_health{dependency="postgresql"} 1.0'
-          curl --fail --silent http://localhost:8000/metrics | grep 'hamoon_outbox_pending_count'
-          curl --fail --silent http://localhost:8000/metrics | grep 'hamoon_outbox_oldest_age_seconds'
-          curl --fail --silent http://localhost:8000/metrics | grep 'hamoon_worker_healthy{worker="outbox-worker"} 1.0'
-          curl --fail --silent http://localhost:8000/metrics | grep 'hamoon_worker_healthy{worker="temporal-worker"} 1.0'
+          curl --fail --silent --header "X-Hamoon-Metrics-Token: $HAMOON_METRICS_ACCESS_TOKEN" http://localhost:8000/metrics | grep 'hamoon_dependency_health{dependency="postgresql"} 1.0'
+          curl --fail --silent --header "X-Hamoon-Metrics-Token: $HAMOON_METRICS_ACCESS_TOKEN" http://localhost:8000/metrics | grep 'hamoon_outbox_pending_count'
+          curl --fail --silent --header "X-Hamoon-Metrics-Token: $HAMOON_METRICS_ACCESS_TOKEN" http://localhost:8000/metrics | grep 'hamoon_outbox_oldest_age_seconds'
+          curl --fail --silent --header "X-Hamoon-Metrics-Token: $HAMOON_METRICS_ACCESS_TOKEN" http://localhost:8000/metrics | grep 'hamoon_worker_healthy{worker="outbox-worker"} 1.0'
+          curl --fail --silent --header "X-Hamoon-Metrics-Token: $HAMOON_METRICS_ACCESS_TOKEN" http://localhost:8000/metrics | grep 'hamoon_worker_healthy{worker="temporal-worker"} 1.0'
 
       - name: Verify exact promoted images are running
         run: |

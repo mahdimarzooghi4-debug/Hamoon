@@ -12,10 +12,11 @@ from hamoon.infrastructure.db.session import engine
 def create_app() -> FastAPI:
     settings = get_settings()
 
-    configure_structured_logging(
-        service_name=settings.otel_service_name,
-        environment=settings.environment,
-    )
+    if settings.structured_logging:
+        configure_structured_logging(
+            service_name=settings.otel_service_name,
+            environment=settings.environment,
+        )
     application = FastAPI(
         title=settings.app_name,
         version=settings.application_version,

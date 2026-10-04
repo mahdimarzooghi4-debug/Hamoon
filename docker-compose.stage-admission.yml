@@ -1,4 +1,11 @@
 services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.162.0
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./ops/observability/otel-collector-stage.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - ./.stage-otel:/file-exporter
+
   migrate:
     environment:
       HAMOON_ENVIRONMENT: stage
@@ -6,7 +13,14 @@ services:
   api:
     environment:
       HAMOON_ENVIRONMENT: stage
+      HAMOON_OTEL_ENABLED: "true"
       HAMOON_OTEL_SERVICE_NAME: hamoon-api-stage-admission
+      HAMOON_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
+      HAMOON_OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://otel-collector:4318/v1/logs
+      HAMOON_METRICS_ACCESS_TOKEN: ${HAMOON_METRICS_ACCESS_TOKEN:-stage-admission-monitoring-token-0001}
+    depends_on:
+      otel-collector:
+        condition: service_started
 
   outbox-worker:
     environment:

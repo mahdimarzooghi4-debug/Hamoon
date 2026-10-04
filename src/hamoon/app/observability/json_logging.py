@@ -45,6 +45,39 @@ def sanitize_log_message(value: str) -> str:
     return sanitized
 
 
+def build_safe_log_payload(
+    record: logging.LogRecord,
+    *,
+    service_name: str = "hamoon",
+    environment: str = "unknown",
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "timestamp": datetime.now(UTC).isoformat(),
+        "level": record.levelname,
+        "logger": record.name,
+        "service": service_name,
+        "environment": environment,
+        "message": sanitize_log_message(record.getMessage()),
+    }
+    request_id = current_request_id()
+    correlation_id = current_correlation_id()
+    if request_id is not None:
+        payload["request_id"] = request_id
+    if correlation_id is not None:
+        payload["correlation_id"] = correlation_id
+
+    for key in _SAFE_EXTRA_FIELDS:
+        value = getattr(record, key, None)
+        if value is not None:
+            payload[key] = value
+
+    if record.exc_info is not None:
+        exc_type = record.exc_info[0]
+        if exc_type is not None:
+            payload["exception_type"] = exc_type.__name__
+    return payload
+
+
 class SafeJsonFormatter(logging.Formatter):
     def __init__(
         self,
@@ -57,30 +90,11 @@ class SafeJsonFormatter(logging.Formatter):
         self._environment = environment
 
     def format(self, record: logging.LogRecord) -> str:
-        payload: dict[str, object] = {
-            "timestamp": datetime.now(UTC).isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "service": self._service_name,
-            "environment": self._environment,
-            "message": sanitize_log_message(record.getMessage()),
-        }
-        request_id = current_request_id()
-        correlation_id = current_correlation_id()
-        if request_id is not None:
-            payload["request_id"] = request_id
-        if correlation_id is not None:
-            payload["correlation_id"] = correlation_id
-
-        for key in _SAFE_EXTRA_FIELDS:
-            value = getattr(record, key, None)
-            if value is not None:
-                payload[key] = value
-
-        if record.exc_info is not None:
-            exc_type = record.exc_info[0]
-            if exc_type is not None:
-                payload["exception_type"] = exc_type.__name__
+        payload = build_safe_log_payload(
+            record,
+            service_name=self._service_name,
+            environment=self._environment,
+        )
         return json.dumps(
             payload,
             ensure_ascii=True,

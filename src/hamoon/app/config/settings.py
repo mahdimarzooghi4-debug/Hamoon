@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     otel_enabled: bool = False
     otel_service_name: str = "hamoon-api"
     otel_exporter_otlp_endpoint: str | None = None
+    otel_exporter_otlp_logs_endpoint: str | None = None
+    otel_exporter_otlp_headers: SecretStr | None = None
     metrics_enabled: bool = True
     metrics_access_token: SecretStr | None = None
     structured_logging: bool = True
@@ -134,6 +136,14 @@ class Settings(BaseSettings):
             or not _is_remote_https(self.otel_exporter_otlp_endpoint)
         ):
             errors.append("PRODUCTION_OTEL_EXPORTER_HTTPS_REQUIRED")
+
+        if (
+            self.otel_exporter_otlp_logs_endpoint is None
+            or not _is_remote_https(self.otel_exporter_otlp_logs_endpoint)
+        ):
+            errors.append("PRODUCTION_OTEL_LOGS_EXPORTER_HTTPS_REQUIRED")
+        if not self.structured_logging:
+            errors.append("PRODUCTION_STRUCTURED_LOGGING_REQUIRED")
 
         if not self.database_url.startswith("postgresql"):
             errors.append("PRODUCTION_POSTGRESQL_REQUIRED")

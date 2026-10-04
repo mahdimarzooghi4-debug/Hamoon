@@ -15,6 +15,8 @@ def _production_settings(**overrides: object) -> Settings:
         "metrics_access_token": "m" * 32,
         "otel_enabled": True,
         "otel_exporter_otlp_endpoint": "https://otel.internal/v1/traces",
+        "otel_exporter_otlp_logs_endpoint": "https://otel.internal/v1/logs",
+        "structured_logging": True,
         "database_url": (
             "postgresql+asyncpg://hamoon:strong-password@db.internal:5432/hamoon"
         ),
@@ -84,6 +86,16 @@ def test_production_configuration_accepts_remote_secure_dependencies() -> None:
             "otel_exporter_otlp_endpoint",
             "http://otel.internal/v1/traces",
             "PRODUCTION_OTEL_EXPORTER_HTTPS_REQUIRED",
+        ),
+        (
+            "otel_exporter_otlp_logs_endpoint",
+            "http://otel.internal/v1/logs",
+            "PRODUCTION_OTEL_LOGS_EXPORTER_HTTPS_REQUIRED",
+        ),
+        (
+            "structured_logging",
+            False,
+            "PRODUCTION_STRUCTURED_LOGGING_REQUIRED",
         ),
         (
             "database_url",

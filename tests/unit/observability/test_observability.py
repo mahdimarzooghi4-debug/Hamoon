@@ -8,6 +8,7 @@ from hamoon.app.config.settings import Settings
 from hamoon.app.main import create_app
 from hamoon.app.observability.json_logging import (
     SafeJsonFormatter,
+    build_safe_log_payload,
     sanitize_log_message,
 )
 
@@ -79,3 +80,51 @@ def test_metrics_endpoint_requires_configured_access_token(monkeypatch) -> None:
     assert allowed.status_code == 200
     assert "hamoon_http_requests_total" in allowed.text
     assert allowed.headers["Cache-Control"] == "no-store"
+
+
+def test_safe_log_payload_redacts_before_otlp_export() -> None:
+    record = logging.LogRecord(
+        name="hamoon.test",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=1,
+        msg="password=secret phone=09120000000",
+        args=(),
+        exc_info=None,
+    )
+    record.operation = "observability_probe"
+    record.access_token = "must-not-export"
+
+    payload = build_safe_log_payload(
+        record,
+        service_name="hamoon-api",
+        environment="stage",
+    )
+
+    assert "secret" not in str(payload["message"])
+    assert "09120000000" not in str(payload["message"])
+    assert payload["operation"] == "observability_probe"
+    assert "access_token" not in payload
+
+
+def test_telemetry_probe_requires_monitoring_credential(monkeypatch) -> None:
+    settings = Settings(
+        _env_file=None,
+        metrics_access_token="m" * 32,
+    )
+    monkeypatch.setattr(main_module, "get_settings", lambda: settings)
+    client = TestClient(main_module.create_app())
+
+    missing = client.post("/health/telemetry-probe")
+    allowed = client.post(
+        "/health/telemetry-probe",
+        headers={"X-Hamoon-Metrics-Token": "m" * 32},
+    )
+
+    assert missing.status_code == 401
+    assert allowed.status_code == 200
+    payload = allowed.json()
+    assert payload["status"] == "emitted"
+    assert payload["probe_id"].startswith("hamoon-otel-")
+    assert len(payload["trace_id"]) == 32
+    assert len(payload["span_id"]) == 16
