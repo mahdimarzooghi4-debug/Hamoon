@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.domains.pgor.domain.definitions import (
@@ -370,6 +370,38 @@ class SqlAlchemyPGORSnapshotRepository:
     async def get(self, snapshot_id: UUID) -> PGORSnapshot | None:
         model = await self._session.get(PGORSnapshotModel, snapshot_id)
         return None if model is None else _snapshot(model)
+
+    async def list_latest_official_for_households(
+        self,
+        household_ids: list[UUID],
+    ) -> dict[UUID, PGORSnapshot]:
+        if not household_ids:
+            return {}
+        ranked = (
+            select(
+                PGORSnapshotModel.id.label("snapshot_id"),
+                func.row_number()
+                .over(
+                    partition_by=PGORSnapshotModel.household_id,
+                    order_by=PGORSnapshotModel.calculated_at.desc(),
+                )
+                .label("row_number"),
+            )
+            .where(
+                PGORSnapshotModel.household_id.in_(household_ids),
+                PGORSnapshotModel.status == PGORSnapshotStatus.OFFICIAL,
+            )
+            .subquery()
+        )
+        result = await self._session.execute(
+            select(PGORSnapshotModel)
+            .join(ranked, PGORSnapshotModel.id == ranked.c.snapshot_id)
+            .where(ranked.c.row_number == 1)
+        )
+        return {
+            model.household_id: _snapshot(model)
+            for model in result.scalars().all()
+        }
 
     async def get_official_by_assessment(
         self,

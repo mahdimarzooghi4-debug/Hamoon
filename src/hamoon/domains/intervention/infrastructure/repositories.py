@@ -1,9 +1,9 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from hamoon.domains.intervention.domain.entities import Intervention
+from hamoon.domains.intervention.domain.entities import Intervention, InterventionStatus
 from hamoon.domains.intervention.infrastructure.models import InterventionModel
 
 
@@ -63,3 +63,54 @@ class SqlAlchemyInterventionRepository:
             .order_by(InterventionModel.started_at.desc())
         )
         return [_intervention(model) for model in result.scalars().all()]
+
+
+    async def list_current_for_households(
+        self,
+        household_ids: list[UUID],
+    ) -> dict[UUID, Intervention]:
+        if not household_ids:
+            return {}
+        status_priority = case(
+            (InterventionModel.status == InterventionStatus.ACTIVE, 0),
+            (InterventionModel.status == InterventionStatus.REFERRED, 1),
+            (InterventionModel.status == InterventionStatus.READY_FOR_REFERRAL, 2),
+            (InterventionModel.status == InterventionStatus.PLANNED, 3),
+            else_=4,
+        )
+        ranked = (
+            select(
+                InterventionModel.id.label("intervention_id"),
+                func.row_number()
+                .over(
+                    partition_by=InterventionModel.household_id,
+                    order_by=(
+                        status_priority,
+                        InterventionModel.started_at.desc().nulls_last(),
+                        InterventionModel.id,
+                    ),
+                )
+                .label("row_number"),
+            )
+            .where(
+                InterventionModel.household_id.in_(household_ids),
+                InterventionModel.status.in_(
+                    (
+                        InterventionStatus.PLANNED,
+                        InterventionStatus.READY_FOR_REFERRAL,
+                        InterventionStatus.REFERRED,
+                        InterventionStatus.ACTIVE,
+                    )
+                ),
+            )
+            .subquery()
+        )
+        result = await self._session.execute(
+            select(InterventionModel)
+            .join(ranked, InterventionModel.id == ranked.c.intervention_id)
+            .where(ranked.c.row_number == 1)
+        )
+        return {
+            model.household_id: _intervention(model)
+            for model in result.scalars().all()
+        }

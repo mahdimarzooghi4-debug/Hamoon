@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.domains.operations.domain.entities import (
@@ -245,3 +245,48 @@ class SqlAlchemyWorkItemRepository:
         ).limit(limit)
         result = await self._session.execute(statement)
         return [_work_item(model) for model in result.scalars().all()]
+
+
+    async def list_next_for_households(
+        self,
+        *,
+        actor_id: UUID,
+        household_ids: list[UUID],
+    ) -> dict[UUID, WorkItem]:
+        if not household_ids:
+            return {}
+        ranked = (
+            select(
+                WorkItemModel.id.label("work_item_id"),
+                func.row_number()
+                .over(
+                    partition_by=WorkItemModel.household_id,
+                    order_by=(
+                        WorkItemModel.priority.desc(),
+                        WorkItemModel.due_at.asc().nulls_last(),
+                        WorkItemModel.created_at.asc(),
+                    ),
+                )
+                .label("row_number"),
+            )
+            .where(
+                WorkItemModel.household_id.in_(household_ids),
+                WorkItemModel.status.in_(
+                    (WorkItemStatus.OPEN, WorkItemStatus.CLAIMED)
+                ),
+                or_(
+                    WorkItemModel.assigned_actor_id == actor_id,
+                    WorkItemModel.claimed_by == actor_id,
+                ),
+            )
+            .subquery()
+        )
+        result = await self._session.execute(
+            select(WorkItemModel)
+            .join(ranked, WorkItemModel.id == ranked.c.work_item_id)
+            .where(ranked.c.row_number == 1)
+        )
+        return {
+            model.household_id: _work_item(model)
+            for model in result.scalars().all()
+        }

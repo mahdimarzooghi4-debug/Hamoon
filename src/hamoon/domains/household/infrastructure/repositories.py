@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from hamoon.domains.household.domain.entities import CaseAssignment, Household
+from hamoon.domains.household.domain.entities import CaseAssignment, Household, HouseholdStatus
 from hamoon.domains.household.infrastructure.models import (
     CaseAssignmentModel,
     HouseholdModel,
@@ -54,6 +54,47 @@ class SqlAlchemyHouseholdRepository:
         )
         model = result.scalar_one_or_none()
         return None if model is None else _to_household(model)
+
+
+    async def list_for_actor(
+        self,
+        *,
+        actor_id: UUID,
+        query: str | None,
+        lifecycle_status: HouseholdStatus | None,
+        limit: int,
+    ) -> list[Household]:
+        now = datetime.now(UTC)
+        statement = (
+            select(HouseholdModel)
+            .join(
+                CaseAssignmentModel,
+                CaseAssignmentModel.household_id == HouseholdModel.id,
+            )
+            .where(
+                CaseAssignmentModel.actor_id == actor_id,
+                CaseAssignmentModel.valid_from <= now,
+                or_(
+                    CaseAssignmentModel.valid_to.is_(None),
+                    CaseAssignmentModel.valid_to > now,
+                ),
+            )
+        )
+        if query:
+            statement = statement.where(
+                HouseholdModel.case_code.ilike(f"%{query}%")
+            )
+        if lifecycle_status is not None:
+            statement = statement.where(
+                HouseholdModel.lifecycle_status == lifecycle_status
+            )
+        statement = (
+            statement.distinct()
+            .order_by(HouseholdModel.case_code)
+            .limit(limit)
+        )
+        result = await self._session.execute(statement)
+        return [_to_household(model) for model in result.scalars().all()]
 
 
 class SqlAlchemyCaseAssignmentRepository:
