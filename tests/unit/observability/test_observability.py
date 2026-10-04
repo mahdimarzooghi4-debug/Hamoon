@@ -4,7 +4,7 @@ import logging
 from fastapi.testclient import TestClient
 
 from hamoon.app import main as main_module
-from hamoon.app.config.settings import Settings
+from hamoon.app.config.settings import Settings, get_settings
 from hamoon.app.main import create_app
 from hamoon.app.observability.json_logging import (
     SafeJsonFormatter,
@@ -107,19 +107,22 @@ def test_safe_log_payload_redacts_before_otlp_export() -> None:
     assert "access_token" not in payload
 
 
-def test_telemetry_probe_requires_monitoring_credential(monkeypatch) -> None:
+def test_telemetry_probe_requires_monitoring_credential() -> None:
     settings = Settings(
         _env_file=None,
         metrics_access_token="m" * 32,
     )
-    monkeypatch.setattr(main_module, "get_settings", lambda: settings)
-    client = TestClient(main_module.create_app())
-
-    missing = client.post("/health/telemetry-probe")
-    allowed = client.post(
-        "/health/telemetry-probe",
-        headers={"X-Hamoon-Metrics-Token": "m" * 32},
-    )
+    application = main_module.create_app()
+    application.dependency_overrides[get_settings] = lambda: settings
+    try:
+        client = TestClient(application)
+        missing = client.post("/health/telemetry-probe")
+        allowed = client.post(
+            "/health/telemetry-probe",
+            headers={"X-Hamoon-Metrics-Token": "m" * 32},
+        )
+    finally:
+        application.dependency_overrides.clear()
 
     assert missing.status_code == 401
     assert allowed.status_code == 200
