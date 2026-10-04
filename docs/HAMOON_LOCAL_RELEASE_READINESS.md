@@ -18,7 +18,7 @@ The local product boundary includes:
 - Temporal reassessment orchestration and reconciliation.
 - Learning signals, curated datasets and evaluation/promotion governance.
 - Durable PostgreSQL outbox with NATS JetStream delivery and retry.
-- Private local evidence upload, integrity verification, quarantine and download.
+- Private S3-compatible evidence storage through the real MinIO adapter, with integrity verification, quarantine and download.
 - Structured PII-safe logs, Prometheus-compatible metrics and OpenTelemetry hooks.
 - Data Health and Machine Health aggregate read models.
 - Unit, contract, security, closed-loop Golden Path and infrastructure integration gates.
@@ -47,7 +47,7 @@ docker compose up --build
 ```
 
 The stack includes PostgreSQL, NATS JetStream, Keycloak, MinIO, Temporal, database
-migration, API, the Nginx-served React frontend, outbox worker and Temporal worker.
+migration, API, the Nginx-served React frontend, outbox worker and Temporal worker. Evidence bytes are stored in the private MinIO bucket rather than the API container filesystem.
 
 Web product:
 
@@ -109,7 +109,7 @@ UI/Figma work may start only when the current main commit has:
 8. diagnosis and outcome evaluation replay gates green;
 9. Alembic topology and fresh-database migration green;
 10. container build green;
-11. PostgreSQL-to-JetStream integration gate green;
+11. PostgreSQL/JetStream integration gate green, including real S3-compatible Evidence round-trip against MinIO;
 12. complete local Docker Compose stack smoke green, including frontend SPA/deep-link/runtime-config/API-proxy checks.
 
 A red gate means the backend contract is not considered frozen for UI work.

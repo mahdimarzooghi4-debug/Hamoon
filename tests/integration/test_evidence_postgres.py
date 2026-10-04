@@ -1,6 +1,5 @@
 from datetime import UTC, datetime
 from hashlib import sha256
-from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -22,9 +21,9 @@ from hamoon.domains.evidence.domain.entities import (
     EvidenceSensitivity,
     EvidenceType,
 )
-from hamoon.domains.evidence.infrastructure.local_storage import (
-    LocalEvidenceScanner,
-    LocalEvidenceStorage,
+from hamoon.domains.evidence.infrastructure.local_storage import LocalEvidenceScanner
+from hamoon.domains.evidence.infrastructure.s3_storage import (
+    S3CompatibleEvidenceStorage,
 )
 from hamoon.domains.evidence.infrastructure.repositories import (
     SqlAlchemyEvidenceRepository,
@@ -38,9 +37,7 @@ from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
 
 
 @pytest.mark.asyncio
-async def test_evidence_lifecycle_persists_on_real_postgres(
-    tmp_path: Path,
-) -> None:
+async def test_evidence_lifecycle_persists_on_real_postgres_and_minio() -> None:
     settings = get_settings()
     engine = create_async_engine(settings.database_url, pool_pre_ping=True)
     session_maker = async_sessionmaker(engine, expire_on_commit=False)
@@ -50,7 +47,14 @@ async def test_evidence_lifecycle_persists_on_real_postgres(
     now = datetime.now(UTC)
     content = b"%PDF-1.7\npostgres integration evidence\n"
     digest = sha256(content).hexdigest()
-    storage = LocalEvidenceStorage(tmp_path)
+    storage = S3CompatibleEvidenceStorage(
+        endpoint=settings.evidence_s3_endpoint,
+        access_key=settings.evidence_s3_access_key,
+        secret_key=settings.evidence_s3_secret_key,
+        bucket=settings.evidence_s3_bucket,
+        region=settings.evidence_s3_region,
+        timeout_seconds=settings.evidence_s3_request_timeout_seconds,
+    )
 
     async with session_maker() as session:
         async with session.begin():
@@ -89,6 +93,7 @@ async def test_evidence_lifecycle_persists_on_real_postgres(
                 allowed_media_types=frozenset({"application/pdf"}),
                 max_upload_bytes=1024 * 1024,
                 upload_ttl_seconds=300,
+                storage_provider="S3_COMPATIBLE_PRIVATE",
             ).handle(
                 InitEvidenceUploadCommand(
                     household_id=household_id,
@@ -146,5 +151,7 @@ async def test_evidence_lifecycle_persists_on_real_postgres(
         assert persisted.lifecycle_status is EvidenceLifecycleStatus.AVAILABLE
         assert persisted.sha256 == digest
         assert persisted.household_id == household_id
+        assert persisted.storage_provider == "S3_COMPATIBLE_PRIVATE"
+        assert await storage.read(storage_key=persisted.storage_key) == content
 
     await engine.dispose()

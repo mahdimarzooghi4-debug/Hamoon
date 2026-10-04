@@ -47,6 +47,10 @@ from hamoon.domains.evidence.infrastructure.local_storage import (
 from hamoon.domains.evidence.infrastructure.repositories import (
     SqlAlchemyEvidenceRepository,
 )
+from hamoon.domains.evidence.infrastructure.s3_storage import (
+    S3CompatibleEvidenceStorage,
+)
+from hamoon.domains.evidence.ports.repositories import EvidenceStorage
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
@@ -81,8 +85,29 @@ def _allowed_media_types(settings: Settings) -> frozenset[str]:
     )
 
 
-def _storage(settings: Settings) -> LocalEvidenceStorage:
-    return LocalEvidenceStorage(Path(settings.evidence_local_root))
+def _storage(settings: Settings) -> EvidenceStorage:
+    backend = settings.evidence_storage_backend.strip().lower()
+    if backend == "local":
+        return LocalEvidenceStorage(Path(settings.evidence_local_root))
+    if backend == "s3":
+        return S3CompatibleEvidenceStorage(
+            endpoint=settings.evidence_s3_endpoint,
+            access_key=settings.evidence_s3_access_key,
+            secret_key=settings.evidence_s3_secret_key,
+            bucket=settings.evidence_s3_bucket,
+            region=settings.evidence_s3_region,
+            timeout_seconds=settings.evidence_s3_request_timeout_seconds,
+        )
+    raise ValueError("EVIDENCE_STORAGE_BACKEND_INVALID")
+
+
+def _storage_provider(settings: Settings) -> str:
+    backend = settings.evidence_storage_backend.strip().lower()
+    if backend == "local":
+        return "LOCAL_PRIVATE"
+    if backend == "s3":
+        return "S3_COMPATIBLE_PRIVATE"
+    raise ValueError("EVIDENCE_STORAGE_BACKEND_INVALID")
 
 
 def _signer(settings: Settings) -> EvidenceCapabilitySigner:
@@ -138,6 +163,14 @@ def _raise_evidence_http(exc: Exception) -> NoReturn:
             status_code=status.HTTP_409_CONFLICT,
             detail={"code": code},
         ) from exc
+    if code in {
+        "EVIDENCE_STORAGE_UNAVAILABLE",
+        "EVIDENCE_STORAGE_METADATA_INVALID",
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": code},
+        ) from exc
     raise HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         detail={"code": code},
@@ -180,6 +213,7 @@ async def init_evidence_upload(
                 allowed_media_types=_allowed_media_types(settings),
                 max_upload_bytes=settings.evidence_max_upload_bytes,
                 upload_ttl_seconds=settings.evidence_upload_ttl_seconds,
+                storage_provider=_storage_provider(settings),
             ).handle(
                 InitEvidenceUploadCommand(
                     household_id=household_id,

@@ -53,6 +53,7 @@ class InitEvidenceUploadHandler:
         allowed_media_types: frozenset[str],
         max_upload_bytes: int,
         upload_ttl_seconds: int,
+        storage_provider: str = "LOCAL_PRIVATE",
     ) -> None:
         self._repository = repository
         self._events = events
@@ -61,6 +62,7 @@ class InitEvidenceUploadHandler:
         self._allowed_media_types = allowed_media_types
         self._max_upload_bytes = max_upload_bytes
         self._upload_ttl_seconds = upload_ttl_seconds
+        self._storage_provider = storage_provider
 
     async def handle(
         self,
@@ -100,7 +102,7 @@ class InitEvidenceUploadHandler:
                 if command.description and command.description.strip()
                 else None
             ),
-            storage_provider="LOCAL_PRIVATE",
+            storage_provider=self._storage_provider,
             storage_key=storage_key,
             original_filename=command.original_filename,
             media_type=media_type,

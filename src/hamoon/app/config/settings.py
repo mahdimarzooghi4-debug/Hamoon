@@ -27,7 +27,14 @@ class Settings(BaseSettings):
     metrics_enabled: bool = True
     structured_logging: bool = True
 
+    evidence_storage_backend: str = "local"
     evidence_local_root: str = ".hamoon/evidence"
+    evidence_s3_endpoint: str = "http://localhost:9000"
+    evidence_s3_access_key: str = "minio"
+    evidence_s3_secret_key: str = "minio12345"
+    evidence_s3_bucket: str = "hamoon-evidence"
+    evidence_s3_region: str = "us-east-1"
+    evidence_s3_request_timeout_seconds: float = 10.0
     evidence_signing_secret: str = "hamoon-local-evidence-secret"
     evidence_upload_ttl_seconds: int = 300
     evidence_download_ttl_seconds: int = 300

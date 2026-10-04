@@ -106,6 +106,11 @@ jobs:
     env:
       HAMOON_DATABASE_URL: postgresql+asyncpg://hamoon:hamoon@localhost:5432/hamoon
       HAMOON_NATS_URL: nats://localhost:4222
+      HAMOON_EVIDENCE_STORAGE_BACKEND: s3
+      HAMOON_EVIDENCE_S3_ENDPOINT: http://localhost:9000
+      HAMOON_EVIDENCE_S3_ACCESS_KEY: minio
+      HAMOON_EVIDENCE_S3_SECRET_KEY: minio12345
+      HAMOON_EVIDENCE_S3_BUCKET: hamoon-evidence
       HAMOON_OTEL_ENABLED: "false"
 
     steps:
@@ -124,7 +129,7 @@ jobs:
         run: uv sync --frozen --all-extras
 
       - name: Start local integration infrastructure
-        run: docker compose up -d postgres nats
+        run: docker compose up -d postgres nats minio minio-init
 
       - name: Wait for PostgreSQL and NATS
         run: |
@@ -142,6 +147,22 @@ jobs:
           done
           docker compose exec -T postgres pg_isready -U hamoon -d hamoon
           curl --fail --silent http://localhost:8222/healthz
+
+          for i in {1..60}; do
+            if curl --fail --silent http://localhost:9000/minio/health/live >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://localhost:9000/minio/health/live >/dev/null
+          for i in {1..60}; do
+            minio_init_id="$(docker compose ps -a -q minio-init)"
+            if [ -n "$minio_init_id" ] && [ "$(docker inspect -f '{{.State.Status}}' "$minio_init_id")" = "exited" ]; then
+              break
+            fi
+            sleep 1
+          done
+          test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -a -q minio-init)")" = "0"
 
       - name: Apply database migrations
         run: uv run alembic upgrade head
