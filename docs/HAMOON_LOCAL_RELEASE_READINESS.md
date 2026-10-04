@@ -36,6 +36,12 @@ external system and are not blockers for UI/Figma work:
 - External OpenTelemetry backend, dashboards and alert delivery.
 - Production secrets/KMS, backup and retention infrastructure.
 
+Production startup itself is no longer permissive: setting `HAMOON_ENVIRONMENT=production`
+activates fail-fast validation that rejects local endpoints, local Evidence storage,
+non-HTTPS OIDC/S3 endpoints, MinIO bootstrap credentials, and the local Evidence
+capability-signing secret. The same `Settings` boundary is shared by API, workers,
+and migrations.
+
 The application contracts for these integrations must remain provider-agnostic.
 
 ## Local startup
@@ -81,6 +87,7 @@ uv run ruff check .
 uv run pyright src
 uv run pytest tests/unit
 uv run pytest tests/contract
+uv run pytest tests/unit/config/test_settings.py
 docker compose config --quiet
 uv run alembic heads
 docker build -t hamoon-local-release .

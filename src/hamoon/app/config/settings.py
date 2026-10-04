@@ -1,6 +1,34 @@
 from functools import lru_cache
+from typing import Self
+from urllib.parse import urlsplit
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "0.0.0.0", "::1", "::"})
+
+
+def _endpoint_host(value: str) -> str | None:
+    candidate = value.strip()
+    if not candidate:
+        return None
+    parsed = urlsplit(candidate if "://" in candidate else f"//{candidate}")
+    return parsed.hostname.lower() if parsed.hostname is not None else None
+
+
+def _is_local_host(host: str | None) -> bool:
+    if host is None:
+        return True
+    return host in _LOCAL_HOSTS or host.endswith(".localhost")
+
+
+def _is_remote_endpoint(value: str) -> bool:
+    return not _is_local_host(_endpoint_host(value))
+
+
+def _is_remote_https(value: str) -> bool:
+    parsed = urlsplit(value.strip())
+    return parsed.scheme == "https" and not _is_local_host(parsed.hostname)
 
 
 class Settings(BaseSettings):
@@ -55,6 +83,53 @@ class Settings(BaseSettings):
     temporal_address: str = "localhost:7233"
     temporal_namespace: str = "default"
     temporal_core_task_queue: str = "hamoon-core"
+
+    @model_validator(mode="after")
+    def validate_runtime_safety(self) -> Self:
+        backend = self.evidence_storage_backend.strip().lower()
+        if backend not in {"local", "s3"}:
+            raise ValueError("EVIDENCE_STORAGE_BACKEND_INVALID")
+
+        environment = self.environment.strip().lower()
+        if environment not in {"prod", "production"}:
+            return self
+
+        errors: list[str] = []
+
+        if not self.database_url.startswith("postgresql"):
+            errors.append("PRODUCTION_POSTGRESQL_REQUIRED")
+        if not _is_remote_endpoint(self.database_url):
+            errors.append("PRODUCTION_DATABASE_ENDPOINT_INVALID")
+        if not _is_remote_endpoint(self.nats_url):
+            errors.append("PRODUCTION_NATS_ENDPOINT_INVALID")
+        if not _is_remote_endpoint(self.temporal_address):
+            errors.append("PRODUCTION_TEMPORAL_ENDPOINT_INVALID")
+
+        if not _is_remote_https(self.oidc_issuer_url):
+            errors.append("PRODUCTION_OIDC_HTTPS_REQUIRED")
+        if self.oidc_jwks_url is not None and not _is_remote_https(self.oidc_jwks_url):
+            errors.append("PRODUCTION_OIDC_JWKS_HTTPS_REQUIRED")
+
+        if backend != "s3":
+            errors.append("PRODUCTION_EVIDENCE_STORAGE_REQUIRED")
+        if not _is_remote_https(self.evidence_s3_endpoint):
+            errors.append("PRODUCTION_EVIDENCE_S3_HTTPS_REQUIRED")
+        if (
+            not self.evidence_s3_access_key.strip()
+            or self.evidence_s3_access_key == "minio"
+            or len(self.evidence_s3_secret_key) < 16
+            or self.evidence_s3_secret_key == "minio12345"
+        ):
+            errors.append("PRODUCTION_EVIDENCE_S3_CREDENTIALS_REQUIRED")
+        if (
+            len(self.evidence_signing_secret) < 32
+            or self.evidence_signing_secret == "hamoon-local-evidence-secret"
+        ):
+            errors.append("PRODUCTION_EVIDENCE_SIGNING_SECRET_REQUIRED")
+
+        if errors:
+            raise ValueError("PRODUCTION_CONFIGURATION_INVALID:" + ",".join(errors))
+        return self
 
 
 @lru_cache
