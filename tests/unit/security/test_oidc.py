@@ -30,3 +30,16 @@ def test_missing_subject_is_rejected() -> None:
                 "realm_access": {"roles": ["CASEWORKER"]},
             }
         )
+
+
+def test_direct_role_claim_maps_to_hamoon_roles() -> None:
+    principal = principal_from_claims(
+        {
+            "sub": "subject-2",
+            "iss": "https://idp.example/realms/hamoon",
+            "roles": ["ADMIN", "unknown-role"],
+            "scope": "openid profile hamoon.admin",
+        }
+    )
+
+    assert principal.roles == frozenset({Role.ADMIN})

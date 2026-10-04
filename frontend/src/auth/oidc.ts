@@ -1,3 +1,5 @@
+import { extractHamoonRoles } from "./claims";
+
 const issuer = (
   import.meta.env.VITE_HAMOON_OIDC_ISSUER_URL ??
   "http://localhost:8081/realms/hamoon-local"
@@ -243,14 +245,7 @@ export function browserPrincipal(): BrowserPrincipal | null {
   const claims = decodePayload(token);
   if (!claims) return null;
 
-  const realmAccess =
-    typeof claims.realm_access === "object" && claims.realm_access !== null
-      ? (claims.realm_access as Record<string, unknown>)
-      : null;
-  const rawRoles = realmAccess?.roles;
-  const roles = Array.isArray(rawRoles)
-    ? rawRoles.filter((item): item is string => typeof item === "string")
-    : [];
+  const roles = extractHamoonRoles(claims);
   const displayName =
     typeof claims.name === "string"
       ? claims.name

@@ -5,6 +5,7 @@ import {
   canUseCasework,
   canUseLearningGovernance,
 } from "../.tmp-auth-test/access.js";
+import { extractHamoonRoles } from "../.tmp-auth-test/claims.js";
 
 const caseworker = { roles: ["CASEWORKER"] };
 const admin = { roles: ["ADMIN"] };
@@ -38,3 +39,30 @@ assert.equal(
 
 assert.equal(canUseCasework(mixed), true);
 assert.equal(canUseLearningGovernance(mixed), true);
+
+assert.deepEqual(
+  extractHamoonRoles({
+    roles: ["CASEWORKER", "offline_access"],
+  }),
+  ["CASEWORKER"],
+);
+assert.deepEqual(
+  extractHamoonRoles({
+    realm_access: { roles: ["ADMIN", "uma_authorization"] },
+  }),
+  ["ADMIN"],
+);
+assert.deepEqual(
+  extractHamoonRoles({
+    roles: ["CASEWORKER"],
+    realm_access: { roles: ["CASEWORKER", "ADMIN"] },
+  }),
+  ["CASEWORKER", "ADMIN"],
+);
+assert.deepEqual(
+  extractHamoonRoles({
+    roles: "CASEWORKER",
+    realm_access: { roles: [42, null] },
+  }),
+  [],
+);
