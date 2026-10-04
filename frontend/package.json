@@ -7,6 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "typecheck": "tsc --noEmit",
+    "test:access": "rm -rf .tmp-auth-test && tsc src/auth/access.ts --target ES2022 --module ES2022 --moduleResolution Bundler --outDir .tmp-auth-test --skipLibCheck && node scripts/auth-access.test.mjs && rm -rf .tmp-auth-test",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

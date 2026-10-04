@@ -24,6 +24,9 @@ jobs:
       - name: Frontend type check
         run: npm --prefix frontend run typecheck
 
+      - name: Frontend access policy tests
+        run: npm --prefix frontend run test:access
+
       - name: Frontend build
         run: npm --prefix frontend run build
 

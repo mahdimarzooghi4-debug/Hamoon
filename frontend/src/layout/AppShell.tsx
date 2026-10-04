@@ -1,25 +1,31 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import { getReadiness, type HealthResponse } from "../api/health";
+import { type AppPath, AppLink } from "../app/navigation";
+import {
+  canUseCasework,
+  canUseLearningGovernance,
+} from "../auth/access";
 import {
   beginLogin,
-  browserPrincipal,
-  hasAuthSession,
   logout,
+  type BrowserPrincipal,
 } from "../auth/oidc";
-import { AppLink, type AppPath } from "../app/navigation";
 import { Badge } from "../design-system/components";
 
 export function AppShell({
   activePath,
+  principal,
   children,
 }: {
   activePath: AppPath;
+  principal: BrowserPrincipal | null;
   children: ReactNode;
 }) {
   const [health, setHealth] = useState<HealthResponse | null>(null);
-  const authenticated = hasAuthSession();
-  const principal = browserPrincipal();
+  const authenticated = principal !== null;
+  const caseworkAllowed = canUseCasework(principal);
+  const governanceAllowed = canUseLearningGovernance(principal);
 
   useEffect(() => {
     let mounted = true;
@@ -36,7 +42,8 @@ export function AppShell({
   }, []);
 
   const ready = health?.status === "ready";
-  const householdsActive = activePath === "/households" || activePath.startsWith("/households/");
+  const householdsActive =
+    activePath === "/households" || activePath.startsWith("/households/");
   const adminActive = activePath === "/admin/learning";
 
   return (
@@ -51,11 +58,13 @@ export function AppShell({
                   (adminActive ? "کنسول مدیریت" : "کاربر سازمانی")}
               </strong>
               <span>
-                {adminActive
-                  ? "یادگیری و حاکمیت AI"
-                  : principal?.roles.includes("CASEWORKER")
+                {governanceAllowed
+                  ? "مدیریت یادگیری و حاکمیت AI"
+                  : caseworkAllowed
                     ? "مددکار پرونده"
-                    : "هامون"}
+                    : authenticated
+                      ? "کاربر سازمانی"
+                      : "هامون"}
               </span>
             </div>
           </div>
@@ -67,26 +76,32 @@ export function AppShell({
             >
               خانه
             </AppLink>
-            <AppLink
-              className={householdsActive ? "topbar__link is-active" : "topbar__link"}
-              to="/households"
-            >
-              پرونده‌ها
-            </AppLink>
-            <AppLink
-              className={
-                activePath === "/work-queue" ? "topbar__link is-active" : "topbar__link"
-              }
-              to="/work-queue"
-            >
-              کارتابل
-            </AppLink>
-            <AppLink
-              className={adminActive ? "topbar__link is-active" : "topbar__link"}
-              to="/admin/learning"
-            >
-              یادگیری و حاکمیت
-            </AppLink>
+            {caseworkAllowed ? (
+              <>
+                <AppLink
+                  className={householdsActive ? "topbar__link is-active" : "topbar__link"}
+                  to="/households"
+                >
+                  پرونده‌ها
+                </AppLink>
+                <AppLink
+                  className={
+                    activePath === "/work-queue" ? "topbar__link is-active" : "topbar__link"
+                  }
+                  to="/work-queue"
+                >
+                  کارتابل
+                </AppLink>
+              </>
+            ) : null}
+            {governanceAllowed ? (
+              <AppLink
+                className={adminActive ? "topbar__link is-active" : "topbar__link"}
+                to="/admin/learning"
+              >
+                یادگیری و حاکمیت
+              </AppLink>
+            ) : null}
           </nav>
 
           <div className="topbar__end">
