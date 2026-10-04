@@ -60,7 +60,9 @@ class MatchProvidersRequest(BaseModel):
 
 class ProviderMatchCandidateData(BaseModel):
     provider_id: UUID
+    provider_name: str
     provider_service_id: UUID
+    service_title: str
     eligibility: MatchEligibility
     capacity_status: CapacityStatus
     reasons: list[str]

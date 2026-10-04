@@ -28,7 +28,12 @@ from hamoon.domains.provider.api.schemas import (
 )
 from hamoon.domains.provider.application.commands import MatchProvidersCommand
 from hamoon.domains.provider.application.matching import MatchProvidersHandler
-from hamoon.domains.provider.domain.entities import CapacityStatus, Provider, ProviderService
+from hamoon.domains.provider.domain.entities import (
+    CapacityStatus,
+    Provider,
+    ProviderMatch,
+    ProviderService,
+)
 from hamoon.domains.provider.domain.errors import ProviderMatchError
 from hamoon.domains.provider.infrastructure.repositories import (
     SqlAlchemyProviderMatchRepository,
@@ -78,6 +83,42 @@ async def _service_data(
             CapacityStatus.UNKNOWN if capacity is None else capacity.capacity_status
         ),
         available_slots=None if capacity is None else capacity.available_slots,
+    )
+
+
+async def _provider_match_data(
+    *,
+    match: ProviderMatch,
+    registry: SqlAlchemyProviderRegistryRepository,
+) -> ProviderMatchData:
+    candidates: list[ProviderMatchCandidateData] = []
+    for item in match.candidates:
+        provider = await registry.get_provider(item.provider_id)
+        service = await registry.get_service(item.provider_service_id)
+        if provider is None or service is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={"code": "PROVIDER_MATCH_REFERENCE_MISSING"},
+            )
+        candidates.append(
+            ProviderMatchCandidateData(
+                provider_id=item.provider_id,
+                provider_name=provider.name,
+                provider_service_id=item.provider_service_id,
+                service_title=service.title,
+                eligibility=item.eligibility,
+                capacity_status=item.capacity_status,
+                reasons=list(item.reasons),
+            )
+        )
+    return ProviderMatchData(
+        provider_match_id=match.id,
+        intervention_id=match.intervention_id,
+        service_type=match.service_type,
+        household_context_version=match.household_context_version,
+        matching_policy_version=match.matching_policy_version,
+        generated_at=match.generated_at,
+        candidates=candidates,
     )
 
 
@@ -187,10 +228,11 @@ async def match_providers(
                 context=context,
                 household_id=intervention.household_id,
             )
+            registry = SqlAlchemyProviderRegistryRepository(session)
             match = await MatchProvidersHandler(
                 interventions=interventions,
                 accepted_state=SqlAlchemyAcceptedStateRepository(session),
-                registry=SqlAlchemyProviderRegistryRepository(session),
+                registry=registry,
                 matches=SqlAlchemyProviderMatchRepository(session),
                 events=SqlAlchemyDomainEventRecorder(session),
                 audits=SqlAlchemyAuditRecorder(session),
@@ -204,29 +246,14 @@ async def match_providers(
                     correlation_id=correlation_id,
                 )
             )
+            response_data = await _provider_match_data(
+                match=match,
+                registry=registry,
+            )
     except ProviderMatchError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"code": str(exc)},
         ) from exc
 
-    return ProviderMatchResponse(
-        data=ProviderMatchData(
-            provider_match_id=match.id,
-            intervention_id=match.intervention_id,
-            service_type=match.service_type,
-            household_context_version=match.household_context_version,
-            matching_policy_version=match.matching_policy_version,
-            generated_at=match.generated_at,
-            candidates=[
-                ProviderMatchCandidateData(
-                    provider_id=item.provider_id,
-                    provider_service_id=item.provider_service_id,
-                    eligibility=item.eligibility,
-                    capacity_status=item.capacity_status,
-                    reasons=list(item.reasons),
-                )
-                for item in match.candidates
-            ],
-        )
-    )
+    return ProviderMatchResponse(data=response_data)
