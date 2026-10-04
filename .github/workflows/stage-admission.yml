@@ -1,0 +1,189 @@
+name: Stage Admission
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  stage-admission:
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout exact promoted commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Download immutable release bundle from source CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          PROMOTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          gh run download "$SOURCE_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-release-$PROMOTED_SHA" \
+            --dir stage-release
+
+      - name: Verify release bundle before Stage admission
+        run: python3 scripts/verify_release_bundle.py stage-release
+
+      - name: Bind Stage admission to source run and commit
+        env:
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          PROMOTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          manifest = json.loads(Path("stage-release/manifest.json").read_text())
+          assert manifest["commit_sha"] == os.environ["PROMOTED_SHA"]
+          assert manifest["workflow_run_id"] == os.environ["SOURCE_RUN_ID"]
+          PY
+
+      - name: Load promoted application images without rebuild
+        run: |
+          docker load -i stage-release/hamoon-api.tar
+          docker load -i stage-release/hamoon-web.tar
+
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path("stage-release/manifest.json").read_text())
+          print(f'HAMOON_API_IMAGE={manifest["backend"]["image"]}')
+          print(f'HAMOON_WEB_IMAGE={manifest["frontend"]["image"]}')
+          PY
+
+      - name: Verify loaded image identity against release manifest
+        run: |
+          expected_api_id="$(python3 -c 'import json; print(json.load(open("stage-release/manifest.json"))["backend"]["image_id"])')"
+          expected_web_id="$(python3 -c 'import json; print(json.load(open("stage-release/manifest.json"))["frontend"]["image_id"])')"
+          test "$(docker image inspect "$HAMOON_API_IMAGE" --format '{{.Id}}')" = "$expected_api_id"
+          test "$(docker image inspect "$HAMOON_WEB_IMAGE" --format '{{.Id}}')" = "$expected_web_id"
+
+      - name: Build Stage-admission-only dependency helper
+        run: docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml build minio
+
+      - name: Start clean Stage-admission stack from promoted images
+        run: docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml up -d --no-build
+
+      - name: Stage smoke and E2E boundary
+        run: |
+          for i in {1..120}; do
+            if curl --fail --silent http://localhost:8000/health/ready >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://localhost:8000/health/live
+          curl --fail --silent http://localhost:8000/health/ready
+
+          for i in {1..120}; do
+            if curl --fail --silent http://localhost:8081/realms/hamoon-local/.well-known/openid-configuration >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://localhost:8081/realms/hamoon-local/.well-known/openid-configuration >/dev/null
+          curl --fail --silent http://localhost:9000/minio/health/live >/dev/null
+          curl --fail --silent http://localhost:8222/healthz >/dev/null
+
+          for i in {1..60}; do
+            if curl --fail --silent http://localhost:3000/ >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://localhost:3000/ | grep 'id="root"'
+          curl --fail --silent http://localhost:3000/auth/callback | grep 'id="root"'
+          curl --fail --silent http://localhost:3000/health/ready >/dev/null
+
+          test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -a -q migrate)")" = "0"
+          test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -a -q minio-init)")" = "0"
+          test "$(docker inspect -f '{{.State.Running}}' "$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -q outbox-worker)")" = "true"
+          test "$(docker inspect -f '{{.State.Running}}' "$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -q temporal-worker)")" = "true"
+
+      - name: Verify exact promoted images are running
+        run: |
+          expected_api_id="$(docker image inspect "$HAMOON_API_IMAGE" --format '{{.Id}}')"
+          for service in migrate api outbox-worker temporal-worker; do
+            container_id="$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -a -q "$service")"
+            test -n "$container_id"
+            test "$(docker inspect -f '{{.Image}}' "$container_id")" = "$expected_api_id"
+          done
+
+          expected_web_id="$(docker image inspect "$HAMOON_WEB_IMAGE" --format '{{.Id}}')"
+          web_container_id="$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -q web)"
+          test -n "$web_container_id"
+          test "$(docker inspect -f '{{.Image}}' "$web_container_id")" = "$expected_web_id"
+
+      - name: Create Stage admission attestation
+        env:
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          PROMOTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          mkdir -p stage-attestation
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          release_dir = Path("stage-release")
+          manifest = json.loads((release_dir / "manifest.json").read_text())
+          manifest_sha256 = hashlib.sha256(
+              (release_dir / "manifest.json").read_bytes()
+          ).hexdigest()
+
+          attestation = {
+              "schema_version": 1,
+              "status": "PASSED",
+              "environment_class": "STAGE_ADMISSION",
+              "hosted_stage": False,
+              "commit_sha": os.environ["PROMOTED_SHA"],
+              "source_ci_run_id": os.environ["SOURCE_RUN_ID"],
+              "stage_admission_run_id": os.environ["GITHUB_RUN_ID"],
+              "release_manifest_sha256": manifest_sha256,
+              "backend_image_id": manifest["backend"]["image_id"],
+              "frontend_image_id": manifest["frontend"]["image_id"],
+              "verified_at": datetime.now(UTC).isoformat(),
+          }
+          Path("stage-attestation/stage-attestation.json").write_text(
+              json.dumps(attestation, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Verify Stage admission attestation
+        run: python3 scripts/verify_stage_attestation.py stage-release stage-attestation/stage-attestation.json
+
+      - name: Upload Stage admission attestation
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamoon-stage-admission-${{ github.event.workflow_run.head_sha }}
+          path: stage-attestation/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Show Stage admission diagnostics
+        if: failure()
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps
+          docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml logs --no-color --tail=200
+
+      - name: Stop Stage admission stack
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml down -v

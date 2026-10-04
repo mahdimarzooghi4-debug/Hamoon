@@ -1,0 +1,19 @@
+services:
+  migrate:
+    environment:
+      HAMOON_ENVIRONMENT: stage
+
+  api:
+    environment:
+      HAMOON_ENVIRONMENT: stage
+      HAMOON_OTEL_SERVICE_NAME: hamoon-api-stage-admission
+
+  outbox-worker:
+    environment:
+      HAMOON_ENVIRONMENT: stage
+      HAMOON_OTEL_SERVICE_NAME: hamoon-outbox-worker-stage-admission
+
+  temporal-worker:
+    environment:
+      HAMOON_ENVIRONMENT: stage
+      HAMOON_OTEL_SERVICE_NAME: hamoon-temporal-worker-stage-admission
