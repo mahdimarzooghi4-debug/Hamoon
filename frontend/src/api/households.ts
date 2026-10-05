@@ -80,3 +80,35 @@ export async function getHousehold(householdId: string): Promise<HouseholdSummar
   );
   return response.data;
 }
+
+
+export type HouseholdTimelineKind =
+  | "FACT"
+  | "ASSESSMENT"
+  | "PGOR"
+  | "DIAGNOSIS"
+  | "PRESCRIPTION"
+  | "REFERRAL"
+  | "PROVIDER_RESULT"
+  | "OUTCOME";
+
+export interface HouseholdTimelineItem {
+  kind: HouseholdTimelineKind;
+  entity_id: string;
+  occurred_at: string;
+  status: string;
+  detail: string | null;
+}
+
+interface HouseholdTimelineResponse {
+  data: HouseholdTimelineItem[];
+}
+
+export async function getHouseholdTimeline(
+  householdId: string,
+): Promise<HouseholdTimelineItem[]> {
+  const response = await requestJson<HouseholdTimelineResponse>(
+    `/api/v1/households/${encodeURIComponent(householdId)}/timeline?limit=200`,
+  );
+  return response.data;
+}
