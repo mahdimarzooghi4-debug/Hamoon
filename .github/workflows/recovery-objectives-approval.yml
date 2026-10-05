@@ -1,0 +1,212 @@
+name: Recovery Objectives Approval
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact 40-character commit SHA with successful recovery rehearsal
+        required: true
+        type: string
+      confirmation:
+        description: Type APPROVE_RECOVERY_OBJECTIVES
+        required: true
+        type: string
+      postgresql_rpo_minutes:
+        description: Approved Production PostgreSQL RPO in minutes
+        required: true
+        type: string
+      postgresql_rto_minutes:
+        description: Approved Production PostgreSQL RTO in minutes
+        required: true
+        type: string
+      evidence_rpo_minutes:
+        description: Approved Production evidence-storage RPO in minutes
+        required: true
+        type: string
+      evidence_rto_minutes:
+        description: Approved Production evidence-storage RTO in minutes
+        required: true
+        type: string
+      change_reference:
+        description: Operations/change governance reference
+        required: true
+        type: string
+      approval_note:
+        description: Human rationale for the approved recovery objectives
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  approve-recovery-objectives:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PROMOTED_SHA: ${{ inputs.commit_sha }}
+
+    steps:
+      - name: Validate explicit human recovery-objectives approval
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          APPROVER: ${{ github.actor }}
+          PG_RPO: ${{ inputs.postgresql_rpo_minutes }}
+          PG_RTO: ${{ inputs.postgresql_rto_minutes }}
+          EVIDENCE_RPO: ${{ inputs.evidence_rpo_minutes }}
+          EVIDENCE_RTO: ${{ inputs.evidence_rto_minutes }}
+        run: |
+          test "$CONFIRMATION" = "APPROVE_RECOVERY_OBJECTIVES"
+          printf '%s' "$PROMOTED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test -n "$APPROVER"
+          case "$APPROVER" in
+            *"[bot]") echo "bot identities cannot approve recovery objectives"; exit 1 ;;
+          esac
+
+          python3 - <<'PY'
+          import os
+
+          for name in ("PG_RPO", "PG_RTO", "EVIDENCE_RPO", "EVIDENCE_RTO"):
+              value = os.environ[name]
+              assert value.isdigit(), f"{name} must be a positive integer"
+              assert int(value) > 0, f"{name} must be greater than zero"
+          PY
+
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Require candidate to belong to main history
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$PROMOTED_SHA" origin/main
+
+      - name: Resolve successful Recovery Rehearsal
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rehearsal_run_id="$(
+            gh run list               --repo "$GITHUB_REPOSITORY"               --workflow "Recovery Rehearsal"               --commit "$PROMOTED_SHA"               --status success               --limit 20               --json databaseId,headSha,conclusion               --jq '[.[] | select(.headSha == env.PROMOTED_SHA and .conclusion == "success")][0].databaseId'
+          )"
+          test -n "$rehearsal_run_id"
+          echo "RECOVERY_REHEARSAL_RUN_ID=$rehearsal_run_id" >> "$GITHUB_ENV"
+
+      - name: Download immutable recovery rehearsal evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p recovery-objectives-input
+          gh run download "$RECOVERY_REHEARSAL_RUN_ID"             --repo "$GITHUB_REPOSITORY"             --name "hamoon-recovery-rehearsal-$PROMOTED_SHA"             --dir recovery-objectives-input
+
+      - name: Verify rehearsal boundary before objectives approval
+        run: |
+          python3 scripts/verify_recovery_policy.py             ops/recovery/recovery-policy.json .
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          rehearsal = json.loads(
+              Path(
+                  "recovery-objectives-input/recovery-rehearsal.json"
+              ).read_text()
+          )
+          assert rehearsal["status"] == "PASSED"
+          assert rehearsal["verification_scope"] == "STAGE_BACKUP_RESTORE"
+          assert rehearsal["commit_sha"] == os.environ["PROMOTED_SHA"]
+          assert (
+              rehearsal["recovery_rehearsal_run_id"]
+              == os.environ["RECOVERY_REHEARSAL_RUN_ID"]
+          )
+          assert rehearsal["production_managed_backup_verified"] is False
+          assert rehearsal["production_pitr_verified"] is False
+          assert rehearsal["external_backup_retention_verified"] is False
+          PY
+
+      - name: Create explicit human recovery objectives approval
+        env:
+          APPROVER: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          APPROVAL_RUN_ID: ${{ github.run_id }}
+          CHANGE_REFERENCE: ${{ inputs.change_reference }}
+          APPROVAL_NOTE: ${{ inputs.approval_note }}
+          PG_RPO: ${{ inputs.postgresql_rpo_minutes }}
+          PG_RTO: ${{ inputs.postgresql_rto_minutes }}
+          EVIDENCE_RPO: ${{ inputs.evidence_rpo_minutes }}
+          EVIDENCE_RTO: ${{ inputs.evidence_rto_minutes }}
+        run: |
+          mkdir -p recovery-objectives
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          policy_path = Path("ops/recovery/recovery-policy.json")
+          rehearsal_path = Path(
+              "recovery-objectives-input/recovery-rehearsal.json"
+          )
+          rehearsal = json.loads(rehearsal_path.read_text())
+
+          approval = {
+              "schema_version": 1,
+              "status": "APPROVED",
+              "approval_scope": "PRODUCTION_RECOVERY_OBJECTIVES",
+              "authorization_only": True,
+              "production_recovery_verified": False,
+              "production_managed_backup_verified": False,
+              "production_pitr_verified": False,
+              "external_backup_retention_verified": False,
+              "commit_sha": os.environ["PROMOTED_SHA"],
+              "recovery_rehearsal_run_id": os.environ[
+                  "RECOVERY_REHEARSAL_RUN_ID"
+              ],
+              "recovery_objectives_approval_run_id": os.environ[
+                  "APPROVAL_RUN_ID"
+              ],
+              "recovery_policy_sha256": hashlib.sha256(
+                  policy_path.read_bytes()
+              ).hexdigest(),
+              "recovery_rehearsal_sha256": hashlib.sha256(
+                  rehearsal_path.read_bytes()
+              ).hexdigest(),
+              "stage_rehearsal_status": rehearsal["status"],
+              "objectives": {
+                  "postgresql": {
+                      "rpo_minutes": int(os.environ["PG_RPO"]),
+                      "rto_minutes": int(os.environ["PG_RTO"]),
+                  },
+                  "evidence_object_storage": {
+                      "rpo_minutes": int(os.environ["EVIDENCE_RPO"]),
+                      "rto_minutes": int(os.environ["EVIDENCE_RTO"]),
+                  },
+              },
+              "approver": os.environ["APPROVER"],
+              "triggering_actor": os.environ["TRIGGERING_ACTOR"],
+              "change_reference": os.environ["CHANGE_REFERENCE"].strip(),
+              "approval_note": os.environ["APPROVAL_NOTE"].strip(),
+              "approved_at": datetime.now(UTC).isoformat(),
+          }
+          Path(
+              "recovery-objectives/recovery-objectives-approval.json"
+          ).write_text(
+              json.dumps(approval, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Verify recovery objectives approval
+        run: |
+          python3 scripts/verify_recovery_objectives.py             ops/recovery/recovery-policy.json             recovery-objectives-input/recovery-rehearsal.json             recovery-objectives/recovery-objectives-approval.json
+
+      - name: Upload immutable recovery objectives approval
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamoon-recovery-objectives-${{ inputs.commit_sha }}
+          path: recovery-objectives/
+          if-no-files-found: error
+          retention-days: 90

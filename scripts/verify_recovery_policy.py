@@ -74,8 +74,51 @@ def main() -> None:
     )
 
     require(
-        value.get("rpo_rto_policy_status") == "PENDING_OPERATIONS_POLICY",
-        "RPO/RTO status must not be fabricated",
+        value.get("rpo_rto_policy_status")
+        == "EXPLICIT_HUMAN_APPROVAL_REQUIRED",
+        "RPO/RTO status must require explicit human approval",
+    )
+    objective_assets = value.get("required_recovery_objective_assets")
+    require(
+        isinstance(objective_assets, list)
+        and set(objective_assets)
+        == {"postgresql", "evidence_object_storage"},
+        "required recovery objective asset set invalid",
+    )
+    objective_approval = value.get("recovery_objectives_approval")
+    require(
+        isinstance(objective_approval, dict),
+        "recovery_objectives_approval missing",
+    )
+    require(
+        objective_approval.get("workflow")
+        == ".github/workflows/recovery-objectives-approval.yml",
+        "recovery objectives approval workflow invalid",
+    )
+    require(
+        objective_approval.get("artifact_prefix")
+        == "hamoon-recovery-objectives-",
+        "recovery objectives artifact prefix invalid",
+    )
+    require(
+        objective_approval.get("approval_scope")
+        == "PRODUCTION_RECOVERY_OBJECTIVES",
+        "recovery objectives approval scope invalid",
+    )
+    require(
+        objective_approval.get("authorization_only") is True,
+        "recovery objectives approval must be authorization-only",
+    )
+    require(
+        objective_approval.get("requires_successful_stage_rehearsal")
+        is True,
+        "recovery objectives approval must require Stage rehearsal",
+    )
+    workflow_path = objective_approval.get("workflow")
+    require(
+        isinstance(workflow_path, str)
+        and (repo_root / workflow_path).is_file(),
+        "recovery objectives approval workflow missing",
     )
     runbook = value.get("runbook")
     require(isinstance(runbook, str) and runbook, "runbook missing")

@@ -30,3 +30,15 @@ If any restore differs from the source, block release readiness for the affected
 ## Data handling
 
 Never upload raw database dumps or evidence objects as CI artifacts. Persist only non-sensitive hashes, sizes, version identifiers, and pass/fail attestation metadata.
+
+
+## Recovery objectives approval
+
+Production RPO/RTO values are an Operations governance decision and must not be
+inferred from the Stage rehearsal. After a successful rehearsal, a human operator
+may run `Recovery Objectives Approval` for the exact commit and explicitly approve
+positive RPO/RTO targets for PostgreSQL and evidence object storage.
+
+The approval is authorization-only. It does not prove managed Production backups,
+PITR, provider retention, or that the approved objectives are currently achieved.
+Those claims require separate Production recovery evidence.
