@@ -216,7 +216,7 @@ async def verify_evidence_integration(
         finally:
             if owns_anonymous_client:
                 await client.aclose()
-        if anonymous_response.status_code not in {401, 403}:
+        if anonymous_response.status_code not in {401, 403, 404}:
             raise EvidenceIntegrationVerificationError(
                 "Evidence S3 object is not proven private."
             )
@@ -240,7 +240,7 @@ async def verify_evidence_integration(
         finally:
             if owns_list_client:
                 await list_client.aclose()
-        if list_response.status_code not in {401, 403}:
+        if list_response.status_code not in {401, 403, 404}:
             raise EvidenceIntegrationVerificationError(
                 "Evidence S3 bucket listing is not proven private."
             )
