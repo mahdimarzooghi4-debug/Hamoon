@@ -58,7 +58,8 @@ export interface DatasetExport {
   cases: Array<{
     case_id: string;
     input: Record<string, unknown>;
-    expert_classification: string;
+    target: Record<string, unknown>;
+    expert_classification: string | null;
     source_refs: string[];
   }>;
 }
