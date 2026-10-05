@@ -117,3 +117,18 @@ def test_recovery_workflow_waits_for_actual_database_query() -> None:
     assert "-U hamoon -d hamoon -At -c 'SELECT 1'" in workflow
     assert "pg_isready -U hamoon -d hamoon" not in workflow
 
+
+
+
+def test_recovery_workflow_uses_stage_attestation_as_release_identity() -> None:
+    repo_root = Path(__file__).parents[3]
+    workflow = (
+        repo_root / ".github/workflows/recovery-rehearsal.yml"
+    ).read_text(encoding="utf-8")
+
+    assert 'PROMOTED_SHA: ${{ github.event.workflow_run.head_sha }}' not in workflow
+    assert "actions/runs/$STAGE_ADMISSION_RUN_ID/artifacts" in workflow
+    assert 'stage["commit_sha"]' in workflow
+    assert "STAGE_ARTIFACT_NAME" in workflow
+    assert 'git checkout --detach "$PROMOTED_SHA"' in workflow
+    assert 'hamoon-stage-admission-$PROMOTED_SHA' not in workflow

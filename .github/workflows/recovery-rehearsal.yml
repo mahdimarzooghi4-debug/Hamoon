@@ -17,32 +17,67 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      PROMOTED_SHA: ${{ github.event.workflow_run.head_sha }}
       STAGE_ADMISSION_RUN_ID: ${{ github.event.workflow_run.id }}
       HAMOON_DEPLOYMENT_ID: recovery-rehearsal-${{ github.run_id }}
 
     steps:
-      - name: Checkout exact Stage-admitted commit
+      - name: Checkout repository for recovery tooling
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
-      - name: Download immutable Stage admission evidence
+      - name: Discover and download immutable Stage admission evidence
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p recovery-input/stage
+          gh api \
+            "/repos/$GITHUB_REPOSITORY/actions/runs/$STAGE_ADMISSION_RUN_ID/artifacts?per_page=100" \
+            > /tmp/stage-artifacts.json
+
+          stage_artifact_name="$(
+            python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          payload = json.loads(
+              Path("/tmp/stage-artifacts.json").read_text()
+          )
+          artifacts = payload.get("artifacts")
+          assert isinstance(artifacts, list)
+
+          matches = [
+              item
+              for item in artifacts
+              if isinstance(item, dict)
+              and item.get("expired") is False
+              and isinstance(item.get("name"), str)
+              and re.fullmatch(
+                  r"hamoon-stage-admission-[0-9a-f]{40}",
+                  item["name"],
+              )
+          ]
+          assert len(matches) == 1, (
+              "expected exactly one immutable Stage admission artifact"
+          )
+          print(matches[0]["name"])
+          PY
+          )"
+          test -n "$stage_artifact_name"
+          echo "STAGE_ARTIFACT_NAME=$stage_artifact_name" >> "$GITHUB_ENV"
+
           gh run download "$STAGE_ADMISSION_RUN_ID" \
             --repo "$GITHUB_REPOSITORY" \
-            --name "hamoon-stage-admission-$PROMOTED_SHA" \
+            --name "$stage_artifact_name" \
             --dir recovery-input/stage
 
-      - name: Resolve exact source CI run
+      - name: Resolve attested release identity
         run: |
           python3 - <<'PY' >> "$GITHUB_ENV"
           import json
           import os
+          import re
           from pathlib import Path
 
           stage = json.loads(
@@ -51,13 +86,31 @@ jobs:
               ).read_text()
           )
           assert stage["status"] == "PASSED"
-          assert stage["commit_sha"] == os.environ["PROMOTED_SHA"]
+
+          commit_sha = stage["commit_sha"]
+          assert isinstance(commit_sha, str)
+          assert re.fullmatch(r"[0-9a-f]{40}", commit_sha)
+
+          source_ci_run_id = str(stage["source_ci_run_id"])
+          assert source_ci_run_id.isdigit()
           assert (
-              stage["stage_admission_run_id"]
+              str(stage["stage_admission_run_id"])
               == os.environ["STAGE_ADMISSION_RUN_ID"]
           )
-          print(f'SOURCE_CI_RUN_ID={stage["source_ci_run_id"]}')
+          assert (
+              os.environ["STAGE_ARTIFACT_NAME"]
+              == f"hamoon-stage-admission-{commit_sha}"
+          )
+
+          print(f"PROMOTED_SHA={commit_sha}")
+          print(f"SOURCE_CI_RUN_ID={source_ci_run_id}")
           PY
+
+      - name: Checkout exact Stage-admitted commit
+        run: |
+          git fetch --no-tags origin "$PROMOTED_SHA"
+          git checkout --detach "$PROMOTED_SHA"
+          test "$(git rev-parse HEAD)" = "$PROMOTED_SHA"
 
       - name: Download immutable release bundle
         env:
