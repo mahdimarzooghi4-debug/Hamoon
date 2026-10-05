@@ -503,6 +503,13 @@ export function LearningGovernancePage() {
       );
       return;
     }
+    const parent = candidateParentId
+      ? readyData.models.find((item) => item.id === candidateParentId)
+      : undefined;
+    if (candidateParentId && (!parent || !parent.artifact_sha256)) {
+      setActionError("نسخه والد باید artifact SHA-256 معتبر داشته باشد.");
+      return;
+    }
     await runAction(
       "register-local-model",
       async () => {
@@ -513,7 +520,8 @@ export function LearningGovernancePage() {
           concreteModelId: candidateModelId.trim(),
           artifactRef: candidateArtifactRef.trim(),
           artifactSha256: candidateArtifactSha.trim(),
-          parentModelVersionId: candidateParentId || undefined,
+          parentModelVersionId: parent?.id,
+          parentModelArtifactSha256: parent?.artifact_sha256 ?? undefined,
           trainingDataset: dataset,
           trainingRecipeVersion: candidateRecipeVersion.trim(),
           trainedAt: new Date(candidateTrainedAt).toISOString(),
