@@ -22,7 +22,7 @@ from hamoon.infrastructure.ai.contracts import (
     ProviderStructuredRequest,
 )
 from hamoon.infrastructure.ai.diagnosis_runtime import DIAGNOSIS_V1_SCHEMA
-from hamoon.infrastructure.ai.providers.openai import OpenAIProvider
+from hamoon.infrastructure.ai.providers.native import HamoonNativeAIProvider
 
 
 class CandidateEvaluationBundle(BaseModel):
@@ -69,8 +69,8 @@ def _load_policy(path: Path) -> DiagnosisEvaluationPolicy:
 
 async def run_candidate_evaluation(
     *,
-    api_key: str,
-    base_url: str,
+    model_root: str,
+    model_artifact_sha256: str,
     model_id: str,
     model_alias: str,
     prompt_policy_version: str,
@@ -80,11 +80,7 @@ async def run_candidate_evaluation(
     cases: list[DiagnosisEvaluationCase],
     policy: DiagnosisEvaluationPolicy,
 ) -> tuple[CandidateEvaluationBundle, DiagnosisEvaluationReport]:
-    provider = OpenAIProvider(
-        api_key=api_key,
-        base_url=base_url,
-        timeout_seconds=90.0,
-    )
+    provider = HamoonNativeAIProvider(model_root=model_root)
     outputs: list[DiagnosisEvaluationOutput] = []
 
     for case in cases:
@@ -100,6 +96,7 @@ async def run_candidate_evaluation(
                 output_schema=DIAGNOSIS_V1_SCHEMA,
                 features=case.features,
                 correlation_id=f"eval:{dataset_version}:{case.case_id}",
+                model_artifact_sha256=model_artifact_sha256,
             )
         )
         outputs.append(
@@ -111,7 +108,7 @@ async def run_candidate_evaluation(
 
     generated_at = datetime.now(UTC)
     bundle = CandidateEvaluationBundle(
-        provider_code="OPENAI",
+        provider_code="HAMOON_NATIVE",
         model_id=model_id,
         model_alias=model_alias,
         prompt_policy_version=prompt_policy_version,
@@ -147,15 +144,18 @@ async def _async_main() -> int:
     parser.add_argument("--model-alias", default="hamoon.diagnosis.v1")
     parser.add_argument("--prompt-policy-version", default="diagnosis-prompt-v1")
     parser.add_argument("--output-schema-version", default="diagnosis-v1")
+    parser.add_argument("--model-artifact-sha256", required=True)
     parser.add_argument(
-        "--base-url",
-        default=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        "--model-root",
+        default=os.getenv("HAMOON_AI_MODEL_ROOT"),
     )
     args = parser.parse_args()
 
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is required for candidate evaluation.")
+    if not args.model_root:
+        raise RuntimeError(
+            "HAMOON_AI_MODEL_ROOT or --model-root is required "
+            "for native candidate evaluation."
+        )
 
     dataset_version, cases = _load_cases(args.dataset)
     policy = _load_policy(args.policy)
@@ -164,8 +164,8 @@ async def _async_main() -> int:
         raise ValueError("Diagnosis evaluation instructions must not be empty.")
 
     bundle, report = await run_candidate_evaluation(
-        api_key=api_key,
-        base_url=args.base_url,
+        model_root=args.model_root,
+        model_artifact_sha256=args.model_artifact_sha256,
         model_id=args.model_id,
         model_alias=args.model_alias,
         prompt_policy_version=args.prompt_policy_version,
