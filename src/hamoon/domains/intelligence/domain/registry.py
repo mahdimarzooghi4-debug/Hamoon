@@ -7,6 +7,8 @@ from pydantic import JsonValue
 
 from hamoon.infrastructure.ai.contracts import AIRoutingPolicy, AITaskClass
 
+HAMOON_LOCAL_PROVIDER_CODE = "HAMOON_LOCAL"
+
 class AIProviderStatus(StrEnum):
     ACTIVE = "ACTIVE"
     DISABLED = "DISABLED"
@@ -97,6 +99,13 @@ class AIModelVersionCatalogItem:
     provider_status: AIProviderStatus
     version: str
     concrete_model_id: str
+    artifact_ref: str | None
+    artifact_sha256: str | None
+    parent_model_version_id: UUID | None
+    training_dataset_version_id: UUID | None
+    training_dataset_manifest_digest: str | None
+    training_recipe_version: str | None
+    trained_at: datetime | None
     status: AIModelVersionStatus
     limitations: str | None
     approved_at: datetime | None
