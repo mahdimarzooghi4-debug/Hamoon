@@ -201,6 +201,29 @@ class DiagnosisHistoryResponse(BaseModel):
     data: list[DiagnosisHistoryEntryData]
 
 
+class RegisterLocalModelCandidateRequest(BaseModel):
+    task_class: AITaskClass
+    model_key: str = Field(min_length=1, max_length=150)
+    version: str = Field(min_length=1, max_length=100)
+    concrete_model_id: str = Field(min_length=1, max_length=250)
+    artifact_ref: str = Field(min_length=1, max_length=500)
+    artifact_sha256: str = Field(
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+    parent_model_version_id: UUID | None = None
+    training_dataset_version_id: UUID
+    training_dataset_manifest_digest: str = Field(
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+    training_recipe_version: str = Field(min_length=1, max_length=100)
+    trained_at: datetime
+    limitations: str | None = Field(default=None, max_length=2000)
+
+
 class AIModelVersionCatalogData(BaseModel):
     id: UUID
     ai_model_id: UUID
@@ -211,6 +234,13 @@ class AIModelVersionCatalogData(BaseModel):
     provider_status: str
     version: str
     concrete_model_id: str
+    artifact_ref: str | None
+    artifact_sha256: str | None
+    parent_model_version_id: UUID | None
+    training_dataset_version_id: UUID | None
+    training_dataset_manifest_digest: str | None
+    training_recipe_version: str | None
+    trained_at: datetime | None
     status: str
     limitations: str | None
     approved_at: datetime | None
@@ -219,6 +249,10 @@ class AIModelVersionCatalogData(BaseModel):
 
 class AIModelVersionCatalogResponse(BaseModel):
     data: list[AIModelVersionCatalogData]
+
+
+class RegisterLocalModelCandidateResponse(BaseModel):
+    data: AIModelVersionCatalogData
 
 
 class PromptPolicyVersionCatalogData(BaseModel):
