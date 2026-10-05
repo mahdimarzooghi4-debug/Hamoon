@@ -813,9 +813,12 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             raise LookupError("LEARNING_DATASET_NOT_FOUND")
         if dataset.status != DatasetVersionStatus.APPROVED:
             raise ValueError("TRAINING_DATASET_NOT_APPROVED")
+        if dataset.purpose != task_class.value:
+            raise ValueError("TRAINING_DATASET_PURPOSE_MISMATCH")
         if dataset.manifest_digest != clean_dataset_sha:
             raise ValueError("TRAINING_DATASET_DIGEST_MISMATCH")
 
+        parent: AIModelVersionModel | None = None
         if parent_model_version_id is not None:
             parent = await self._session.get(
                 AIModelVersionModel,
@@ -843,6 +846,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
                 raise ValueError("MODEL_KEY_PROVIDER_MISMATCH")
             if model.purpose != task_class.value:
                 raise ValueError("MODEL_KEY_PURPOSE_MISMATCH")
+        if parent is not None and parent.ai_model_id != model.id:
+            raise ValueError("PARENT_MODEL_FAMILY_MISMATCH")
 
         duplicate = await self._session.execute(
             select(AIModelVersionModel.id).where(
@@ -988,6 +993,36 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         model_version = await self._session.get(AIModelVersionModel, model_version_id)
         if model_version is None:
             raise LookupError("AI_MODEL_VERSION_NOT_FOUND")
+        model_identity = await self._session.execute(
+            select(AIModelModel, AIProviderModel)
+            .join(
+                AIProviderModel,
+                AIProviderModel.id == AIModelModel.provider_id,
+            )
+            .where(AIModelModel.id == model_version.ai_model_id)
+        )
+        identity_row = model_identity.one_or_none()
+        if identity_row is None:
+            raise LookupError("AI_MODEL_NOT_FOUND")
+        ai_model, provider = identity_row
+        if (
+            provider.code != HAMOON_LOCAL_PROVIDER_CODE
+            or provider.status != AIProviderStatus.ACTIVE
+        ):
+            raise ValueError("LOCAL_MODEL_REQUIRED_FOR_EVALUATION")
+        if ai_model.purpose != task_class.value:
+            raise ValueError("MODEL_TASK_CLASS_MISMATCH")
+        if (
+            model_version.status
+            not in {AIModelVersionStatus.CANDIDATE, AIModelVersionStatus.APPROVED}
+            or model_version.artifact_ref is None
+            or model_version.artifact_sha256 is None
+            or model_version.training_dataset_version_id is None
+            or model_version.training_dataset_manifest_digest is None
+            or model_version.training_recipe_version is None
+            or model_version.trained_at is None
+        ):
+            raise ValueError("LOCAL_MODEL_LINEAGE_REQUIRED_FOR_EVALUATION")
         prompt_version = await self._session.get(
             PromptPolicyVersionModel,
             prompt_policy_version_id,
