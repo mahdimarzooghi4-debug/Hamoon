@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +16,9 @@ from hamoon.infrastructure.ai.contracts import (
     ProviderStructuredRequest,
     ProviderStructuredResponse,
 )
+
+
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 class LocalModelRuntimeError(RuntimeError):
@@ -40,11 +45,19 @@ def _sha256_file(path: Path) -> str:
 
 
 def _safe_child(root: Path, relative: str) -> Path:
-    candidate = (root / relative).resolve()
-    if root not in candidate.parents:
+    relative_path = Path(relative)
+    if relative_path.is_absolute() or any(
+        part in {"", ".", ".."} for part in relative_path.parts
+    ):
         raise LocalModelRuntimeError("LOCAL_MODEL_ARTIFACT_PATH_INVALID")
-    if candidate.is_symlink():
-        raise LocalModelRuntimeError("LOCAL_MODEL_ARTIFACT_SYMLINK_FORBIDDEN")
+    current = root
+    for part in relative_path.parts:
+        current = current / part
+        if current.is_symlink():
+            raise LocalModelRuntimeError("LOCAL_MODEL_ARTIFACT_SYMLINK_FORBIDDEN")
+    candidate = current.resolve()
+    if root != candidate and root not in candidate.parents:
+        raise LocalModelRuntimeError("LOCAL_MODEL_ARTIFACT_PATH_INVALID")
     return candidate
 
 
@@ -68,6 +81,8 @@ def load_local_model_artifact(
         raise LocalModelRuntimeError("LOCAL_MODEL_MANIFEST_NOT_FOUND")
 
     manifest_sha256 = _sha256_file(manifest_path)
+    if _SHA256_RE.fullmatch(expected_manifest_sha256) is None:
+        raise LocalModelRuntimeError("LOCAL_MODEL_MANIFEST_DIGEST_INVALID")
     if manifest_sha256 != expected_manifest_sha256:
         raise LocalModelRuntimeError("LOCAL_MODEL_MANIFEST_DIGEST_MISMATCH")
 
@@ -101,7 +116,7 @@ def load_local_model_artifact(
             not isinstance(relative, str)
             or not relative
             or not isinstance(sha256, str)
-            or len(sha256) != 64
+            or _SHA256_RE.fullmatch(sha256) is None
             or not isinstance(size_bytes, int)
             or size_bytes < 1
         ):
@@ -121,12 +136,16 @@ def load_local_model_artifact(
     dataset_digest = training.get("dataset_manifest_digest")
     recipe_version = training.get("recipe_version")
     parent_digest = training.get("parent_model_artifact_sha256")
-    if not isinstance(dataset_digest, str) or len(dataset_digest) != 64:
+    if (
+        not isinstance(dataset_digest, str)
+        or _SHA256_RE.fullmatch(dataset_digest) is None
+    ):
         raise LocalModelRuntimeError("LOCAL_MODEL_DATASET_LINEAGE_INVALID")
     if not isinstance(recipe_version, str) or not recipe_version.strip():
         raise LocalModelRuntimeError("LOCAL_MODEL_RECIPE_LINEAGE_INVALID")
     if parent_digest is not None and (
-        not isinstance(parent_digest, str) or len(parent_digest) != 64
+        not isinstance(parent_digest, str)
+        or _SHA256_RE.fullmatch(parent_digest) is None
     ):
         raise LocalModelRuntimeError("LOCAL_MODEL_PARENT_LINEAGE_INVALID")
 
@@ -207,7 +226,8 @@ class LocalArtifactAIProvider:
             "HAMOON_MODEL_MANIFEST": str(artifact.manifest_path),
         }
         try:
-            completed = subprocess.run(
+            completed = await asyncio.to_thread(
+                subprocess.run,
                 [str(self._runner_path), "infer"],
                 input=encoded,
                 stdout=subprocess.PIPE,
