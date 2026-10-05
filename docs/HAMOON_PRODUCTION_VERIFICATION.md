@@ -1,6 +1,6 @@
 # Hamoon — Hosted Production Verification
 
-Status: Verification contract implemented; Hosted Production is not yet provisioned.
+Status: Verification contract implemented and now bound to immutable hosted deployment execution evidence. A concrete hosted Production runtime is still an external environment dependency.
 
 A provider reporting that a deployment completed is not sufficient evidence that the
 correct Hamoon release is serving traffic.
@@ -38,18 +38,20 @@ Both endpoints are non-sensitive and must be served with no-store caching semant
 
 ## Production Verification workflow
 
-The manual `Production Verification` workflow can run only after a successful
-Production Deployment Admission exists for the exact commit. It:
+The manual `Production Verification` workflow can run only after both a successful
+Production Deployment Admission and a successful immutable Production Deploy artifact
+exist for the exact commit. It:
 
 1. downloads the immutable Production admission;
-2. follows it back through Release Approval, Stage Admission and source CI evidence;
-3. re-verifies the entire governance chain;
-4. probes only the admitted HTTPS Production endpoint;
-5. verifies liveness and readiness;
-6. verifies backend commit/image/deployment/schema identity;
-7. verifies frontend commit/image/deployment identity;
-8. requires frontend/backend application versions to agree;
-9. emits a hashed Production verification attestation.
+2. downloads the immutable hosted deployment request/receipt/attestation;
+3. follows the chain back through Release Approval, Stage Admission and source CI evidence;
+4. re-verifies both release governance and hosted deployment evidence;
+5. probes only the deployed HTTPS Production endpoint;
+6. verifies liveness and readiness;
+7. verifies backend commit/image/deployment/schema identity;
+8. verifies frontend commit/image/deployment identity;
+9. requires frontend/backend application versions to agree;
+10. emits a hashed Production verification attestation bound to the Production Deploy artifact.
 
 Only this verified artifact may state:
 
@@ -72,7 +74,7 @@ Release Artifact
 → Stage Admission
 → Human Release Approval
 → Production Deployment Admission
-→ provider-specific deployment
+→ Production Deploy / DEPLOYED receipt
 → backend /health/release
 → frontend /release.json
 → Production Verification VERIFIED
