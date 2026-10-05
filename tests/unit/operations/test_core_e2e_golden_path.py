@@ -1498,3 +1498,221 @@ async def test_core_e2e_household_to_outcome_learning_signal() -> None:
     referral, _, _, provider_signal = await CreateReferralHandler(
         interventions=interventions,
         registry=registry,
+        matches=matches,
+        selections=selections,
+        referrals=referrals,
+        facts=facts,
+        accepted_state=accepted_state,
+        human_decisions=humans,
+        learning_signals=learning,
+        traces=traces,
+        events=events,
+        audits=audits,
+    ).handle(
+        CreateReferralCommand(
+            intervention_id=intervention.id,
+            provider_id=PROVIDER,
+            provider_service_id=SERVICE,
+            priority="NORMAL",
+            response_due_at=None,
+            shared_data_items=(
+                SharedFactInput(
+                    source_fact_id=accepted_fact.fact_id,
+                    purpose="SERVICE_ELIGIBILITY",
+                ),
+            ),
+            actor_id=ACTOR,
+            request_id="create-referral",
+            correlation_id=CORRELATION,
+        )
+    )
+    assert provider_signal.provider_id == PROVIDER
+
+    sent = await SendReferralHandler(
+        referrals=referrals,
+        dispatches=dispatches,
+        registry=registry,
+        events=events,
+        audits=audits,
+    ).handle(
+        SendReferralCommand(
+            referral_id=referral.id,
+            expected_version=referral.version,
+            idempotency_key="core-e2e-send",
+            actor_id=ACTOR,
+            request_id="send-referral",
+            correlation_id=CORRELATION,
+        )
+    )
+    assert sent.referral.external_referral_id is not None
+
+    submitted = await SubmitProviderResultHandler(
+        referrals=referrals,
+        results=results,
+        interventions=interventions,
+        prescriptions=prescriptions,
+        reassessment_plans=plans,
+        traces=traces,
+        events=events,
+        audits=audits,
+    ).handle(
+        SubmitProviderResultCommand(
+            provider_id=PROVIDER,
+            actor_id=ACTOR,
+            external_referral_id=sent.referral.external_referral_id,
+            external_result_id="provider-result-e2e",
+            result_status="COMPLETED",
+            result_type="SERVICE_COMPLETION",
+            result_summary="Provider narrative is not an Outcome causal claim.",
+            result_payload={"provider_metric": "completed"},
+            service_started_at=None,
+            service_completed_at=datetime.now(UTC),
+            evidence_ids=(),
+            provider_reference="provider-e2e",
+            correlation_id=CORRELATION,
+        )
+    )
+    assert submitted.reassessment_plan is not None
+    plan = submitted.reassessment_plan
+
+    reassessment_item = await MaterializeReassessmentWorkItemHandler(
+        plans=plans,
+        work_items=work_items,
+        events=events,
+        audits=audits,
+    ).handle(
+        plan_id=plan.id,
+        actor_id=ACTOR,
+        request_id="materialize-reassessment",
+        correlation_id=CORRELATION,
+    )
+    post_assessment, _, _ = await StartPlannedReassessmentHandler(
+        plans=plans,
+        work_items=work_items,
+        assessments=assessments,
+        definitions=definitions,
+        interventions=interventions,
+        provider_results=results,
+        referrals=referrals,
+        prescriptions=prescriptions,
+        snapshots=snapshots,
+        events=events,
+        audits=audits,
+    ).handle(
+        work_item_id=reassessment_item.id,
+        expected_version=reassessment_item.version,
+        actor_id=ACTOR,
+        request_id="start-reassessment",
+        correlation_id=CORRELATION,
+    )
+    assert post_assessment.definition_version_id == baseline.definition_version_id
+
+    post_snapshot = await _measure(
+        assessment=post_assessment,
+        scores=("72", "68", "50", "58"),
+        definitions=definitions,
+        source=source,
+        assessments=assessments,
+        observations=observations,
+        validations=observation_validations,
+        accepted=accepted_observations,
+        snapshots=snapshots,
+        events=events,
+        audits=audits,
+    )
+    await MarkPostPGORReadyHandler(
+        plans=plans,
+        work_items=work_items,
+        events=events,
+        audits=audits,
+    ).handle(
+        provider_result_id=submitted.result.id,
+        assessment_id=post_assessment.id,
+        snapshot_id=post_snapshot.id,
+        actor_id=ACTOR,
+        request_id="post-pgor-ready",
+        correlation_id=CORRELATION,
+    )
+
+    outcome = await PrepareOutcomeHandler(
+        interventions=interventions,
+        assessments=assessments,
+        snapshots=snapshots,
+        provider_results=results,
+        referrals=referrals,
+        outcomes=outcomes,
+        traces=traces,
+        events=events,
+        audits=audits,
+    ).handle(
+        PrepareOutcomeCommand(
+            intervention_id=intervention.id,
+            pre_assessment_id=baseline.id,
+            post_assessment_id=post_assessment.id,
+            provider_result_id=submitted.result.id,
+            actor_id=ACTOR,
+            request_id="prepare-outcome",
+            correlation_id=CORRELATION,
+        )
+    )
+    reviewed_outcome, human, outcome_signal = await ReviewOutcomeHandler(
+        outcomes=outcomes,
+        human_decisions=humans,
+        learning_signals=learning,
+        events=events,
+        audits=audits,
+    ).handle(
+        ReviewOutcomeCommand(
+            outcome_id=outcome.id,
+            expected_version=outcome.version,
+            classification=OutcomeClassification.PROGRESS,
+            observed_change_summary=None,
+            reason_code=None,
+            reason_text=None,
+            actor_id=ACTOR,
+            request_id="review-outcome",
+            correlation_id=CORRELATION,
+        ),
+        action=HumanDecisionAction.CONFIRM,
+        target_status=OutcomeStatus.CONFIRMED,
+    )
+
+    assert reviewed_outcome.classification is OutcomeClassification.PROGRESS
+    assert human.accepted_payload is not None
+    assert human.accepted_payload["causal_claim"] is False
+    assert outcome_signal.outcome_id == outcome.id
+    assert outcome_signal.provider_result_id == submitted.result.id
+
+    event_types = [getattr(item, "event_type", None) for item in events.items]
+    for expected in (
+        "HouseholdCreated",
+        "HouseholdFactRecorded",
+        "CurrentAcceptedStateChanged",
+        "AssessmentStarted",
+        "PGORSnapshotCalculated",
+        "DiagnosisGenerated",
+        "DiagnosisConfirmed",
+        "PrescriptionGenerated",
+        "PrescriptionApproved",
+        "InterventionActivated",
+        "ProviderMatchGenerated",
+        "ProviderSelectedByHuman",
+        "ReferralCreated",
+        "ReferralSent",
+        "ProviderResultReceived",
+        "ReassessmentStarted",
+        "ReassessmentPostPGORReady",
+        "OutcomePrepared",
+        "OutcomeConfirmed",
+        "LearningSignalCreated",
+    ):
+        assert expected in event_types
+
+    prescription_trace = await traces.get_by_ai_decision(
+        prescription.ai_decision_id
+    )
+    assert prescription_trace is not None
+    assert prescription_trace.intervention_id == intervention.id
+    assert prescription_trace.referral_id == referral.id
+    assert prescription_trace.provider_result_id == submitted.result.id
+    assert prescription_trace.outcome_id == outcome.id
