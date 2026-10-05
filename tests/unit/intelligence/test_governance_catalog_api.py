@@ -52,10 +52,17 @@ class Registry:
                 model_key="outcome-model",
                 purpose="OUTCOME_INTERPRETATION",
                 provider_id=PROVIDER_ID,
-                provider_code="OPENAI",
+                provider_code="HAMOON_LOCAL",
                 provider_status=AIProviderStatus.ACTIVE,
                 version="v2",
                 concrete_model_id="model-v2",
+                artifact_ref="outcome/v2",
+                artifact_sha256="a" * 64,
+                parent_model_version_id=None,
+                training_dataset_version_id=DATASET_ID,
+                training_dataset_manifest_digest="b" * 64,
+                training_recipe_version="outcome-train-v2",
+                trained_at=datetime(2026, 10, 4, tzinfo=UTC),
                 status=AIModelVersionStatus.CANDIDATE,
                 limitations=None,
                 approved_at=None,
@@ -158,6 +165,8 @@ async def test_admin_governance_catalog_read_endpoints(
     )
 
     assert models.data[0].status == AIModelVersionStatus.CANDIDATE.value
+    assert models.data[0].provider_code == "HAMOON_LOCAL"
+    assert models.data[0].artifact_sha256 == "a" * 64
     assert prompts.data[0].status == PromptPolicyVersionStatus.ACTIVE.value
     assert evaluations.data[0].status == EvaluationStatus.PASSED.value
     assert evaluations.data[0].dataset_version_id == DATASET_ID
