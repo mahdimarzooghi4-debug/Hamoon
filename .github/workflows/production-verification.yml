@@ -185,6 +185,9 @@ jobs:
           python3 scripts/verify_production_deployment.py \
             verification-input/release \
             verification-input/admission/production-deployment-admission.json \
+            ops/production/runtime-preflight.json \
+            verification-input/deployment/preflight-request.json \
+            verification-input/deployment/preflight-receipt.json \
             verification-input/deployment/orchestrator-request.json \
             verification-input/deployment/orchestrator-receipt.json \
             verification-input/deployment/production-deployment.json
