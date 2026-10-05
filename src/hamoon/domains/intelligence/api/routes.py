@@ -46,6 +46,8 @@ from hamoon.domains.intelligence.api.schemas import (
     PromptPolicyVersionCatalogResponse,
     ReviewDiagnosisResponse,
     StructuredDiagnosisReviewRequest,
+    RegisterLocalModelCandidateRequest,
+    RegisterLocalModelCandidateResponse,
 )
 from hamoon.domains.intelligence.application.diagnosis_commands import (
     GenerateDiagnosisCommand,
@@ -648,6 +650,112 @@ async def get_ai_decision_trace(
 
 
 
+@router.post(
+    "/api/v1/admin/ai/model-candidates",
+    response_model=RegisterLocalModelCandidateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def register_local_model_candidate(
+    body: RegisterLocalModelCandidateRequest,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.ADMIN)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> RegisterLocalModelCandidateResponse:
+    repository = SqlAlchemyAIRuntimeRegistryRepository(session)
+    request_id = current_request_id() or "unknown"
+    correlation_id = current_correlation_id() or request_id
+    try:
+        async with session.begin():
+            candidate = await repository.register_local_model_candidate(
+                task_class=body.task_class,
+                model_key=body.model_key,
+                version=body.version,
+                concrete_model_id=body.concrete_model_id,
+                artifact_ref=body.artifact_ref,
+                artifact_sha256=body.artifact_sha256,
+                parent_model_version_id=body.parent_model_version_id,
+                training_dataset_version_id=body.training_dataset_version_id,
+                training_dataset_manifest_digest=(
+                    body.training_dataset_manifest_digest
+                ),
+                training_recipe_version=body.training_recipe_version,
+                trained_at=body.trained_at,
+                limitations=body.limitations,
+            )
+            await SqlAlchemyAuditRecorder(session).record(
+                AuditRecord(
+                    id=uuid4(),
+                    actor_id=context.actor_id,
+                    action="ai.local_model_candidate.register",
+                    resource_type="AI_MODEL_VERSION",
+                    resource_id=candidate.id,
+                    request_id=request_id,
+                    correlation_id=correlation_id,
+                    created_at=datetime.now(UTC),
+                    purpose="AI_MODEL_GOVERNANCE",
+                    metadata={
+                        "task_class": body.task_class.value,
+                        "model_key": candidate.model_key,
+                        "model_version": candidate.version,
+                        "artifact_sha256": candidate.artifact_sha256,
+                        "training_dataset_version_id": str(
+                            candidate.training_dataset_version_id
+                        ),
+                        "training_dataset_manifest_digest": (
+                            candidate.training_dataset_manifest_digest
+                        ),
+                        "training_recipe_version": (
+                            candidate.training_recipe_version
+                        ),
+                        "parent_model_version_id": (
+                            str(candidate.parent_model_version_id)
+                            if candidate.parent_model_version_id is not None
+                            else None
+                        ),
+                    },
+                )
+            )
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": str(exc)},
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": str(exc)},
+        ) from exc
+
+    return RegisterLocalModelCandidateResponse(
+        data=AIModelVersionCatalogData(
+            id=candidate.id,
+            ai_model_id=candidate.ai_model_id,
+            model_key=candidate.model_key,
+            purpose=candidate.purpose,
+            provider_id=candidate.provider_id,
+            provider_code=candidate.provider_code,
+            provider_status=candidate.provider_status.value,
+            version=candidate.version,
+            concrete_model_id=candidate.concrete_model_id,
+            artifact_ref=candidate.artifact_ref,
+            artifact_sha256=candidate.artifact_sha256,
+            parent_model_version_id=candidate.parent_model_version_id,
+            training_dataset_version_id=candidate.training_dataset_version_id,
+            training_dataset_manifest_digest=(
+                candidate.training_dataset_manifest_digest
+            ),
+            training_recipe_version=candidate.training_recipe_version,
+            trained_at=candidate.trained_at,
+            status=candidate.status.value,
+            limitations=candidate.limitations,
+            approved_at=candidate.approved_at,
+            deployed_at=candidate.deployed_at,
+        )
+    )
+
+
 @router.get(
     "/api/v1/admin/ai/model-versions",
     response_model=AIModelVersionCatalogResponse,
@@ -672,6 +780,15 @@ async def list_ai_model_versions(
                 provider_status=item.provider_status.value,
                 version=item.version,
                 concrete_model_id=item.concrete_model_id,
+                artifact_ref=item.artifact_ref,
+                artifact_sha256=item.artifact_sha256,
+                parent_model_version_id=item.parent_model_version_id,
+                training_dataset_version_id=item.training_dataset_version_id,
+                training_dataset_manifest_digest=(
+                    item.training_dataset_manifest_digest
+                ),
+                training_recipe_version=item.training_recipe_version,
+                trained_at=item.trained_at,
                 status=item.status.value,
                 limitations=item.limitations,
                 approved_at=item.approved_at,
