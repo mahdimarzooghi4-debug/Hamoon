@@ -606,6 +606,7 @@ Acceptance Criteria:
 
 ## PB-066 — ReferralWorkflow
 Priority: P0
+Implementation: COMPLETE in the provider-neutral runtime; real external Provider endpoint/credential verification remains deployment-specific.
 
 Acceptance Criteria:
 - Temporal workflow starts by referral ID.

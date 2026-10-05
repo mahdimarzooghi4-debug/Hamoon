@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from hamoon.app.config.settings import get_settings
 from hamoon.app.observability.request_context import current_correlation_id, current_request_id
 from hamoon.app.security.context import AuthorizationContext, Role
 from hamoon.app.security.dependencies import (
@@ -55,7 +56,7 @@ from hamoon.domains.referral.application.lifecycle import (
     SendReferralHandler,
     TransitionReferralHandler,
 )
-from hamoon.domains.referral.domain.entities import Referral
+from hamoon.domains.referral.domain.entities import Referral, ReferralStatus
 from hamoon.domains.referral.domain.errors import (
     ReferralCreationError,
     ReferralIdempotencyConflictError,
@@ -71,6 +72,11 @@ from hamoon.domains.referral.infrastructure.repositories import (
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
+from hamoon.infrastructure.temporal.referral_starter import (
+    signal_referral_cancelled_best_effort,
+    signal_referral_provider_status_best_effort,
+    start_referral_workflow_best_effort,
+)
 
 router = APIRouter(tags=["referral"])
 
@@ -278,6 +284,13 @@ async def send_referral(
     ) as exc:
         raise _map_lifecycle_error(exc) from exc
 
+    await start_referral_workflow_best_effort(
+        referral=result.referral,
+        dispatch=result.dispatch,
+        actor_id=context.actor_id,
+        settings=get_settings(),
+    )
+
     return SendReferralResponse(
         data=SendReferralData(
             referral_id=result.referral.id,
@@ -338,6 +351,17 @@ async def transition_referral(
             )
     except (ReferralTransitionError, ReferralVersionConflictError) as exc:
         raise _map_lifecycle_error(exc) from exc
+
+    if updated.status is ReferralStatus.CANCELLED:
+        dispatch = await SqlAlchemyReferralDispatchRepository(
+            session
+        ).get_latest_for_referral(updated.id)
+        if dispatch is not None:
+            await signal_referral_cancelled_best_effort(
+                referral_id=updated.id,
+                dispatch_id=dispatch.id,
+                settings=get_settings(),
+            )
 
     return ReferralResponse(
         data=await _data(
@@ -505,6 +529,17 @@ async def provider_status_callback(
         ReferralProviderScopeError,
     ) as exc:
         raise _map_lifecycle_error(exc) from exc
+
+    dispatch = await SqlAlchemyReferralDispatchRepository(
+        session
+    ).get_latest_for_referral(result.referral.id)
+    if dispatch is not None:
+        await signal_referral_provider_status_best_effort(
+            referral_id=result.referral.id,
+            dispatch_id=dispatch.id,
+            status=body.status,
+            settings=get_settings(),
+        )
 
     return ProviderCallbackResponse(
         data=ProviderCallbackData(

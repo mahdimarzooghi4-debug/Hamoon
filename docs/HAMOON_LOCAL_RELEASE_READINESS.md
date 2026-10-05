@@ -33,7 +33,7 @@ external system and are not blockers for UI/Figma work:
 
 - Production/stage server deployment and DNS/TLS.
 - Real OpenAI candidate execution or any other external AI provider call.
-- Real provider dispatch endpoints and provider sandboxes.
+- Real provider dispatch endpoints, provider sandboxes and runtime credentials. The provider-neutral dispatch adapter and Temporal ReferralWorkflow are implemented in-repo.
 - Production S3-compatible evidence adapter/credentials.
 - External OpenTelemetry backend, dashboards and alert delivery.
 - Production secrets/KMS, backup and retention infrastructure.

@@ -47,3 +47,28 @@ class MaterializeOutcomeReviewInput:
     outcome_id: UUID
     actor_id: UUID
     correlation_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReferralWorkflowInput:
+    referral_id: UUID
+    dispatch_id: UUID
+    response_due_at: datetime | None
+    actor_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class ReferralStatusSignal:
+    status: str
+
+
+@dataclass(frozen=True, slots=True)
+class DispatchReferralInput:
+    dispatch_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class MarkReferralNoResponseInput:
+    referral_id: UUID
+    actor_id: UUID
+    correlation_id: str

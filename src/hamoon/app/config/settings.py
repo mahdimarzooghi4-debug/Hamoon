@@ -57,6 +57,8 @@ class Settings(BaseSettings):
     outbox_poll_seconds: float = 1.0
     outbox_lease_seconds: int = 30
     outbox_max_backoff_seconds: int = 300
+    provider_dispatch_config: SecretStr | None = None
+    provider_dispatch_timeout_seconds: float = 10.0
     otel_enabled: bool = False
     otel_service_name: str = "hamoon-api"
     otel_exporter_otlp_endpoint: str | None = None
@@ -94,6 +96,7 @@ class Settings(BaseSettings):
     temporal_address: str = "localhost:7233"
     temporal_namespace: str = "default"
     temporal_core_task_queue: str = "hamoon-core"
+    temporal_provider_task_queue: str = "hamoon-provider"
 
     @model_validator(mode="after")
     def validate_runtime_safety(self) -> Self:

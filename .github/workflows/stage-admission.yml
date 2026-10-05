@@ -191,11 +191,13 @@ jobs:
           test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -a -q minio-init)")" = "0"
           test "$(docker inspect -f '{{.State.Running}}' "$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -q outbox-worker)")" = "true"
           test "$(docker inspect -f '{{.State.Running}}' "$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -q temporal-worker)")" = "true"
+          test "$(docker inspect -f '{{.State.Running}}' "$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -q provider-worker)")" = "true"
 
           for i in {1..45}; do
             metrics="$(curl --fail --silent --header "X-Hamoon-Metrics-Token: $HAMOON_METRICS_ACCESS_TOKEN" http://localhost:8000/metrics || true)"
             if echo "$metrics" | grep -q 'hamoon_worker_healthy{worker="outbox-worker"} 1.0' \
-              && echo "$metrics" | grep -q 'hamoon_worker_healthy{worker="temporal-worker"} 1.0'; then
+              && echo "$metrics" | grep -q 'hamoon_worker_healthy{worker="temporal-worker"} 1.0' \
+              && echo "$metrics" | grep -q 'hamoon_worker_healthy{worker="provider-worker"} 1.0'; then
               break
             fi
             sleep 1
@@ -205,11 +207,12 @@ jobs:
           curl --fail --silent --header "X-Hamoon-Metrics-Token: $HAMOON_METRICS_ACCESS_TOKEN" http://localhost:8000/metrics | grep 'hamoon_outbox_oldest_age_seconds'
           curl --fail --silent --header "X-Hamoon-Metrics-Token: $HAMOON_METRICS_ACCESS_TOKEN" http://localhost:8000/metrics | grep 'hamoon_worker_healthy{worker="outbox-worker"} 1.0'
           curl --fail --silent --header "X-Hamoon-Metrics-Token: $HAMOON_METRICS_ACCESS_TOKEN" http://localhost:8000/metrics | grep 'hamoon_worker_healthy{worker="temporal-worker"} 1.0'
+          curl --fail --silent --header "X-Hamoon-Metrics-Token: $HAMOON_METRICS_ACCESS_TOKEN" http://localhost:8000/metrics | grep 'hamoon_worker_healthy{worker="provider-worker"} 1.0'
 
       - name: Verify exact promoted images are running
         run: |
           expected_api_id="$(docker image inspect "$HAMOON_API_IMAGE" --format '{{.Id}}')"
-          for service in migrate api outbox-worker temporal-worker; do
+          for service in migrate api outbox-worker temporal-worker provider-worker; do
             container_id="$(docker compose -f docker-compose.yml -f docker-compose.stage-admission.yml ps -a -q "$service")"
             test -n "$container_id"
             test "$(docker inspect -f '{{.Image}}' "$container_id")" = "$expected_api_id"

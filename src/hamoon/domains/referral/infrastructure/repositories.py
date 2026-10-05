@@ -262,6 +262,10 @@ class SqlAlchemyReferralDispatchRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
+    async def get(self, dispatch_id: UUID) -> ReferralDispatch | None:
+        model = await self._session.get(ReferralDispatchModel, dispatch_id)
+        return None if model is None else _dispatch(model)
+
     async def get_by_idempotency_key(
         self,
         idempotency_key: str,
@@ -273,6 +277,34 @@ class SqlAlchemyReferralDispatchRepository:
         )
         model = result.scalar_one_or_none()
         return None if model is None else _dispatch(model)
+
+    async def get_latest_for_referral(
+        self,
+        referral_id: UUID,
+    ) -> ReferralDispatch | None:
+        result = await self._session.execute(
+            select(ReferralDispatchModel)
+            .where(ReferralDispatchModel.referral_id == referral_id)
+            .order_by(
+                ReferralDispatchModel.created_at.desc(),
+                ReferralDispatchModel.id.desc(),
+            )
+            .limit(1)
+        )
+        model = result.scalar_one_or_none()
+        return None if model is None else _dispatch(model)
+
+    async def list_pending(self, *, limit: int) -> list[ReferralDispatch]:
+        result = await self._session.execute(
+            select(ReferralDispatchModel)
+            .where(ReferralDispatchModel.status == "PENDING")
+            .order_by(
+                ReferralDispatchModel.created_at,
+                ReferralDispatchModel.id,
+            )
+            .limit(limit)
+        )
+        return [_dispatch(model) for model in result.scalars().all()]
 
     async def add(self, dispatch: ReferralDispatch) -> None:
         self._session.add(
@@ -288,6 +320,28 @@ class SqlAlchemyReferralDispatchRepository:
                 sent_at=dispatch.sent_at,
             )
         )
+
+    async def mark_sent(
+        self,
+        *,
+        dispatch_id: UUID,
+        sent_at: datetime,
+    ) -> None:
+        model = await self._session.get(ReferralDispatchModel, dispatch_id)
+        if model is None:
+            raise LookupError("REFERRAL_DISPATCH_NOT_FOUND")
+        if model.status == "SENT":
+            return
+        model.status = "SENT"
+        model.sent_at = sent_at
+
+    async def mark_failed(self, *, dispatch_id: UUID) -> None:
+        model = await self._session.get(ReferralDispatchModel, dispatch_id)
+        if model is None:
+            raise LookupError("REFERRAL_DISPATCH_NOT_FOUND")
+        if model.status == "SENT":
+            return
+        model.status = "FAILED"
 
 
 class SqlAlchemyProviderCallbackInboxRepository:

@@ -94,6 +94,21 @@
           }
         },
         {
+          "alert": "HAMOON_PROVIDER_WORKER_STALE",
+          "expr": "hamoon_worker_healthy{worker=\"provider-worker\"} == 0",
+          "for": "2m",
+          "labels": {
+            "severity": "critical",
+            "category": "workers",
+            "service": "hamoon",
+            "environment": "production"
+          },
+          "annotations": {
+            "summary": "The exact-release Provider worker heartbeat is missing, stale, or degraded.",
+            "runbook": "docs/runbooks/HAMOON_WORKER_STALE.md"
+          }
+        },
+        {
           "alert": "HAMOON_OPERATIONAL_METRICS_REFRESH_FAILURE",
           "expr": "increase(hamoon_operational_metrics_refresh_failures_total{dependency=\"postgresql\"}[5m]) > 0",
           "for": "5m",

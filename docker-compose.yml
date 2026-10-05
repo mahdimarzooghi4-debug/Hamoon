@@ -182,6 +182,23 @@ services:
       temporal:
         condition: service_started
 
+  provider-worker:
+    image: ${HAMOON_API_IMAGE:-hamoon-api:local}
+    build: .
+    command: ["python", "-m", "hamoon.infrastructure.temporal.provider_worker"]
+    restart: unless-stopped
+    environment:
+      HAMOON_DEPLOYMENT_ID: ${HAMOON_DEPLOYMENT_ID:-local-compose}
+      HAMOON_IMAGE_ID: ${HAMOON_API_IMAGE_ID:-local}
+      HAMOON_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hamoon}:${POSTGRES_PASSWORD:-hamoon}@postgres:5432/${POSTGRES_DB:-hamoon}
+      HAMOON_TEMPORAL_ADDRESS: temporal:7233
+      HAMOON_OTEL_ENABLED: "false"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      temporal:
+        condition: service_started
+
 volumes:
   hamoon_postgres:
   hamoon_nats:

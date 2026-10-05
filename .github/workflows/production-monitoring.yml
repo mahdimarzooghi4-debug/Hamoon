@@ -93,6 +93,28 @@ jobs:
           test "$status" = "401"
           echo "UNAUTHENTICATED_METRICS_STATUS=$status" >> "$GITHUB_ENV"
 
+      - name: Require exact-release worker heartbeats
+        run: |
+          base="${PRODUCTION_ENDPOINT%/}"
+          for i in {1..45}; do
+            metrics="$(
+              curl --fail --silent --show-error \
+                --header "X-Hamoon-Metrics-Token: $METRICS_TOKEN" \
+                --proto '=https' --proto-redir '=https' --tlsv1.2 \
+                --max-time 20 --retry 5 --retry-all-errors \
+                "$base/metrics" || true
+            )"
+            if echo "$metrics" | grep -q 'hamoon_worker_healthy{worker="outbox-worker"} 1.0' \
+              && echo "$metrics" | grep -q 'hamoon_worker_healthy{worker="temporal-worker"} 1.0' \
+              && echo "$metrics" | grep -q 'hamoon_worker_healthy{worker="provider-worker"} 1.0'; then
+              break
+            fi
+            sleep 1
+          done
+          echo "$metrics" | grep 'hamoon_worker_healthy{worker="outbox-worker"} 1.0'
+          echo "$metrics" | grep 'hamoon_worker_healthy{worker="temporal-worker"} 1.0'
+          echo "$metrics" | grep 'hamoon_worker_healthy{worker="provider-worker"} 1.0'
+
       - name: Capture protected metrics baseline
         run: |
           mkdir -p monitoring-observed

@@ -13,7 +13,7 @@ from hamoon.infrastructure.events.models import OutboxMessageModel
 
 logger = logging.getLogger(__name__)
 
-REQUIRED_WORKERS = ("outbox-worker", "temporal-worker")
+REQUIRED_WORKERS = ("outbox-worker", "temporal-worker", "provider-worker")
 
 
 @dataclass(frozen=True, slots=True)

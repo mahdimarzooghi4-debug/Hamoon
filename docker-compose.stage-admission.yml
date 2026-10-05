@@ -31,3 +31,8 @@ services:
     environment:
       HAMOON_ENVIRONMENT: stage
       HAMOON_OTEL_SERVICE_NAME: hamoon-temporal-worker-stage-admission
+
+  provider-worker:
+    environment:
+      HAMOON_ENVIRONMENT: stage
+      HAMOON_OTEL_SERVICE_NAME: hamoon-provider-worker-stage-admission

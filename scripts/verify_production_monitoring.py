@@ -22,6 +22,7 @@ FORBIDDEN_METRIC_LABELS = {
     "national_id",
     "phone",
 }
+REQUIRED_WORKERS = {"outbox-worker", "temporal-worker", "provider-worker"}
 REQUIRED_METRIC_FAMILIES = {
     "hamoon_http_requests_total",
     "hamoon_http_request_errors_total",
@@ -85,6 +86,20 @@ def forbidden_labels(text: str) -> set[str]:
             if name in FORBIDDEN_METRIC_LABELS:
                 found.add(name)
     return found
+
+
+def worker_health(text: str) -> dict[str, float]:
+    values: dict[str, float] = {}
+    prefix = "hamoon_worker_healthy{"
+    for line in text.splitlines():
+        if not line.startswith(prefix):
+            continue
+        label_text, value_text = line.split("}", 1)
+        labels = dict(LABEL_RE.findall(label_text))
+        worker = labels.get("worker")
+        if worker is not None:
+            values[worker] = float(value_text.strip())
+    return values
 
 
 def request_count(text: str, *, route: str) -> float:
@@ -259,6 +274,17 @@ def main() -> None:
     )
     require(not forbidden_labels(before), "forbidden metric labels in baseline")
     require(not forbidden_labels(after), "forbidden metric labels after probes")
+    before_workers = worker_health(before)
+    after_workers = worker_health(after)
+    for worker in REQUIRED_WORKERS:
+        require(
+            before_workers.get(worker) == 1.0,
+            f"required worker unhealthy in baseline: {worker}",
+        )
+        require(
+            after_workers.get(worker) == 1.0,
+            f"required worker unhealthy after probes: {worker}",
+        )
 
     probe_count = monitoring.get("synthetic_ready_probe_count")
     require(

@@ -44,6 +44,16 @@ OUTBOX_PUBLISH_FAILURE = Counter(
     "Failed outbox publish attempts.",
     ("event_type",),
 )
+PROVIDER_DISPATCH_SUCCESS = Counter(
+    "hamoon_provider_dispatch_success_total",
+    "Successfully delivered provider referral dispatches.",
+    ("provider_id",),
+)
+PROVIDER_DISPATCH_FAILURE = Counter(
+    "hamoon_provider_dispatch_failure_total",
+    "Failed provider referral dispatch attempts.",
+    ("provider_id", "failure_class"),
+)
 
 DEPENDENCY_HEALTH = Gauge(
     "hamoon_dependency_health",

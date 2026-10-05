@@ -43,12 +43,30 @@ class ReferralRepository(Protocol):
 
 
 class ReferralDispatchRepository(Protocol):
+    async def get(self, dispatch_id: UUID) -> ReferralDispatch | None: ...
+
     async def get_by_idempotency_key(
         self,
         idempotency_key: str,
     ) -> ReferralDispatch | None: ...
 
+    async def get_latest_for_referral(
+        self,
+        referral_id: UUID,
+    ) -> ReferralDispatch | None: ...
+
+    async def list_pending(self, *, limit: int) -> list[ReferralDispatch]: ...
+
     async def add(self, dispatch: ReferralDispatch) -> None: ...
+
+    async def mark_sent(
+        self,
+        *,
+        dispatch_id: UUID,
+        sent_at: datetime,
+    ) -> None: ...
+
+    async def mark_failed(self, *, dispatch_id: UUID) -> None: ...
 
 
 class ProviderCallbackInboxRepository(Protocol):

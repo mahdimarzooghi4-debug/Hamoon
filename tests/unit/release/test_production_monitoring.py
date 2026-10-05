@@ -32,9 +32,11 @@ hamoon_outbox_oldest_age_seconds 0
 # TYPE hamoon_worker_healthy gauge
 hamoon_worker_healthy{{worker="outbox-worker"}} 1
 hamoon_worker_healthy{{worker="temporal-worker"}} 1
+hamoon_worker_healthy{{worker="provider-worker"}} 1
 # TYPE hamoon_worker_heartbeat_age_seconds gauge
 hamoon_worker_heartbeat_age_seconds{{worker="outbox-worker"}} 5
 hamoon_worker_heartbeat_age_seconds{{worker="temporal-worker"}} 5
+hamoon_worker_heartbeat_age_seconds{{worker="provider-worker"}} 5
 # TYPE hamoon_operational_metrics_refresh_failures_total counter
 hamoon_operational_metrics_refresh_failures_total{{dependency="postgresql"}} 0
 """
@@ -194,3 +196,26 @@ def test_monitoring_verifier_rejects_public_metrics_boundary(
 
     assert result.returncode != 0
     assert "reject unauthenticated access" in result.stderr
+
+
+def test_monitoring_verifier_rejects_unhealthy_provider_worker(
+    tmp_path: Path,
+) -> None:
+    chain = list(_chain(tmp_path))
+    after = chain[4]
+    monitoring = chain[5]
+    after.write_text(
+        after.read_text().replace(
+            'hamoon_worker_healthy{worker="provider-worker"} 1',
+            'hamoon_worker_healthy{worker="provider-worker"} 0',
+        ),
+        encoding="utf-8",
+    )
+    value = json.loads(monitoring.read_text())
+    value["metrics_after_sha256"] = hashlib.sha256(after.read_bytes()).hexdigest()
+    _write_json(monitoring, value)
+
+    result = _verify(*chain)
+
+    assert result.returncode != 0
+    assert "required worker unhealthy after probes: provider-worker" in result.stderr

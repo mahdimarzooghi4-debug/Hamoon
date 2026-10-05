@@ -9,7 +9,9 @@
     "hamoon_outbox_oldest_age_seconds",
     "hamoon_worker_healthy",
     "hamoon_worker_heartbeat_age_seconds",
-    "hamoon_operational_metrics_refresh_failures_total"
+    "hamoon_operational_metrics_refresh_failures_total",
+    "hamoon_provider_dispatch_success_total",
+    "hamoon_provider_dispatch_failure_total"
   ],
   "alerts": [
     {
@@ -64,6 +66,15 @@
       "for_seconds": 120,
       "expression": "hamoon_worker_healthy{worker=\"temporal-worker\"} == 0",
       "summary": "The exact-release Temporal worker heartbeat is missing or stale.",
+      "runbook": "docs/runbooks/HAMOON_WORKER_STALE.md"
+    },
+    {
+      "id": "HAMOON_PROVIDER_WORKER_STALE",
+      "severity": "critical",
+      "category": "workers",
+      "for_seconds": 120,
+      "expression": "hamoon_worker_healthy{worker=\"provider-worker\"} == 0",
+      "summary": "The exact-release Provider worker heartbeat is missing, stale, or degraded.",
       "runbook": "docs/runbooks/HAMOON_WORKER_STALE.md"
     },
     {
