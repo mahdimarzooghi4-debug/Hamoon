@@ -65,7 +65,10 @@ from hamoon.infrastructure.ai.prescription_runtime import (
     local_fake_prescription_policy,
 )
 from hamoon.infrastructure.ai.providers.fake import FakeAIProvider
-from hamoon.infrastructure.ai.providers.openai import OpenAIProvider
+from hamoon.infrastructure.ai.production_factory import (
+    LocalAIRuntimeConfigurationError,
+    build_local_ai_gateway,
+)
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
@@ -92,18 +95,18 @@ async def _resolve_ai_client(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={"code": "AI_ROUTING_POLICY_NOT_FOUND"},
         )
-    if route.routing_policy.provider_code != "OPENAI" or not settings.openai_api_key:
+    try:
+        gateway = build_local_ai_gateway(
+            settings=settings,
+            route=route,
+        )
+    except LocalAIRuntimeConfigurationError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"code": "AI_PROVIDER_UNAVAILABLE"},
-        )
-    provider = OpenAIProvider(
-        api_key=settings.openai_api_key,
-        base_url=settings.openai_base_url,
-        timeout_seconds=settings.openai_timeout_seconds,
-    )
+            detail={"code": str(exc)},
+        ) from exc
     return GatewayPrescriptionAIClient(
-        gateway=ProviderAIGateway(providers={"OPENAI": provider}),
+        gateway=gateway,
         routing_policy=route.routing_policy,
         instructions=route.instructions,
     )
