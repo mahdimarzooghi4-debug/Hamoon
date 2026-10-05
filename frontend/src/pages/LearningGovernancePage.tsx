@@ -22,6 +22,7 @@ import {
   listPromptPolicyVersions,
   listRoutingPolicies,
   promoteRoutingPolicy,
+  registerLocalModelCandidate,
   type DatasetExport,
   type DatasetStatus,
   type EvaluationRun,
@@ -182,6 +183,19 @@ export function LearningGovernancePage() {
   );
   const [exportPreview, setExportPreview] = useState<DatasetExport | null>(null);
 
+  const [candidateTaskClass, setCandidateTaskClass] =
+    useState("OUTCOME_INTERPRETATION");
+  const [candidateModelKey, setCandidateModelKey] = useState("");
+  const [candidateVersion, setCandidateVersion] = useState("");
+  const [candidateModelId, setCandidateModelId] = useState("");
+  const [candidateArtifactRef, setCandidateArtifactRef] = useState("");
+  const [candidateArtifactSha, setCandidateArtifactSha] = useState("");
+  const [candidateDatasetId, setCandidateDatasetId] = useState("");
+  const [candidateParentId, setCandidateParentId] = useState("");
+  const [candidateRecipeVersion, setCandidateRecipeVersion] = useState("");
+  const [candidateTrainedAt, setCandidateTrainedAt] = useState("");
+  const [candidateLimitations, setCandidateLimitations] = useState("");
+
   const [evaluationDatasetId, setEvaluationDatasetId] = useState("");
   const [evaluationModelId, setEvaluationModelId] = useState("");
   const [evaluationPromptId, setEvaluationPromptId] = useState("");
@@ -277,6 +291,9 @@ export function LearningGovernancePage() {
       ready?.models.filter(
         (item) =>
           item.provider_status === "ACTIVE" &&
+          item.provider_code === "HAMOON_LOCAL" &&
+          item.artifact_sha256 !== null &&
+          item.training_dataset_version_id !== null &&
           (item.status === "CANDIDATE" || item.status === "APPROVED") &&
           item.purpose === "OUTCOME_INTERPRETATION",
       ) ?? [],
@@ -462,6 +479,56 @@ export function LearningGovernancePage() {
     } finally {
       setBusy(null);
     }
+  }
+
+  async function submitLocalModelCandidate(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    const dataset = approvedDatasets.find(
+      (item) => item.id === candidateDatasetId,
+    );
+    if (
+      !dataset ||
+      !candidateModelKey.trim() ||
+      !candidateVersion.trim() ||
+      !candidateModelId.trim() ||
+      !candidateArtifactRef.trim() ||
+      !/^[0-9a-f]{64}$/.test(candidateArtifactSha.trim()) ||
+      !candidateRecipeVersion.trim() ||
+      Number.isNaN(Date.parse(candidateTrainedAt))
+    ) {
+      setActionError(
+        "Dataset APPROVED، مشخصات مدل، artifact SHA-256، recipe و زمان آموزش معتبر الزامی‌اند.",
+      );
+      return;
+    }
+    await runAction(
+      "register-local-model",
+      async () => {
+        await registerLocalModelCandidate({
+          taskClass: candidateTaskClass,
+          modelKey: candidateModelKey.trim(),
+          version: candidateVersion.trim(),
+          concreteModelId: candidateModelId.trim(),
+          artifactRef: candidateArtifactRef.trim(),
+          artifactSha256: candidateArtifactSha.trim(),
+          parentModelVersionId: candidateParentId || undefined,
+          trainingDataset: dataset,
+          trainingRecipeVersion: candidateRecipeVersion.trim(),
+          trainedAt: new Date(candidateTrainedAt).toISOString(),
+          limitations: candidateLimitations.trim(),
+        });
+        setCandidateVersion("");
+        setCandidateModelId("");
+        setCandidateArtifactRef("");
+        setCandidateArtifactSha("");
+        setCandidateRecipeVersion("");
+        setCandidateTrainedAt("");
+        setCandidateLimitations("");
+      },
+      "نسل جدید مدل داخلی به‌صورت CANDIDATE ثبت شد؛ Production هنوز تغییر نکرده است.",
+    );
   }
 
   async function submitEvaluation(event: FormEvent<HTMLFormElement>) {
@@ -935,6 +1002,173 @@ export function LearningGovernancePage() {
             <code>{exportPreview.manifest_digest}</code>
           </div>
         ) : null}
+      </Panel>
+
+      <Panel className="admin-section">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">Curated Dataset → Local Training</span>
+            <h2>نسل‌های مدل داخلی</h2>
+          </div>
+          <Badge tone="success">بدون AI API</Badge>
+        </div>
+        <p>
+          هر نسل مدل باید از Dataset تأییدشده ساخته شود و lineage کاملِ artifact،
+          recipe و مدل والد را نگه دارد. ثبت CANDIDATE هیچ Route تولیدی را فعال
+          نمی‌کند.
+        </p>
+        <form className="evaluation-builder" onSubmit={submitLocalModelCandidate}>
+          <div className="admin-form-grid admin-form-grid--four">
+            <label>
+              <span>Task</span>
+              <select
+                value={candidateTaskClass}
+                onChange={(event) => setCandidateTaskClass(event.target.value)}
+              >
+                <option value="DIAGNOSIS">DIAGNOSIS</option>
+                <option value="PRESCRIPTION">PRESCRIPTION</option>
+                <option value="OUTCOME_INTERPRETATION">
+                  OUTCOME_INTERPRETATION
+                </option>
+              </select>
+            </label>
+            <label>
+              <span>Dataset APPROVED</span>
+              <select
+                value={candidateDatasetId}
+                onChange={(event) => setCandidateDatasetId(event.target.value)}
+              >
+                <option value="">انتخاب کنید</option>
+                {approvedDatasets.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.dataset_key} / {item.version}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Model key</span>
+              <input
+                maxLength={150}
+                value={candidateModelKey}
+                onChange={(event) => setCandidateModelKey(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>نسخه نسل جدید</span>
+              <input
+                maxLength={100}
+                value={candidateVersion}
+                onChange={(event) => setCandidateVersion(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Local model ID</span>
+              <input
+                maxLength={250}
+                value={candidateModelId}
+                onChange={(event) => setCandidateModelId(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Artifact ref</span>
+              <input
+                maxLength={500}
+                placeholder="outcome/v5"
+                value={candidateArtifactRef}
+                onChange={(event) => setCandidateArtifactRef(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Training recipe</span>
+              <input
+                maxLength={100}
+                value={candidateRecipeVersion}
+                onChange={(event) =>
+                  setCandidateRecipeVersion(event.target.value)
+                }
+              />
+            </label>
+            <label>
+              <span>زمان پایان آموزش</span>
+              <input
+                type="datetime-local"
+                value={candidateTrainedAt}
+                onChange={(event) => setCandidateTrainedAt(event.target.value)}
+              />
+            </label>
+          </div>
+          <label className="admin-field-wide">
+            <span>Artifact manifest SHA-256</span>
+            <input
+              className="ltr-value"
+              maxLength={64}
+              value={candidateArtifactSha}
+              onChange={(event) =>
+                setCandidateArtifactSha(event.target.value.toLowerCase())
+              }
+            />
+          </label>
+          <label className="admin-field-wide">
+            <span>نسخه والد اختیاری</span>
+            <select
+              value={candidateParentId}
+              onChange={(event) => setCandidateParentId(event.target.value)}
+            >
+              <option value="">نسل آغازین / بدون والد</option>
+              {readyData.models
+                .filter((item) => item.provider_code === "HAMOON_LOCAL")
+                .map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.model_key} / {item.version}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label className="admin-field-wide">
+            <span>محدودیت‌های شناخته‌شده</span>
+            <input
+              maxLength={2000}
+              value={candidateLimitations}
+              onChange={(event) => setCandidateLimitations(event.target.value)}
+            />
+          </label>
+          <Button disabled={busy === "register-local-model"} type="submit">
+            ثبت نسل CANDIDATE
+          </Button>
+        </form>
+
+        <div className="dataset-list">
+          {readyData.models.map((model) => (
+            <article className="dataset-card" key={model.id}>
+              <div>
+                <strong>{model.model_key} / {model.version}</strong>
+                <span>
+                  {model.provider_code} • {model.purpose} • {model.status}
+                </span>
+                <span className="digest-value">
+                  artifact: {model.artifact_sha256 ?? "بدون artifact"}
+                </span>
+                <span>
+                  recipe: {model.training_recipe_version ?? "—"} • parent:{" "}
+                  {shortId(model.parent_model_version_id)}
+                </span>
+              </div>
+              <Badge
+                tone={
+                  model.provider_code === "HAMOON_LOCAL" &&
+                  model.artifact_sha256
+                    ? "success"
+                    : "warning"
+                }
+              >
+                {model.provider_code === "HAMOON_LOCAL"
+                  ? "مدل داخلی"
+                  : "غیرقابل Production"}
+              </Badge>
+            </article>
+          ))}
+        </div>
       </Panel>
 
       <Panel className="admin-section">
