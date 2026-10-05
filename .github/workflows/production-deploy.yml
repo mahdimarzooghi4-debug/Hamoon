@@ -1,0 +1,246 @@
+name: Production Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact admitted 40-character commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: Type EXECUTE to deploy the admitted release
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      PROMOTED_SHA: ${{ inputs.commit_sha }}
+
+    steps:
+      - name: Validate explicit deployment execution input
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          DEPLOYER: ${{ github.actor }}
+        run: |
+          test "$CONFIRMATION" = "EXECUTE"
+          printf '%s' "$PROMOTED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test -n "$DEPLOYER"
+          case "$DEPLOYER" in
+            *"[bot]") echo "bot identities cannot execute Production deployment"; exit 1 ;;
+          esac
+
+      - name: Checkout exact admitted commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Require candidate to belong to main history
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$PROMOTED_SHA" origin/main
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deployment runtime
+        run: uv sync --frozen --all-extras
+
+      - name: Resolve immutable Production deployment admission
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          artifact_name="hamoon-production-deployment-admission-$PROMOTED_SHA"
+          artifact_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$artifact_name&per_page=100" \
+              --jq '[.artifacts[] | select(.expired == false)][0].id'
+          )"
+          test -n "$artifact_id"
+
+          admission_run_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id" \
+              --jq '.workflow_run.id'
+          )"
+          test -n "$admission_run_id"
+
+          admission_conclusion="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$admission_run_id" \
+              --jq '.conclusion'
+          )"
+          test "$admission_conclusion" = "success"
+          echo "DEPLOYMENT_ADMISSION_RUN_ID=$admission_run_id" >> "$GITHUB_ENV"
+
+      - name: Download Production deployment admission
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p deployment-input/admission
+          gh run download "$DEPLOYMENT_ADMISSION_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-production-deployment-admission-$PROMOTED_SHA" \
+            --dir deployment-input/admission
+
+      - name: Resolve governance evidence chain
+        run: |
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          from pathlib import Path
+
+          admission = json.loads(
+              Path(
+                  "deployment-input/admission/"
+                  "production-deployment-admission.json"
+              ).read_text()
+          )
+          print(f'SOURCE_CI_RUN_ID={admission["source_ci_run_id"]}')
+          print(f'STAGE_ADMISSION_RUN_ID={admission["stage_admission_run_id"]}')
+          print(f'RELEASE_APPROVAL_RUN_ID={admission["release_approval_run_id"]}')
+          PY
+
+      - name: Download exact release, Stage and approval evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p \
+            deployment-input/release \
+            deployment-input/stage \
+            deployment-input/approval
+
+          gh run download "$SOURCE_CI_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-release-$PROMOTED_SHA" \
+            --dir deployment-input/release
+
+          gh run download "$STAGE_ADMISSION_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-stage-admission-$PROMOTED_SHA" \
+            --dir deployment-input/stage
+
+          gh run download "$RELEASE_APPROVAL_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-release-approval-$PROMOTED_SHA" \
+            --dir deployment-input/approval
+
+      - name: Re-verify complete release governance chain
+        run: |
+          python3 scripts/verify_release_bundle.py deployment-input/release
+          python3 scripts/verify_stage_attestation.py \
+            deployment-input/release \
+            deployment-input/stage/stage-attestation.json
+          python3 scripts/verify_release_approval.py \
+            deployment-input/release \
+            deployment-input/stage/stage-attestation.json \
+            deployment-input/approval/release-approval.json
+          python3 scripts/verify_production_deployment_admission.py \
+            deployment-input/release \
+            deployment-input/stage/stage-attestation.json \
+            deployment-input/approval/release-approval.json \
+            deployment-input/admission/production-deployment-admission.json
+
+      - name: Execute hosted Production deployment
+        env:
+          HAMOON_DEPLOY_ORCHESTRATOR_ENDPOINT: ${{ secrets.HAMOON_DEPLOY_ORCHESTRATOR_ENDPOINT }}
+          HAMOON_DEPLOY_ORCHESTRATOR_TOKEN: ${{ secrets.HAMOON_DEPLOY_ORCHESTRATOR_TOKEN }}
+        run: |
+          uv run python scripts/execute_production_deployment.py \
+            deployment-input/release \
+            deployment-input/admission/production-deployment-admission.json \
+            production-deployment
+
+      - name: Create immutable Production deployment attestation
+        env:
+          DEPLOYER: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          PRODUCTION_DEPLOYMENT_RUN_ID: ${{ github.run_id }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          manifest_path = Path("deployment-input/release/manifest.json")
+          admission_path = Path(
+              "deployment-input/admission/"
+              "production-deployment-admission.json"
+          )
+          request_path = Path("production-deployment/orchestrator-request.json")
+          receipt_path = Path("production-deployment/orchestrator-receipt.json")
+
+          admission = json.loads(admission_path.read_text())
+          receipt = json.loads(receipt_path.read_text())
+
+          deployment = {
+              "schema_version": 1,
+              "status": "DEPLOYED",
+              "deployment_scope": "HOSTED_PRODUCTION_EXECUTION",
+              "production_deployed": True,
+              "commit_sha": admission["commit_sha"],
+              "source_ci_run_id": admission["source_ci_run_id"],
+              "stage_admission_run_id": admission["stage_admission_run_id"],
+              "release_approval_run_id": admission["release_approval_run_id"],
+              "deployment_admission_run_id": admission[
+                  "deployment_admission_run_id"
+              ],
+              "production_deployment_run_id": os.environ[
+                  "PRODUCTION_DEPLOYMENT_RUN_ID"
+              ],
+              "production_target": receipt["production_target"],
+              "production_endpoint": receipt["production_endpoint"],
+              "deployment_id": receipt["deployment_id"],
+              "backend_image_id": receipt["backend_image_id"],
+              "frontend_image_id": receipt["frontend_image_id"],
+              "receipt_id": receipt["receipt_id"],
+              "release_manifest_sha256": hashlib.sha256(
+                  manifest_path.read_bytes()
+              ).hexdigest(),
+              "deployment_admission_sha256": hashlib.sha256(
+                  admission_path.read_bytes()
+              ).hexdigest(),
+              "orchestrator_request_sha256": hashlib.sha256(
+                  request_path.read_bytes()
+              ).hexdigest(),
+              "orchestrator_receipt_sha256": hashlib.sha256(
+                  receipt_path.read_bytes()
+              ).hexdigest(),
+              "deployer": os.environ["DEPLOYER"],
+              "triggering_actor": os.environ["TRIGGERING_ACTOR"],
+              "deployed_at": receipt["deployed_at"],
+              "attested_at": datetime.now(UTC).isoformat(),
+          }
+
+          Path(
+              "production-deployment/production-deployment.json"
+          ).write_text(
+              json.dumps(deployment, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Verify Production deployment evidence
+        run: |
+          python3 scripts/verify_production_deployment.py \
+            deployment-input/release \
+            deployment-input/admission/production-deployment-admission.json \
+            production-deployment/orchestrator-request.json \
+            production-deployment/orchestrator-receipt.json \
+            production-deployment/production-deployment.json
+
+      - name: Upload immutable Production deployment evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamoon-production-deployment-${{ inputs.commit_sha }}
+          path: production-deployment/
+          if-no-files-found: error
+          retention-days: 90
