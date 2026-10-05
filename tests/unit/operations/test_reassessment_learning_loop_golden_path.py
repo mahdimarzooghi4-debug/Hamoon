@@ -352,12 +352,14 @@ class Traces:
         *,
         ai_decision_id,
         human_decision_id,
-        closed_at,
+        learning_signal_id=None,
+        closed_at=None,
     ) -> None:
         current = self.items[ai_decision_id]
         self.items[ai_decision_id] = replace(
             current,
             human_decision_id=human_decision_id,
+            learning_signal_id=learning_signal_id,
             closed_at=closed_at,
         )
 
