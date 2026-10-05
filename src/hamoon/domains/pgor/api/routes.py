@@ -34,6 +34,9 @@ from hamoon.domains.pgor.api.schemas import (
     PGORDefinitionResponse,
     PGORSnapshotData,
     PGORSnapshotResponse,
+    PGORTraceData,
+    PGORTraceInputData,
+    PGORTraceResponse,
     VariableDefinitionData,
 )
 from hamoon.domains.pgor.application.commands import CalculateOfficialPGORCommand
@@ -328,3 +331,97 @@ async def get_snapshot(
         household_id=snapshot.household_id,
     )
     return PGORSnapshotResponse(data=_snapshot_data(snapshot))
+
+
+
+@router.get(
+    "/api/v1/pgor/snapshots/{snapshot_id}/trace",
+    response_model=PGORTraceResponse,
+)
+async def get_snapshot_trace(
+    snapshot_id: UUID,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER, Role.MANAGER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> PGORTraceResponse:
+    snapshots = SqlAlchemyPGORSnapshotRepository(session)
+    snapshot = await snapshots.get(snapshot_id)
+    if snapshot is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RESOURCE_NOT_FOUND"},
+        )
+
+    await require_household_assignment(
+        session=session,
+        context=context,
+        household_id=snapshot.household_id,
+    )
+
+    bundle = await SqlAlchemyPGORDefinitionRepository(session).get_bundle(
+        snapshot.definition_version_id
+    )
+    if bundle is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "PGOR_TRACE_DEFINITION_NOT_FOUND"},
+        )
+
+    persisted_inputs = await snapshots.list_inputs(snapshot_id)
+    dimensions = {item.id: item for item in bundle.dimensions}
+    indicators = {item.id: item for item in bundle.indicators}
+    variable_order = {item.code: item.sort_order for item in bundle.variables}
+    dimension_order = {item.id: item.sort_order for item in bundle.dimensions}
+    indicator_order = {item.id: item.sort_order for item in bundle.indicators}
+
+    persisted_inputs.sort(
+        key=lambda item: (
+            variable_order.get(item.variable_code, 999),
+            dimension_order.get(item.dimension_definition_id, 999),
+            indicator_order.get(item.indicator_definition_id, 999),
+            str(item.observation_id),
+        )
+    )
+
+    trace_inputs: list[PGORTraceInputData] = []
+    for item in persisted_inputs:
+        dimension = dimensions.get(item.dimension_definition_id)
+        indicator = indicators.get(item.indicator_definition_id)
+        if dimension is None or indicator is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"code": "PGOR_TRACE_REFERENCE_MISSING"},
+            )
+        trace_inputs.append(
+            PGORTraceInputData(
+                observation_id=item.observation_id,
+                observation_version=item.observation_version,
+                indicator_definition_id=item.indicator_definition_id,
+                indicator_code=indicator.code,
+                indicator_name_fa=indicator.name_fa,
+                dimension_definition_id=item.dimension_definition_id,
+                dimension_code=dimension.code,
+                dimension_name_fa=dimension.name_fa,
+                variable_code=item.variable_code,
+                raw_score_0_100=item.raw_score_0_100,
+                normalized_score=item.normalized_score,
+            )
+        )
+
+    return PGORTraceResponse(
+        data=PGORTraceData(
+            snapshot_id=snapshot.id,
+            household_id=snapshot.household_id,
+            assessment_id=snapshot.assessment_id,
+            definition_version_id=snapshot.definition_version_id,
+            definition_version=bundle.version.version,
+            formula_version_id=snapshot.formula_version_id,
+            engine_version=snapshot.engine_version,
+            scoring_version=snapshot.scoring_version,
+            input_fingerprint=snapshot.input_fingerprint,
+            calculated_at=snapshot.calculated_at,
+            inputs=trace_inputs,
+        )
+    )
