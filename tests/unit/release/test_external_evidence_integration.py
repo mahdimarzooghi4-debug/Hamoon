@@ -43,9 +43,11 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path]:
             "object_size_bytes": 44,
             "checks": {
                 "storage_put": True,
+                "storage_overwrite_denied": True,
                 "storage_metadata_integrity": True,
                 "storage_signed_read_integrity": True,
                 "storage_anonymous_read_denied": True,
+                "storage_anonymous_list_denied": True,
                 "scanner_clean": True,
                 "storage_cleanup": True,
             },
