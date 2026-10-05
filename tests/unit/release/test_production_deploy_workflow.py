@@ -21,6 +21,10 @@ def test_production_deploy_workflow_requires_protected_orchestrator_contract() -
     assert "ops/production/runtime-preflight.json" in workflow
     assert "preflight-request.json" in workflow
     assert "preflight-receipt.json" in workflow
+    assert "runtime_preflight_contract_sha256" in workflow
+    assert "preflight_request_sha256" in workflow
+    assert "preflight_receipt_sha256" in workflow
+    assert "preflight_id" in workflow
     assert "scripts/verify_production_deployment.py" in workflow
     assert "hamoon-production-deployment-${{ inputs.commit_sha }}" in workflow
 
