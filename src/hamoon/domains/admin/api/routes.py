@@ -1,11 +1,12 @@
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
 
+from hamoon.app.observability.metrics import SECURITY_DENIALS
 from hamoon.app.observability.operational_events import (
     OperationalRuntimeEventModel,
     OperationalRuntimeEventType,
@@ -15,8 +16,15 @@ from hamoon.app.security.dependencies import require_roles
 from hamoon.domains.admin.api.schemas import (
     DataHealthData,
     DataHealthResponse,
+    EmpowermentOverviewData,
+    EmpowermentOverviewResponse,
+    PGORDistributionData,
     MachineHealthData,
     MachineHealthResponse,
+)
+from hamoon.domains.admin.infrastructure.empowerment import (
+    SqlAlchemyEmpowermentOverviewRepository,
+    VariableDistribution,
 )
 from hamoon.domains.assessment.domain.entities import AssessmentStatus
 from hamoon.domains.assessment.infrastructure.models import AssessmentModel
@@ -359,5 +367,68 @@ async def get_machine_health(
             active_routing_policies=active_routing,
             incomplete_reassessment_plans=incomplete_reassessments,
             generated_at=now,
+        )
+    )
+
+
+
+def _empowerment_distribution_data(
+    value: VariableDistribution,
+) -> PGORDistributionData:
+    return PGORDistributionData(
+        mean=value.mean,
+        minimum=value.minimum,
+        maximum=value.maximum,
+    )
+
+
+def _require_empowerment_unit_scope(
+    context: AuthorizationContext,
+) -> str:
+    if context.unit_id is None:
+        SECURITY_DENIALS.labels(
+            boundary="organization_scope",
+            reason="analytics_unit_scope_missing",
+        ).inc()
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "ANALYTICS_UNIT_SCOPE_REQUIRED"},
+        )
+    return context.unit_id
+
+
+@router.get(
+    "/api/v1/admin/empowerment/overview",
+    response_model=EmpowermentOverviewResponse,
+)
+async def get_empowerment_overview(
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.MANAGER, Role.ADMIN)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> EmpowermentOverviewResponse:
+    unit_id = _require_empowerment_unit_scope(context)
+    overview = await SqlAlchemyEmpowermentOverviewRepository(
+        session
+    ).get_for_unit(unit_id=unit_id)
+
+    return EmpowermentOverviewResponse(
+        data=EmpowermentOverviewData(
+            scope_unit_id=unit_id,
+            household_count=overview.household_count,
+            households_with_official_pgor=(
+                overview.households_with_official_pgor
+            ),
+            p=_empowerment_distribution_data(overview.p),
+            g=_empowerment_distribution_data(overview.g),
+            o=_empowerment_distribution_data(overview.o),
+            r=_empowerment_distribution_data(overview.r),
+            e=_empowerment_distribution_data(overview.e),
+            e_band_counts=overview.e_band_counts,
+            bottleneck_counts=overview.bottleneck_counts,
+            outcome_counts=overview.outcome_counts,
+            unreviewed_outcomes=overview.unreviewed_outcomes,
+            generated_at=datetime.now(UTC),
         )
     )
