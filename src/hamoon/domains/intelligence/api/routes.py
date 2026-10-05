@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -95,6 +96,10 @@ from hamoon.infrastructure.ai.providers.fake import FakeAIProvider
 from hamoon.infrastructure.ai.production_factory import (
     LocalAIRuntimeConfigurationError,
     build_local_ai_gateway,
+)
+from hamoon.infrastructure.ai.providers.local_artifact import (
+    LocalModelRuntimeError,
+    load_local_model_artifact,
 )
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
@@ -662,7 +667,42 @@ async def register_local_model_candidate(
         Depends(require_roles(Role.ADMIN)),
     ],
     session: Annotated[AsyncSession, Depends(get_db_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> RegisterLocalModelCandidateResponse:
+    try:
+        artifact = load_local_model_artifact(
+            model_root=Path(settings.ai_model_root),
+            artifact_ref=body.artifact_ref,
+            expected_manifest_sha256=body.artifact_sha256,
+            expected_model_id=body.concrete_model_id,
+        )
+    except LocalModelRuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": str(exc)},
+        ) from exc
+    if (
+        artifact.training_dataset_manifest_digest
+        != body.training_dataset_manifest_digest
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "MODEL_ARTIFACT_DATASET_LINEAGE_MISMATCH"},
+        )
+    if artifact.training_recipe_version != body.training_recipe_version:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "MODEL_ARTIFACT_RECIPE_LINEAGE_MISMATCH"},
+        )
+    if (
+        artifact.parent_model_artifact_sha256
+        != body.parent_model_artifact_sha256
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "MODEL_ARTIFACT_PARENT_LINEAGE_MISMATCH"},
+        )
+
     repository = SqlAlchemyAIRuntimeRegistryRepository(session)
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
@@ -676,6 +716,9 @@ async def register_local_model_candidate(
                 artifact_ref=body.artifact_ref,
                 artifact_sha256=body.artifact_sha256,
                 parent_model_version_id=body.parent_model_version_id,
+                parent_model_artifact_sha256=(
+                    body.parent_model_artifact_sha256
+                ),
                 training_dataset_version_id=body.training_dataset_version_id,
                 training_dataset_manifest_digest=(
                     body.training_dataset_manifest_digest
@@ -713,6 +756,9 @@ async def register_local_model_candidate(
                             str(candidate.parent_model_version_id)
                             if candidate.parent_model_version_id is not None
                             else None
+                        ),
+                        "parent_model_artifact_sha256": (
+                            body.parent_model_artifact_sha256
                         ),
                     },
                 )
