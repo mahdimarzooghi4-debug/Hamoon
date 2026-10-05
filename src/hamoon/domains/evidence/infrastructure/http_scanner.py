@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, cast
 
 import httpx
 
@@ -85,11 +85,12 @@ class HttpEvidenceScanner(EvidenceScanner):
             raise ValueError("EVIDENCE_SCANNER_REJECTED")
 
         try:
-            payload = response.json()
+            decoded = cast(object, response.json())
         except ValueError as exc:
             raise ValueError("EVIDENCE_SCANNER_RESPONSE_INVALID") from exc
-        if not isinstance(payload, dict):
+        if not isinstance(decoded, dict):
             raise ValueError("EVIDENCE_SCANNER_RESPONSE_INVALID")
+        payload = cast(dict[str, object], decoded)
 
         raw_status = payload.get("status")
         raw_detail = payload.get("detail")
