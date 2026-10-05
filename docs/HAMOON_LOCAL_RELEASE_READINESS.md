@@ -31,6 +31,7 @@ The local product boundary includes:
 - Build-once release artifact chain: backend/frontend images are built once, scanned, smoke-tested by exact image ID, then packaged with a digest manifest.
 - Supply-chain metadata for the tested artifacts: CycloneDX SBOMs, SLSA-style in-toto provenance, SHA-256 checksums, and an offline bundle verifier.
 - Provider-neutral hosted Production Deploy execution after Release Approval/Deployment Admission, using a protected GitHub Production Environment, remote HTTPS orchestrator, exact-image request binding, mandatory versioned external-runtime preflight and immutable DEPLOYED receipt evidence.
+- Synthetic external Evidence integration verification bound to Stage Admission, covering live S3-compatible PUT/HEAD/GET, anonymous access denial, external scanner CLEAN response, scoped cleanup and immutable hashed evidence.
 
 ## Intentionally deferred integrations
 
@@ -40,7 +41,7 @@ external system and are not blockers for UI/Figma work:
 - Concrete hosted Production runtime provisioning, DNS/TLS ownership and the external deployment orchestrator endpoint/credential. The in-repo Production Deploy workflow and immutable deployment receipt contract are implemented.
 - Real OpenAI candidate execution or any other external AI provider call.
 - Real provider dispatch/verification endpoints and runtime credentials. The provider-neutral dispatch adapter, Temporal ReferralWorkflow and synthetic external Provider integration verification gate are implemented in-repo.
-- Production S3-compatible evidence adapter/credentials.
+- Concrete Production S3-compatible Evidence endpoint/credentials and scanner endpoint/token. The live synthetic External Evidence Integration Verification gate is implemented in-repo.
 - External OpenTelemetry backend, dashboards and alert delivery.
 - Production secrets/KMS, backup and retention infrastructure.
 
