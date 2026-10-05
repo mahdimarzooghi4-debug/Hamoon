@@ -39,7 +39,7 @@ external system and are not blockers for UI/Figma work:
 
 - Concrete hosted Production runtime provisioning, DNS/TLS ownership and the external deployment orchestrator endpoint/credential. The in-repo Production Deploy workflow and immutable deployment receipt contract are implemented.
 - Real OpenAI candidate execution or any other external AI provider call.
-- Real provider dispatch endpoints, provider sandboxes and runtime credentials. The provider-neutral dispatch adapter and Temporal ReferralWorkflow are implemented in-repo.
+- Real provider dispatch/verification endpoints and runtime credentials. The provider-neutral dispatch adapter, Temporal ReferralWorkflow and synthetic external Provider integration verification gate are implemented in-repo.
 - Production S3-compatible evidence adapter/credentials.
 - External OpenTelemetry backend, dashboards and alert delivery.
 - Production secrets/KMS, backup and retention infrastructure.
