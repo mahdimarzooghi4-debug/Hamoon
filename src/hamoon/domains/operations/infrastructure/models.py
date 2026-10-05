@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, Integer, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from hamoon.domains.operations.domain.entities import (
@@ -93,6 +93,15 @@ class ReassessmentPlanModel(Base):
 
 class WorkItemModel(Base):
     __tablename__ = "work_item"
+    __table_args__ = (
+        Index(
+            "uq_work_item_referral_followup_resource",
+            "resource_type",
+            "resource_id",
+            unique=True,
+            postgresql_where=text("work_type = 'REFERRAL_FOLLOWUP'"),
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     household_id: Mapped[UUID] = mapped_column(

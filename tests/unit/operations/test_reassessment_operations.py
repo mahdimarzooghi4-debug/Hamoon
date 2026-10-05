@@ -5,6 +5,7 @@ import pytest
 
 from hamoon.domains.operations.application.handlers import (
     CreateOutcomeReviewWorkItemHandler,
+    CreateReferralFollowupWorkItemHandler,
     FinalizeOutcomeReviewHandler,
     MarkPostPGORReadyHandler,
     MaterializeReassessmentWorkItemHandler,
@@ -63,6 +64,16 @@ class WorkItems:
 
     async def get(self, work_item_id):
         return self.item if self.item is not None and self.item.id == work_item_id else None
+
+    async def get_by_resource(self, *, work_type, resource_type, resource_id):
+        if (
+            self.item is not None
+            and self.item.work_type is work_type
+            and self.item.resource_type == resource_type
+            and self.item.resource_id == resource_id
+        ):
+            return self.item
+        return None
 
     async def update(self, item, *, expected_version):
         assert self.item is not None
@@ -286,3 +297,49 @@ async def test_finalize_outcome_review_is_noop_for_independent_outcome() -> None
     assert events.items == []
     assert audits.items == []
 
+
+
+@pytest.mark.asyncio
+async def test_referral_timeout_materializes_one_followup_work_item() -> None:
+    referral_id = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+    work_items = WorkItems()
+    events = Recorder()
+    audits = Recorder()
+    handler = CreateReferralFollowupWorkItemHandler(
+        work_items=work_items,
+        events=events,
+        audits=audits,
+    )
+    due_at = datetime(2026, 3, 1, 12, 0, tzinfo=UTC)
+
+    first = await handler.handle(
+        referral_id=referral_id,
+        household_id=HOUSEHOLD,
+        assigned_actor_id=ACTOR,
+        due_at=due_at,
+        actor_id=ACTOR,
+        request_id="timeout-activity",
+        correlation_id="referral-workflow",
+    )
+    duplicate = await handler.handle(
+        referral_id=referral_id,
+        household_id=HOUSEHOLD,
+        assigned_actor_id=ACTOR,
+        due_at=due_at,
+        actor_id=ACTOR,
+        request_id="timeout-activity-retry",
+        correlation_id="referral-workflow",
+    )
+
+    assert duplicate.id == first.id
+    assert first.work_type is WorkItemType.REFERRAL_FOLLOWUP
+    assert first.resource_type == "REFERRAL"
+    assert first.resource_id == referral_id
+    assert first.status is WorkItemStatus.OPEN
+    assert first.assigned_actor_id == ACTOR
+    assert first.due_at == due_at
+    assert first.policy_version == "provider-response-timeout-v1"
+    assert len(events.items) == 1
+    assert events.items[0].event_type == "ReferralFollowupWorkItemCreated"
+    assert len(audits.items) == 1
+    assert audits.items[0].action == "work_item.referral_followup.create"

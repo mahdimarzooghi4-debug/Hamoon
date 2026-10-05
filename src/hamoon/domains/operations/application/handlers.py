@@ -228,6 +228,108 @@ class MaterializeReassessmentWorkItemHandler:
 
 
 
+class CreateReferralFollowupWorkItemHandler:
+    POLICY_VERSION = "provider-response-timeout-v1"
+
+    def __init__(
+        self,
+        *,
+        work_items: WorkItemRepository,
+        events: DomainEventRecorder,
+        audits: AuditRecorder,
+    ) -> None:
+        self._work_items = work_items
+        self._events = events
+        self._audits = audits
+
+    async def handle(
+        self,
+        *,
+        referral_id: UUID,
+        household_id: UUID,
+        assigned_actor_id: UUID,
+        due_at: datetime,
+        actor_id: UUID,
+        request_id: str,
+        correlation_id: str,
+    ) -> WorkItem:
+        existing = await self._work_items.get_by_resource(
+            work_type=WorkItemType.REFERRAL_FOLLOWUP,
+            resource_type="REFERRAL",
+            resource_id=referral_id,
+        )
+        if existing is not None:
+            return existing
+
+        now = datetime.now(UTC)
+        item = WorkItem(
+            id=uuid4(),
+            household_id=household_id,
+            work_type=WorkItemType.REFERRAL_FOLLOWUP,
+            resource_type="REFERRAL",
+            resource_id=referral_id,
+            title="پیگیری عدم پاسخ ارائه‌دهنده",
+            reason=(
+                "مهلت پاسخ ارائه‌دهنده به ارجاع سپری شده و پاسخ معتبری "
+                "دریافت نشده است."
+            ),
+            priority=80,
+            status=WorkItemStatus.OPEN,
+            version=1,
+            due_at=due_at,
+            assigned_actor_id=assigned_actor_id,
+            policy_version=self.POLICY_VERSION,
+            created_at=now,
+            created_by=actor_id,
+        )
+        await self._work_items.add(item)
+
+        event_id = uuid4()
+        await self._events.record(
+            DomainEventRecord(
+                event_id=event_id,
+                event_type="ReferralFollowupWorkItemCreated",
+                event_version=1,
+                aggregate_type="WORK_ITEM",
+                aggregate_id=item.id,
+                aggregate_version=item.version,
+                actor_id=actor_id,
+                occurred_at=now,
+                recorded_at=now,
+                correlation_id=correlation_id,
+                causation_id=None,
+                payload={
+                    "household_id": str(household_id),
+                    "referral_id": str(referral_id),
+                    "work_item_id": str(item.id),
+                    "assigned_actor_id": str(assigned_actor_id),
+                    "policy_version": item.policy_version,
+                    "due_at": due_at.isoformat(),
+                },
+            )
+        )
+        await self._audits.record(
+            AuditRecord(
+                id=uuid4(),
+                actor_id=actor_id,
+                action="work_item.referral_followup.create",
+                resource_type="WORK_ITEM",
+                resource_id=item.id,
+                request_id=request_id,
+                correlation_id=correlation_id,
+                created_at=now,
+                purpose="CASEWORKER_WORK_QUEUE",
+                metadata={
+                    "event_id": str(event_id),
+                    "referral_id": str(referral_id),
+                    "assigned_actor_id": str(assigned_actor_id),
+                    "policy_version": item.policy_version,
+                },
+            )
+        )
+        return item
+
+
 class StartPlannedReassessmentHandler:
     def __init__(
         self,

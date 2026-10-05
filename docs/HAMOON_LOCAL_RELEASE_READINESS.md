@@ -55,7 +55,7 @@ docker compose up --build
 ```
 
 The stack includes PostgreSQL, NATS JetStream, Keycloak, MinIO, Temporal, database
-migration, API, the Nginx-served React frontend, outbox worker and Temporal worker. Evidence bytes are stored in the private MinIO bucket rather than the API container filesystem.
+migration, API, the Nginx-served React frontend, outbox worker, Temporal worker and provider worker. Evidence bytes are stored in the private MinIO bucket rather than the API container filesystem.
 
 Web product:
 

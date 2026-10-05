@@ -71,7 +71,7 @@ The provider-worker also reconciles persisted `PENDING` dispatches, so a tempora
 
 Provider callback endpoints retain the existing OIDC Provider Identity boundary and provider scoping. After the callback transaction commits, Hamoon signals the dispatch-scoped workflow.
 
-If `response_due_at` exists and no provider response has arrived by that time, the workflow executes a system transition to `NO_RESPONSE`. The activity re-reads the referral first; if the database already shows a provider response or cancellation, it does not create a false timeout.
+If `response_due_at` exists and no provider response has arrived by that time, the workflow executes a system transition to `NO_RESPONSE` and atomically materializes an assigned `REFERRAL_FOLLOWUP` work item for the caseworker queue. The activity re-reads the referral first; if the database already shows a provider response or cancellation, it does not create a false timeout. Activity retries reuse an existing referral follow-up item instead of duplicating it.
 
 Caseworker cancellation signals the workflow and stops the waiting path.
 

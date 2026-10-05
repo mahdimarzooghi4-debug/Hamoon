@@ -11,6 +11,12 @@ from hamoon.app.observability.metrics import (
     PROVIDER_DISPATCH_FAILURE,
     PROVIDER_DISPATCH_SUCCESS,
 )
+from hamoon.domains.operations.application.handlers import (
+    CreateReferralFollowupWorkItemHandler,
+)
+from hamoon.domains.operations.infrastructure.repositories import (
+    SqlAlchemyWorkItemRepository,
+)
 from hamoon.domains.referral.domain.entities import (
     ReferralEvent,
     ReferralEventSource,
@@ -118,73 +124,94 @@ async def mark_referral_no_response(
                     "REFERRAL_NOT_FOUND",
                     non_retryable=True,
                 )
-            if referral.status is not ReferralStatus.SENT:
+            if referral.status not in {
+                ReferralStatus.SENT,
+                ReferralStatus.NO_RESPONSE,
+            }:
                 return referral.status.value
 
-            try:
-                updated = referral.transition(
-                    to_status=ReferralStatus.NO_RESPONSE,
-                    occurred_at=now,
-                )
-            except ValueError as exc:
-                raise ApplicationError(str(exc), non_retryable=True) from exc
+            updated = referral
+            if referral.status is ReferralStatus.SENT:
+                try:
+                    updated = referral.transition(
+                        to_status=ReferralStatus.NO_RESPONSE,
+                        occurred_at=now,
+                    )
+                except ValueError as exc:
+                    raise ApplicationError(str(exc), non_retryable=True) from exc
 
-            await referrals.update(
-                updated,
-                expected_version=referral.version,
-            )
-            await referrals.add_event(
-                ReferralEvent(
-                    id=uuid4(),
-                    referral_id=referral.id,
-                    referral_version=updated.version,
-                    from_status=referral.status,
-                    to_status=updated.status,
-                    occurred_at=now,
-                    recorded_at=now,
-                    actor_id=data.actor_id,
-                    source=ReferralEventSource.SYSTEM,
-                    reason_code="PROVIDER_RESPONSE_TIMEOUT",
-                    external_event_id=None,
+                await referrals.update(
+                    updated,
+                    expected_version=referral.version,
                 )
-            )
-            event_id = uuid4()
-            await SqlAlchemyDomainEventRecorder(session).record(
-                DomainEventRecord(
-                    event_id=event_id,
-                    event_type="ReferralNoResponse",
-                    event_version=1,
-                    aggregate_type="REFERRAL",
-                    aggregate_id=referral.id,
-                    aggregate_version=updated.version,
-                    actor_id=data.actor_id,
-                    occurred_at=now,
-                    recorded_at=now,
-                    correlation_id=data.correlation_id,
-                    causation_id=None,
-                    payload={
-                        "referral_id": str(referral.id),
-                        "from_status": referral.status.value,
-                        "to_status": updated.status.value,
-                        "reason_code": "PROVIDER_RESPONSE_TIMEOUT",
-                    },
+                await referrals.add_event(
+                    ReferralEvent(
+                        id=uuid4(),
+                        referral_id=referral.id,
+                        referral_version=updated.version,
+                        from_status=referral.status,
+                        to_status=updated.status,
+                        occurred_at=now,
+                        recorded_at=now,
+                        actor_id=data.actor_id,
+                        source=ReferralEventSource.SYSTEM,
+                        reason_code="PROVIDER_RESPONSE_TIMEOUT",
+                        external_event_id=None,
+                    )
                 )
-            )
-            await SqlAlchemyAuditRecorder(session).record(
-                AuditRecord(
-                    id=uuid4(),
-                    actor_id=data.actor_id,
-                    action="referral.timeout.no_response",
-                    resource_type="REFERRAL",
-                    resource_id=referral.id,
-                    request_id=activity.info().activity_id,
-                    correlation_id=data.correlation_id,
-                    created_at=now,
-                    purpose="REFERRAL_MANAGEMENT",
-                    metadata={
-                        "event_id": str(event_id),
-                        "version": updated.version,
-                    },
+                event_id = uuid4()
+                await SqlAlchemyDomainEventRecorder(session).record(
+                    DomainEventRecord(
+                        event_id=event_id,
+                        event_type="ReferralNoResponse",
+                        event_version=1,
+                        aggregate_type="REFERRAL",
+                        aggregate_id=referral.id,
+                        aggregate_version=updated.version,
+                        actor_id=data.actor_id,
+                        occurred_at=now,
+                        recorded_at=now,
+                        correlation_id=data.correlation_id,
+                        causation_id=None,
+                        payload={
+                            "household_id": str(referral.household_id),
+                            "referral_id": str(referral.id),
+                            "from_status": referral.status.value,
+                            "to_status": updated.status.value,
+                            "reason_code": "PROVIDER_RESPONSE_TIMEOUT",
+                        },
+                    )
                 )
+                await SqlAlchemyAuditRecorder(session).record(
+                    AuditRecord(
+                        id=uuid4(),
+                        actor_id=data.actor_id,
+                        action="referral.timeout.no_response",
+                        resource_type="REFERRAL",
+                        resource_id=referral.id,
+                        request_id=activity.info().activity_id,
+                        correlation_id=data.correlation_id,
+                        created_at=now,
+                        purpose="REFERRAL_MANAGEMENT",
+                        metadata={
+                            "event_id": str(event_id),
+                            "version": updated.version,
+                        },
+                    )
+                )
+
+            await CreateReferralFollowupWorkItemHandler(
+                work_items=SqlAlchemyWorkItemRepository(session),
+                events=SqlAlchemyDomainEventRecorder(session),
+                audits=SqlAlchemyAuditRecorder(session),
+            ).handle(
+                referral_id=updated.id,
+                household_id=updated.household_id,
+                assigned_actor_id=data.actor_id,
+                due_at=updated.response_due_at or now,
+                actor_id=data.actor_id,
+                request_id=activity.info().activity_id,
+                correlation_id=data.correlation_id,
             )
     return ReferralStatus.NO_RESPONSE.value
+

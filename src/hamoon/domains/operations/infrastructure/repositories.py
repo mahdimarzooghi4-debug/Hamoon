@@ -9,6 +9,7 @@ from hamoon.domains.operations.domain.entities import (
     ReassessmentPlanStatus,
     WorkItem,
     WorkItemStatus,
+    WorkItemType,
 )
 from hamoon.domains.operations.infrastructure.models import (
     ReassessmentPlanModel,
@@ -194,6 +195,23 @@ class SqlAlchemyWorkItemRepository:
 
     async def get(self, work_item_id: UUID) -> WorkItem | None:
         model = await self._session.get(WorkItemModel, work_item_id)
+        return None if model is None else _work_item(model)
+
+    async def get_by_resource(
+        self,
+        *,
+        work_type: WorkItemType,
+        resource_type: str,
+        resource_id: UUID,
+    ) -> WorkItem | None:
+        result = await self._session.execute(
+            select(WorkItemModel).where(
+                WorkItemModel.work_type == work_type,
+                WorkItemModel.resource_type == resource_type,
+                WorkItemModel.resource_id == resource_id,
+            )
+        )
+        model = result.scalar_one_or_none()
         return None if model is None else _work_item(model)
 
     async def update(

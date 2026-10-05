@@ -7,6 +7,7 @@ from hamoon.domains.operations.domain.entities import (
     ReassessmentPlanStatus,
     WorkItem,
     WorkItemStatus,
+    WorkItemType,
 )
 
 
@@ -44,6 +45,14 @@ class WorkItemRepository(Protocol):
     async def add(self, item: WorkItem) -> None: ...
 
     async def get(self, work_item_id: UUID) -> WorkItem | None: ...
+
+    async def get_by_resource(
+        self,
+        *,
+        work_type: WorkItemType,
+        resource_type: str,
+        resource_id: UUID,
+    ) -> WorkItem | None: ...
 
     async def update(
         self,
