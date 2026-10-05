@@ -16,6 +16,7 @@ from hamoon.domains.referral.domain.entities import ReferralDispatch
 class ProviderDispatchTarget:
     endpoint: str
     bearer_token: str
+    verification_endpoint: str | None = None
 
 
 class ProviderDispatchConfigurationError(RuntimeError):
@@ -81,6 +82,7 @@ def load_provider_dispatch_targets(
         target = cast(dict[str, object], value)
         endpoint = target.get("endpoint")
         bearer_token = target.get("bearer_token")
+        verification_endpoint = target.get("verification_endpoint")
         if not isinstance(endpoint, str) or not _remote_https(endpoint):
             raise ProviderDispatchConfigurationError(
                 "PROVIDER_DISPATCH_ENDPOINT_HTTPS_REQUIRED"
@@ -89,9 +91,36 @@ def load_provider_dispatch_targets(
             raise ProviderDispatchConfigurationError(
                 "PROVIDER_DISPATCH_BEARER_TOKEN_INVALID"
             )
+        verification_value: str | None = None
+        if verification_endpoint is not None:
+            if not isinstance(verification_endpoint, str) or not _remote_https(
+                verification_endpoint
+            ):
+                raise ProviderDispatchConfigurationError(
+                    "PROVIDER_VERIFICATION_ENDPOINT_HTTPS_REQUIRED"
+                )
+            dispatch_url = urlsplit(endpoint.strip())
+            verification_url = urlsplit(verification_endpoint.strip())
+            dispatch_origin = (
+                dispatch_url.hostname.lower() if dispatch_url.hostname is not None else "",
+                dispatch_url.port or 443,
+            )
+            verification_origin = (
+                verification_url.hostname.lower()
+                if verification_url.hostname is not None
+                else "",
+                verification_url.port or 443,
+            )
+            if dispatch_origin != verification_origin:
+                raise ProviderDispatchConfigurationError(
+                    "PROVIDER_VERIFICATION_ENDPOINT_ORIGIN_MISMATCH"
+                )
+            verification_value = verification_endpoint.strip()
+
         targets[provider_id] = ProviderDispatchTarget(
             endpoint=endpoint.strip(),
             bearer_token=bearer_token.strip(),
+            verification_endpoint=verification_value,
         )
     return targets
 

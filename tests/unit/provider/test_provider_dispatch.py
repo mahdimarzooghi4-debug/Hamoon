@@ -130,3 +130,51 @@ async def test_provider_dispatch_treats_4xx_as_permanent() -> None:
             match="PROVIDER_DISPATCH_HTTP_422",
         ):
             await dispatcher.send(_dispatch())
+
+
+
+def test_provider_dispatch_config_accepts_same_origin_verification_endpoint() -> None:
+    settings = Settings(
+        _env_file=None,
+        provider_dispatch_config=json.dumps(
+            {
+                str(PROVIDER_ID): {
+                    "endpoint": "https://provider.example/referrals",
+                    "verification_endpoint": (
+                        "https://provider.example/integration/verify"
+                    ),
+                    "bearer_token": "provider-secret-token-123456",
+                }
+            }
+        ),
+    )
+
+    targets = load_provider_dispatch_targets(settings)
+
+    assert (
+        targets[PROVIDER_ID].verification_endpoint
+        == "https://provider.example/integration/verify"
+    )
+
+
+def test_provider_dispatch_config_rejects_cross_origin_verification_endpoint() -> None:
+    settings = Settings(
+        _env_file=None,
+        provider_dispatch_config=json.dumps(
+            {
+                str(PROVIDER_ID): {
+                    "endpoint": "https://provider.example/referrals",
+                    "verification_endpoint": (
+                        "https://verify.other.example/integration"
+                    ),
+                    "bearer_token": "provider-secret-token-123456",
+                }
+            }
+        ),
+    )
+
+    with pytest.raises(
+        ProviderDispatchConfigurationError,
+        match="PROVIDER_VERIFICATION_ENDPOINT_ORIGIN_MISMATCH",
+    ):
+        load_provider_dispatch_targets(settings)
