@@ -215,3 +215,16 @@ def test_production_verification_rejects_missing_migration_identity(
 
     assert result.returncode != 0
     assert "database migration identity missing" in result.stderr
+
+
+
+def test_production_verification_rejects_tampered_deployment_evidence(
+    tmp_path: Path,
+) -> None:
+    admission, deployment, backend, frontend, verification = _chain(tmp_path)
+    deployment.write_text(deployment.read_text() + " ", encoding="utf-8")
+
+    result = _verify(admission, deployment, backend, frontend, verification)
+
+    assert result.returncode != 0
+    assert "production_deployment_sha256 mismatch" in result.stderr
