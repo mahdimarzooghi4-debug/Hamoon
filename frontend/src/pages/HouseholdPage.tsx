@@ -9,6 +9,7 @@ import {
 } from "../api/households";
 import { AppLink } from "../app/navigation";
 import { DiagnosisSection } from "../components/DiagnosisSection";
+import { HouseholdTimelineSection } from "../components/HouseholdTimelineSection";
 import { PrescriptionSection } from "../components/PrescriptionSection";
 import { ProviderReferralSection } from "../components/ProviderReferralSection";
 import { OutcomeMeasurementSection } from "../components/OutcomeMeasurementSection";
@@ -295,6 +296,8 @@ export function HouseholdPage({ householdId }: { householdId: string }) {
           </Panel>
         </div>
       </section>
+
+      <HouseholdTimelineSection householdId={item.id} />
 
       <DiagnosisSection
         householdId={item.id}
