@@ -93,6 +93,7 @@ def _receipt() -> dict[str, object]:
         "production_endpoint": "https://hamoon.example.com",
         "backend_image_id": API_IMAGE_ID,
         "frontend_image_id": WEB_IMAGE_ID,
+        "preflight_id": "preflight-001",
         "deployed_at": "2026-10-05T13:00:00+00:00",
     }
 
@@ -126,6 +127,8 @@ def test_execute_production_deployment_accepts_bound_final_receipt() -> None:
         repository="owner/Hamoon",
         manifest=_manifest(),
         admission=_admission(),
+        preflight_receipt=_preflight_receipt(),
+        preflight_contract_sha256="2" * 64,
         transport=httpx.MockTransport(handler),
     )
 
@@ -202,6 +205,8 @@ def test_execute_production_deployment_rejects_local_orchestrator() -> None:
             repository="owner/Hamoon",
             manifest=_manifest(),
             admission=_admission(),
+            preflight_receipt=_preflight_receipt(),
+            preflight_contract_sha256="2" * 64,
         )
 
 
