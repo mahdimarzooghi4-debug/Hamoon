@@ -735,6 +735,7 @@ are connected.
 
 ## PB-090 — Evidence Upload Init
 Priority: P1
+Implementation: COMPLETE. Household authorization and sensitivity policy gate metadata creation; upload capability is short-lived and signed; opaque storage keys contain no user PII.
 
 Acceptance Criteria:
 - authorization checked.
@@ -746,6 +747,7 @@ Acceptance Criteria:
 
 ## PB-091 — Evidence Finalize / Integrity
 Priority: P1
+Implementation: COMPLETE at the application/runtime contract. Object existence, size and SHA-256 are verified and Production requires a remote HTTPS scanner. Real external Production scanner/storage evidence remains deployment-specific.
 
 Acceptance Criteria:
 - existence verified.
@@ -758,6 +760,7 @@ Acceptance Criteria:
 
 ## PB-092 — Evidence Availability / Quarantine
 Priority: P1
+Implementation: COMPLETE. Evidence becomes AVAILABLE only after clean validation/scan; infected evidence is quarantined and unavailable to normal download paths; lifecycle events are emitted.
 
 Acceptance Criteria:
 - AVAILABLE only after validation/scan policy.
@@ -768,6 +771,7 @@ Acceptance Criteria:
 
 ## PB-093 — Authorized Evidence Download
 Priority: P1
+Implementation: COMPLETE. Household assignment and sensitivity scope are checked server-side; access uses short-lived signed capability tokens and issuance is audited.
 
 Acceptance Criteria:
 - case scope checked.

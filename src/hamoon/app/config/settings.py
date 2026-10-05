@@ -76,6 +76,10 @@ class Settings(BaseSettings):
     evidence_s3_bucket: str = "hamoon-evidence"
     evidence_s3_region: str = "us-east-1"
     evidence_s3_request_timeout_seconds: float = 10.0
+    evidence_scanner_backend: str = "local"
+    evidence_scanner_endpoint: str | None = None
+    evidence_scanner_token: SecretStr | None = None
+    evidence_scanner_timeout_seconds: float = 20.0
     evidence_signing_secret: str = "hamoon-local-evidence-secret"
     evidence_upload_ttl_seconds: int = 300
     evidence_download_ttl_seconds: int = 300
@@ -103,6 +107,11 @@ class Settings(BaseSettings):
         backend = self.evidence_storage_backend.strip().lower()
         if backend not in {"local", "s3"}:
             raise ValueError("EVIDENCE_STORAGE_BACKEND_INVALID")
+        scanner_backend = self.evidence_scanner_backend.strip().lower()
+        if scanner_backend not in {"local", "http"}:
+            raise ValueError("EVIDENCE_SCANNER_BACKEND_INVALID")
+        if self.evidence_scanner_timeout_seconds <= 0:
+            raise ValueError("EVIDENCE_SCANNER_TIMEOUT_INVALID")
 
         environment = self.environment.strip().lower()
         if environment not in {"prod", "production"}:
@@ -178,6 +187,20 @@ class Settings(BaseSettings):
             or self.evidence_signing_secret == "hamoon-local-evidence-secret"
         ):
             errors.append("PRODUCTION_EVIDENCE_SIGNING_SECRET_REQUIRED")
+        if scanner_backend != "http":
+            errors.append("PRODUCTION_EVIDENCE_SCANNER_REQUIRED")
+        if (
+            self.evidence_scanner_endpoint is None
+            or not _is_remote_https(self.evidence_scanner_endpoint)
+        ):
+            errors.append("PRODUCTION_EVIDENCE_SCANNER_HTTPS_REQUIRED")
+        scanner_token = (
+            self.evidence_scanner_token.get_secret_value().strip()
+            if self.evidence_scanner_token is not None
+            else ""
+        )
+        if len(scanner_token) < 32:
+            errors.append("PRODUCTION_EVIDENCE_SCANNER_TOKEN_REQUIRED")
 
         if errors:
             raise ValueError("PRODUCTION_CONFIGURATION_INVALID:" + ",".join(errors))

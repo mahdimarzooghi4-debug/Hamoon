@@ -47,10 +47,11 @@ from hamoon.domains.evidence.infrastructure.local_storage import (
 from hamoon.domains.evidence.infrastructure.repositories import (
     SqlAlchemyEvidenceRepository,
 )
+from hamoon.domains.evidence.infrastructure.http_scanner import HttpEvidenceScanner
 from hamoon.domains.evidence.infrastructure.s3_storage import (
     S3CompatibleEvidenceStorage,
 )
-from hamoon.domains.evidence.ports.repositories import EvidenceStorage
+from hamoon.domains.evidence.ports.repositories import EvidenceScanner, EvidenceStorage
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
@@ -99,6 +100,23 @@ def _storage(settings: Settings) -> EvidenceStorage:
             timeout_seconds=settings.evidence_s3_request_timeout_seconds,
         )
     raise ValueError("EVIDENCE_STORAGE_BACKEND_INVALID")
+
+
+def _scanner(settings: Settings) -> EvidenceScanner:
+    backend = settings.evidence_scanner_backend.strip().lower()
+    if backend == "local":
+        return LocalEvidenceScanner()
+    if backend == "http":
+        endpoint = settings.evidence_scanner_endpoint
+        token = settings.evidence_scanner_token
+        if endpoint is None or token is None:
+            raise ValueError("EVIDENCE_SCANNER_CONFIGURATION_INVALID")
+        return HttpEvidenceScanner(
+            endpoint=endpoint,
+            bearer_token=token.get_secret_value(),
+            timeout_seconds=settings.evidence_scanner_timeout_seconds,
+        )
+    raise ValueError("EVIDENCE_SCANNER_BACKEND_INVALID")
 
 
 def _storage_provider(settings: Settings) -> str:
@@ -166,6 +184,10 @@ def _raise_evidence_http(exc: Exception) -> NoReturn:
     if code in {
         "EVIDENCE_STORAGE_UNAVAILABLE",
         "EVIDENCE_STORAGE_METADATA_INVALID",
+        "EVIDENCE_SCANNER_UNAVAILABLE",
+        "EVIDENCE_SCANNER_REJECTED",
+        "EVIDENCE_SCANNER_RESPONSE_INVALID",
+        "EVIDENCE_SCANNER_CONFIGURATION_INVALID",
     }:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -334,7 +356,7 @@ async def finalize_evidence(
             updated = await FinalizeEvidenceHandler(
                 repository=repository,
                 storage=_storage(settings),
-                scanner=LocalEvidenceScanner(),
+                scanner=_scanner(settings),
                 events=SqlAlchemyDomainEventRecorder(session),
                 audits=SqlAlchemyAuditRecorder(session),
             ).handle(

@@ -31,6 +31,9 @@ def _production_settings(**overrides: object) -> Settings:
         "evidence_s3_endpoint": "https://objects.example.com",
         "evidence_s3_access_key": "production-access-key",
         "evidence_s3_secret_key": "production-secret-key-value",
+        "evidence_scanner_backend": "http",
+        "evidence_scanner_endpoint": "https://scanner.example.com/v1/scan",
+        "evidence_scanner_token": "s" * 32,
         "evidence_signing_secret": "production-evidence-signing-secret-32-bytes",
     }
     values.update(overrides)
@@ -147,6 +150,21 @@ def test_production_configuration_accepts_remote_secure_dependencies() -> None:
             "hamoon-local-evidence-secret",
             "PRODUCTION_EVIDENCE_SIGNING_SECRET_REQUIRED",
         ),
+        (
+            "evidence_scanner_backend",
+            "local",
+            "PRODUCTION_EVIDENCE_SCANNER_REQUIRED",
+        ),
+        (
+            "evidence_scanner_endpoint",
+            "http://scanner.example.com/v1/scan",
+            "PRODUCTION_EVIDENCE_SCANNER_HTTPS_REQUIRED",
+        ),
+        (
+            "evidence_scanner_token",
+            "short",
+            "PRODUCTION_EVIDENCE_SCANNER_TOKEN_REQUIRED",
+        ),
     ],
 )
 def test_production_configuration_rejects_unsafe_values(
@@ -168,3 +186,9 @@ def test_local_configuration_keeps_developer_defaults() -> None:
 def test_unknown_evidence_storage_backend_is_rejected_in_all_environments() -> None:
     with pytest.raises(ValidationError, match="EVIDENCE_STORAGE_BACKEND_INVALID"):
         Settings(_env_file=None, evidence_storage_backend="filesystem-v2")
+
+
+
+def test_unknown_evidence_scanner_backend_is_rejected_in_all_environments() -> None:
+    with pytest.raises(ValidationError, match="EVIDENCE_SCANNER_BACKEND_INVALID"):
+        Settings(_env_file=None, evidence_scanner_backend="magic")
