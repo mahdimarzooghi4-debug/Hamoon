@@ -41,7 +41,7 @@ class ReassessmentWorkflow:
             MaterializeReassessmentInput(
                 plan_id=data.plan_id,
                 actor_id=data.actor_id,
-                correlation_id=workflow.info().workflow_id,
+                correlation_id=data.correlation_id,
             ),
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=_ACTIVITY_RETRY,
@@ -60,7 +60,7 @@ class ReassessmentWorkflow:
                 post_assessment_id=post_pgor.assessment_id,
                 post_snapshot_id=post_pgor.snapshot_id,
                 actor_id=data.actor_id,
-                correlation_id=workflow.info().workflow_id,
+                correlation_id=data.correlation_id,
             ),
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=_ACTIVITY_RETRY,
@@ -74,7 +74,7 @@ class ReassessmentWorkflow:
             GenerateOutcomeAIInput(
                 outcome_id=outcome_id,
                 actor_id=data.actor_id,
-                correlation_id=workflow.info().workflow_id,
+                correlation_id=data.correlation_id,
             ),
             start_to_close_timeout=timedelta(seconds=90),
             retry_policy=RetryPolicy(
@@ -91,7 +91,7 @@ class ReassessmentWorkflow:
                 plan_id=data.plan_id,
                 outcome_id=outcome_id,
                 actor_id=data.actor_id,
-                correlation_id=workflow.info().workflow_id,
+                correlation_id=data.correlation_id,
             ),
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=_ACTIVITY_RETRY,

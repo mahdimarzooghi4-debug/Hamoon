@@ -63,6 +63,12 @@ jobs:
       - name: Security regression acceptance contract
         run: uv run pytest tests/unit/security/test_security_regression_contract.py
 
+      - name: Observability correlation contract
+        run: |
+          uv run pytest tests/unit/referral/test_referral_temporal.py
+          uv run pytest tests/unit/operations/test_temporal_reassessment_reconciliation.py
+          uv run pytest tests/unit/ai/test_gateway.py
+
       - name: Security regression gate
         run: |
           uv run pytest tests/unit/security

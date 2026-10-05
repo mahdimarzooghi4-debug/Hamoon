@@ -65,7 +65,7 @@ class ReferralWorkflow:
             MarkReferralNoResponseInput(
                 referral_id=data.referral_id,
                 actor_id=data.actor_id,
-                correlation_id=workflow.info().workflow_id,
+                correlation_id=data.correlation_id,
             ),
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=_ACTIVITY_RETRY,

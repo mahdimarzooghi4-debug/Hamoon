@@ -7,6 +7,7 @@ from temporalio.client import Client
 from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
 
 from hamoon.app.config.settings import Settings
+from hamoon.app.observability.request_context import current_correlation_id
 from hamoon.domains.referral.domain.entities import Referral, ReferralDispatch, ReferralStatus
 from hamoon.infrastructure.temporal.contracts import (
     ReferralStatusSignal,
@@ -45,6 +46,13 @@ class TemporalReferralStarter:
                 dispatch_id=dispatch.id,
                 response_due_at=referral.response_due_at,
                 actor_id=actor_id,
+                correlation_id=(
+                    current_correlation_id()
+                    or referral_workflow_id(
+                        referral_id=referral.id,
+                        dispatch_id=dispatch.id,
+                    )
+                ),
             ),
             id=referral_workflow_id(
                 referral_id=referral.id,

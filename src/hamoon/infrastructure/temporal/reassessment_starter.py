@@ -4,6 +4,7 @@ from temporalio.client import Client
 from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
 
 from hamoon.app.config.settings import Settings
+from hamoon.app.observability.request_context import current_correlation_id
 from hamoon.domains.operations.domain.entities import ReassessmentPlan
 from hamoon.infrastructure.temporal.contracts import (
     PostPGORReadySignal,
@@ -33,6 +34,7 @@ class TemporalReassessmentStarter:
                 due_at=plan.due_at,
                 policy_version=plan.policy_version,
                 actor_id=plan.created_by,
+                correlation_id=current_correlation_id() or plan.workflow_id,
             ),
             id=plan.workflow_id,
             task_queue=self._task_queue,

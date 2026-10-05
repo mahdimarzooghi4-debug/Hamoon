@@ -10,6 +10,7 @@ class ReassessmentWorkflowInput:
     due_at: datetime
     policy_version: str
     actor_id: UUID
+    correlation_id: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +56,7 @@ class ReferralWorkflowInput:
     dispatch_id: UUID
     response_due_at: datetime | None
     actor_id: UUID
+    correlation_id: str
 
 
 @dataclass(frozen=True, slots=True)

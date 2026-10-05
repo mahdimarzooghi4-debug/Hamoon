@@ -867,6 +867,7 @@ Aggregated by authorized organizational scope.
 
 ## PB-120 — Structured Logging + OpenTelemetry
 Priority: P0
+Implementation: COMPLETE. Request/correlation context propagates through durable events/NATS and long-running Temporal workflow inputs; AI Gateway emits a PII-safe custom span with the same business correlation. Structured logs are sanitized, OpenTelemetry instruments FastAPI/SQLAlchemy/HTTPX, and Stage Admission proves OTLP trace/log transport for the exact promoted release.
 
 Acceptance Criteria:
 - request/event/workflow/AI traces correlate.

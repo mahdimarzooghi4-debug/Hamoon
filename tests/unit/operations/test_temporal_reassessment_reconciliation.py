@@ -9,6 +9,7 @@ from hamoon.domains.operations.domain.entities import (
     ReassessmentPlan,
     ReassessmentPlanStatus,
 )
+from hamoon.infrastructure.temporal.contracts import ReassessmentWorkflowInput
 from hamoon.infrastructure.temporal.reassessment_starter import (
     TemporalReassessmentStarter,
 )
@@ -75,9 +76,11 @@ class _Starter:
 
 class _Client:
     def __init__(self) -> None:
+        self.args = None
         self.kwargs = None
 
-    async def start_workflow(self, *_args, **kwargs):
+    async def start_workflow(self, *args, **kwargs):
+        self.args = args
         self.kwargs = kwargs
         return object()
 
@@ -92,6 +95,9 @@ async def test_starter_prevents_duplicate_successful_workflow_runs() -> None:
 
     await starter.start(_plan(ReassessmentPlanStatus.COMPLETED))
 
+    assert client.args is not None
+    assert isinstance(client.args[1], ReassessmentWorkflowInput)
+    assert client.args[1].correlation_id == f"reassessment:{PROVIDER_RESULT}"
     assert client.kwargs is not None
     assert (
         client.kwargs["id_reuse_policy"]

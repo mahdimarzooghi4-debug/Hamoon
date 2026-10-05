@@ -106,6 +106,10 @@ async def test_referral_starter_uses_dispatch_scoped_workflow_identity() -> None
     assert isinstance(args[1], ReferralWorkflowInput)
     assert args[1].referral_id == REFERRAL_ID
     assert args[1].dispatch_id == DISPATCH_ID
+    assert args[1].correlation_id == referral_workflow_id(
+        referral_id=REFERRAL_ID,
+        dispatch_id=DISPATCH_ID,
+    )
     assert kwargs["id"] == referral_workflow_id(
         referral_id=REFERRAL_ID,
         dispatch_id=DISPATCH_ID,
