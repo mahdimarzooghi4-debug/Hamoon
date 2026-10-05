@@ -836,6 +836,10 @@ Acceptance Criteria:
 
 ## PB-110 — Data Health Projection
 Priority: P1
+Implementation: COMPLETE. The persisted admin projection now exposes missing-required-data work,
+unresolved fact conflicts, incomplete assessments, objectively expired accepted-source facts,
+and unresolved integration failures across provider inbox/dispatch and durable outbox state.
+The ADMIN/SECURITY_AUDITOR workspace renders the live projection without mutating product state.
 
 Metrics:
 - missing required data
@@ -848,6 +852,10 @@ Metrics:
 
 ## PB-111 — Machine Health Projection
 Priority: P1
+Implementation: COMPLETE. Diagnosis human-review outcomes are counted only in DIAGNOSIS context;
+PII-safe durable runtime events capture AI schema, inference and routing failures; real AI fallback
+incidents and open workflow-generated operational work are projected separately. The live admin
+workspace is authorized for ADMIN/SECURITY_AUDITOR and remains read-only.
 
 Metrics:
 - diagnosis confirms/modifies/replaces
