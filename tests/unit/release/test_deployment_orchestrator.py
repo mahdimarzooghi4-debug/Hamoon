@@ -8,13 +8,19 @@ import pytest
 from hamoon.deployment.orchestrator import (
     DeploymentOrchestratorError,
     build_deployment_request,
+    build_preflight_request,
     execute_production_deployment,
+    execute_production_preflight,
 )
 
 COMMIT = "a" * 40
 API_IMAGE_ID = "sha256:" + "b" * 64
 WEB_IMAGE_ID = "sha256:" + "c" * 64
 TOKEN = "t" * 40
+PREFLIGHT_CHECKS = [
+    "postgresql_connectivity",
+    "nats_jetstream_connectivity",
+]
 
 
 def _manifest() -> dict[str, object]:
@@ -50,6 +56,29 @@ def _admission() -> dict[str, object]:
         "frontend_image_id": WEB_IMAGE_ID,
         "release_manifest_sha256": "f" * 64,
         "release_approval_sha256": "1" * 64,
+    }
+
+
+def _requirements() -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "contract": "HAMOON_PRODUCTION_RUNTIME_PREFLIGHT",
+        "required_checks": PREFLIGHT_CHECKS,
+    }
+
+
+def _preflight_receipt() -> dict[str, object]:
+    return {
+        "status": "READY",
+        "preflight_id": "preflight-001",
+        "commit_sha": COMMIT,
+        "deployment_id": "prod-20261005-001",
+        "production_target": "hamoon-prod-primary",
+        "production_endpoint": "https://hamoon.example.com",
+        "backend_image_id": API_IMAGE_ID,
+        "frontend_image_id": WEB_IMAGE_ID,
+        "checks": {check: True for check in PREFLIGHT_CHECKS},
+        "checked_at": "2026-10-05T12:55:00+00:00",
     }
 
 
@@ -211,5 +240,92 @@ def test_execute_production_deployment_rejects_cross_port_status_url() -> None:
             repository="owner/Hamoon",
             manifest=_manifest(),
             admission=_admission(),
+            transport=httpx.MockTransport(handler),
+        )
+
+
+
+def test_build_preflight_request_binds_runtime_contract() -> None:
+    request = build_preflight_request(
+        repository="owner/Hamoon",
+        manifest=_manifest(),
+        admission=_admission(),
+        requirements=_requirements(),
+        requirements_sha256="2" * 64,
+    )
+
+    assert request["operation"] == "PREFLIGHT_HAMOON_PRODUCTION"
+    metadata = cast(dict[str, object], request["runtime_preflight"])
+    assert metadata["contract_sha256"] == "2" * 64
+    assert metadata["required_checks"] == PREFLIGHT_CHECKS
+
+
+def test_execute_production_preflight_requires_all_checks_ready() -> None:
+    observed_operations: list[object] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        observed_operations.append(request.json()["operation"])
+        return httpx.Response(200, json=_preflight_receipt())
+
+    request_payload, receipt = execute_production_preflight(
+        orchestrator_endpoint="https://deploy.example.com/v1/deployments",
+        token=TOKEN,
+        repository="owner/Hamoon",
+        manifest=_manifest(),
+        admission=_admission(),
+        requirements=_requirements(),
+        requirements_sha256="2" * 64,
+        transport=httpx.MockTransport(handler),
+    )
+
+    assert request_payload["operation"] == "PREFLIGHT_HAMOON_PRODUCTION"
+    assert receipt["status"] == "READY"
+    assert observed_operations == ["PREFLIGHT_HAMOON_PRODUCTION"]
+
+
+def test_execute_production_preflight_rejects_failed_required_check() -> None:
+    receipt = _preflight_receipt()
+    checks = cast(dict[str, object], receipt["checks"])
+    checks["temporal_connectivity"] = False
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=receipt)
+
+    with pytest.raises(
+        DeploymentOrchestratorError,
+        match="receipt check set does not match contract",
+    ):
+        execute_production_preflight(
+            orchestrator_endpoint="https://deploy.example.com/v1/deployments",
+            token=TOKEN,
+            repository="owner/Hamoon",
+            manifest=_manifest(),
+            admission=_admission(),
+            requirements=_requirements(),
+            requirements_sha256="2" * 64,
+            transport=httpx.MockTransport(handler),
+        )
+
+
+def test_execute_production_preflight_rejects_false_required_check() -> None:
+    receipt = _preflight_receipt()
+    checks = cast(dict[str, object], receipt["checks"])
+    checks["postgresql_connectivity"] = False
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=receipt)
+
+    with pytest.raises(
+        DeploymentOrchestratorError,
+        match="failed required checks: postgresql_connectivity",
+    ):
+        execute_production_preflight(
+            orchestrator_endpoint="https://deploy.example.com/v1/deployments",
+            token=TOKEN,
+            repository="owner/Hamoon",
+            manifest=_manifest(),
+            admission=_admission(),
+            requirements=_requirements(),
+            requirements_sha256="2" * 64,
             transport=httpx.MockTransport(handler),
         )
