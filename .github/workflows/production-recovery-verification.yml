@@ -1,0 +1,364 @@
+name: Production Recovery Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact Production-monitored 40-character commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: Type VERIFY_PRODUCTION_RECOVERY
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-production-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROMOTED_SHA: ${{ inputs.commit_sha }}
+      RECOVERY_VERIFICATION_URL: ${{ secrets.HAMOON_RECOVERY_VERIFICATION_URL }}
+      RECOVERY_VERIFICATION_TOKEN: ${{ secrets.HAMOON_RECOVERY_VERIFICATION_TOKEN }}
+
+    steps:
+      - name: Validate explicit Production recovery verification input
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          test "$CONFIRMATION" = "VERIFY_PRODUCTION_RECOVERY"
+          printf '%s' "$PROMOTED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test -n "$RECOVERY_VERIFICATION_URL"
+          test -n "$RECOVERY_VERIFICATION_TOKEN"
+
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import ipaddress
+          import os
+          from urllib.parse import urlsplit
+
+          value = os.environ["RECOVERY_VERIFICATION_URL"].strip()
+          parsed = urlsplit(value)
+          assert parsed.scheme == "https", "recovery verification URL must use HTTPS"
+          assert parsed.hostname, "recovery verification URL must include a host"
+          host = parsed.hostname.lower()
+          assert host != "localhost" and not host.endswith(".localhost")
+          try:
+              address = ipaddress.ip_address(host)
+          except ValueError:
+              pass
+          else:
+              assert not (
+                  address.is_loopback
+                  or address.is_private
+                  or address.is_link_local
+                  or address.is_unspecified
+              ), "recovery verification URL must not use a local/private IP"
+          print(f"RECOVERY_VERIFICATION_URL={value}")
+          PY
+
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Require candidate to belong to main history
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$PROMOTED_SHA" origin/main
+
+      - name: Resolve immutable recovery and Production evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          resolve_artifact_run() {
+            artifact_name="$1"
+            artifact_id="$(
+              gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$artifact_name&per_page=100" \
+                --jq '[.artifacts[] | select(.expired == false)][0].id'
+            )"
+            test -n "$artifact_id"
+            run_id="$(
+              gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id" \
+                --jq '.workflow_run.id'
+            )"
+            test -n "$run_id"
+            conclusion="$(
+              gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" \
+                --jq '.conclusion'
+            )"
+            test "$conclusion" = "success"
+            printf '%s' "$run_id"
+          }
+
+          objectives_run_id="$(
+            resolve_artifact_run "hamoon-recovery-objectives-$PROMOTED_SHA"
+          )"
+          monitoring_run_id="$(
+            resolve_artifact_run "hamoon-production-monitoring-$PROMOTED_SHA"
+          )"
+          echo "RECOVERY_OBJECTIVES_APPROVAL_RUN_ID=$objectives_run_id" >> "$GITHUB_ENV"
+          echo "PRODUCTION_MONITORING_RUN_ID=$monitoring_run_id" >> "$GITHUB_ENV"
+
+      - name: Download recovery objectives and Production monitoring evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p recovery-input/objectives recovery-input/monitoring
+          gh run download "$RECOVERY_OBJECTIVES_APPROVAL_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-recovery-objectives-$PROMOTED_SHA" \
+            --dir recovery-input/objectives
+          gh run download "$PRODUCTION_MONITORING_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-production-monitoring-$PROMOTED_SHA" \
+            --dir recovery-input/monitoring
+
+      - name: Resolve and download exact Stage recovery rehearsal evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rehearsal_run_id="$(
+            python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          value = json.loads(
+              Path(
+                  "recovery-input/objectives/recovery-objectives-approval.json"
+              ).read_text()
+          )
+          print(value["recovery_rehearsal_run_id"])
+          PY
+          )"
+          test -n "$rehearsal_run_id"
+          test "$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$rehearsal_run_id" \
+              --jq '.conclusion'
+          )" = "success"
+          echo "RECOVERY_REHEARSAL_RUN_ID=$rehearsal_run_id" >> "$GITHUB_ENV"
+
+          mkdir -p recovery-input/rehearsal
+          gh run download "$rehearsal_run_id" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-recovery-rehearsal-$PROMOTED_SHA" \
+            --dir recovery-input/rehearsal
+
+      - name: Re-verify approved recovery objectives and Production baseline
+        run: |
+          python3 scripts/verify_recovery_policy.py \
+            ops/recovery/recovery-policy.json .
+          python3 scripts/verify_recovery_objectives.py \
+            ops/recovery/recovery-policy.json \
+            recovery-input/rehearsal/recovery-rehearsal.json \
+            recovery-input/objectives/recovery-objectives-approval.json
+
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          import os
+          from pathlib import Path
+
+          approval = json.loads(
+              Path(
+                  "recovery-input/objectives/recovery-objectives-approval.json"
+              ).read_text()
+          )
+          monitoring = json.loads(
+              Path(
+                  "recovery-input/monitoring/production-monitoring-baseline.json"
+              ).read_text()
+          )
+          assert approval["commit_sha"] == os.environ["PROMOTED_SHA"]
+          assert (
+              approval["recovery_objectives_approval_run_id"]
+              == os.environ["RECOVERY_OBJECTIVES_APPROVAL_RUN_ID"]
+          )
+          assert monitoring["status"] == "BASELINE_PASSED"
+          assert monitoring["production_deployed"] is True
+          assert monitoring["production_verified"] is True
+          assert monitoring["commit_sha"] == os.environ["PROMOTED_SHA"]
+          assert (
+              monitoring["production_monitoring_run_id"]
+              == os.environ["PRODUCTION_MONITORING_RUN_ID"]
+          )
+          print(f'EXPECTED_DEPLOYMENT_ID={monitoring["deployment_id"]}')
+          PY
+
+      - name: Query remote Production recovery verification adapter
+        run: |
+          mkdir -p recovery-observed
+          for i in {1..36}; do
+            status="$(
+              curl --silent --show-error \
+                --output recovery-observed/provider-observation.tmp \
+                --write-out '%{http_code}' \
+                --get \
+                --header "Authorization: Bearer $RECOVERY_VERIFICATION_TOKEN" \
+                --data-urlencode "commit_sha=$PROMOTED_SHA" \
+                --data-urlencode "deployment_id=$EXPECTED_DEPLOYMENT_ID" \
+                --data-urlencode "recovery_objectives_approval_run_id=$RECOVERY_OBJECTIVES_APPROVAL_RUN_ID" \
+                --proto '=https' --proto-redir '=https' --tlsv1.2 \
+                --max-time 20 \
+                "$RECOVERY_VERIFICATION_URL" || true
+            )"
+            if [ "$status" = "200" ]; then
+              mv recovery-observed/provider-observation.tmp \
+                recovery-observed/provider-observation.json
+              break
+            fi
+            if [ "$status" != "202" ] && [ "$status" != "404" ]; then
+              echo "Unexpected recovery verification status: $status" >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          test -f recovery-observed/provider-observation.json
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          observation = json.loads(
+              Path("recovery-observed/provider-observation.json").read_text()
+          )
+          assert observation["commit_sha"] == os.environ["PROMOTED_SHA"]
+          assert observation["deployment_id"] == os.environ["EXPECTED_DEPLOYMENT_ID"]
+          assert observation["query_origin"].rstrip("/") == os.environ[
+              "RECOVERY_VERIFICATION_URL"
+          ].rstrip("/")
+          PY
+
+      - name: Create immutable Production recovery attestation
+        env:
+          VERIFIER: ${{ github.actor }}
+          PRODUCTION_RECOVERY_VERIFICATION_RUN_ID: ${{ github.run_id }}
+        run: |
+          mkdir -p production-recovery
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          def digest(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          def timestamp(value: str) -> datetime:
+              parsed = datetime.fromisoformat(value)
+              assert parsed.tzinfo is not None
+              return parsed
+
+          policy_path = Path("ops/recovery/recovery-policy.json")
+          rehearsal_path = Path(
+              "recovery-input/rehearsal/recovery-rehearsal.json"
+          )
+          approval_path = Path(
+              "recovery-input/objectives/recovery-objectives-approval.json"
+          )
+          monitoring_path = Path(
+              "recovery-input/monitoring/production-monitoring-baseline.json"
+          )
+          observation_path = Path(
+              "recovery-observed/provider-observation.json"
+          )
+
+          approval = json.loads(approval_path.read_text())
+          monitoring = json.loads(monitoring_path.read_text())
+          observation = json.loads(observation_path.read_text())
+          observed_at = timestamp(observation["observed_at"])
+          pg = observation["postgresql"]
+          evidence = observation["evidence_object_storage"]
+          mode = observation["infrastructure_mode"]
+
+          attestation = {
+              "schema_version": 1,
+              "status": "VERIFIED",
+              "verification_scope": "PRODUCTION_BACKUP_RESTORE_PITR",
+              "production_recovery_verified": True,
+              "production_backup_restore_verified": True,
+              "production_pitr_verified": True,
+              "external_backup_retention_verified": True,
+              "recovery_objectives_met": True,
+              "production_managed_backup_verified": mode == "managed",
+              "self_hosted_recovery_assets_verified": mode == "self_hosted",
+              "commit_sha": os.environ["PROMOTED_SHA"],
+              "deployment_id": monitoring["deployment_id"],
+              "provider": observation["provider"],
+              "infrastructure_mode": mode,
+              "recovery_rehearsal_run_id": approval[
+                  "recovery_rehearsal_run_id"
+              ],
+              "recovery_objectives_approval_run_id": approval[
+                  "recovery_objectives_approval_run_id"
+              ],
+              "production_monitoring_run_id": monitoring[
+                  "production_monitoring_run_id"
+              ],
+              "postgresql_rpo_age_seconds": int(
+                  (observed_at - timestamp(pg["latest_recoverable_point_at"]))
+                  .total_seconds()
+              ),
+              "postgresql_rto_seconds": int(
+                  (
+                      timestamp(pg["restore_completed_at"])
+                      - timestamp(pg["restore_started_at"])
+                  ).total_seconds()
+              ),
+              "evidence_rpo_age_seconds": int(
+                  (
+                      observed_at
+                      - timestamp(evidence["latest_recoverable_point_at"])
+                  ).total_seconds()
+              ),
+              "evidence_rto_seconds": int(
+                  (
+                      timestamp(evidence["restore_completed_at"])
+                      - timestamp(evidence["restore_started_at"])
+                  ).total_seconds()
+              ),
+              "recovery_policy_sha256": digest(policy_path),
+              "recovery_rehearsal_sha256": digest(rehearsal_path),
+              "recovery_objectives_approval_sha256": digest(approval_path),
+              "production_monitoring_sha256": digest(monitoring_path),
+              "provider_observation_sha256": digest(observation_path),
+              "production_recovery_verification_run_id": os.environ[
+                  "PRODUCTION_RECOVERY_VERIFICATION_RUN_ID"
+              ],
+              "verifier": os.environ["VERIFIER"],
+              "verified_at": datetime.now(UTC).isoformat(),
+          }
+          Path(
+              "production-recovery/production-recovery-verification.json"
+          ).write_text(
+              json.dumps(attestation, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Verify Production recovery evidence
+        run: |
+          python3 scripts/verify_production_recovery.py \
+            ops/recovery/recovery-policy.json \
+            recovery-input/rehearsal/recovery-rehearsal.json \
+            recovery-input/objectives/recovery-objectives-approval.json \
+            recovery-input/monitoring/production-monitoring-baseline.json \
+            recovery-observed/provider-observation.json \
+            production-recovery/production-recovery-verification.json
+
+      - name: Upload immutable Production recovery evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamoon-production-recovery-${{ inputs.commit_sha }}
+          path: production-recovery/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Destroy ephemeral provider observation
+        if: always()
+        run: rm -rf recovery-observed recovery-input

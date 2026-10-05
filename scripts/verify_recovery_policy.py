@@ -12,7 +12,10 @@ def require(condition: bool, message: str) -> None:
 
 
 def main() -> None:
-    require(len(sys.argv) == 3, "usage: verify_recovery_policy.py <policy.json> <repo-root>")
+    require(
+        len(sys.argv) == 3,
+        "usage: verify_recovery_policy.py <policy.json> <repo-root>",
+    )
     policy_path = Path(sys.argv[1]).resolve()
     repo_root = Path(sys.argv[2]).resolve()
     require(policy_path.is_file(), "policy file missing")
@@ -20,7 +23,10 @@ def main() -> None:
     require(isinstance(value, dict), "policy must be an object")
     require(value.get("schema_version") == 1, "unsupported schema")
     require(value.get("status") == "ENFORCED", "status must be ENFORCED")
-    require(value.get("rehearsal_scope") == "STAGE_RECOVERY_REHEARSAL", "rehearsal_scope invalid")
+    require(
+        value.get("rehearsal_scope") == "STAGE_RECOVERY_REHEARSAL",
+        "rehearsal_scope invalid",
+    )
 
     assets = value.get("required_assets")
     require(isinstance(assets, list), "required_assets missing")
@@ -29,10 +35,22 @@ def main() -> None:
         for item in assets
         if isinstance(item, dict) and isinstance(item.get("id"), str)
     }
-    require(set(by_id) == {"postgresql", "evidence_object_storage", "release_bundle"}, "required recovery asset set invalid")
-    require(by_id["postgresql"].get("restore_test") == "required", "PostgreSQL restore test must be required")
-    require(by_id["evidence_object_storage"].get("restore_test") == "required", "evidence restore test must be required")
-    require(by_id["release_bundle"].get("restore_test") == "integrity_required", "release bundle integrity test must be required")
+    require(
+        set(by_id) == {"postgresql", "evidence_object_storage", "release_bundle"},
+        "required recovery asset set invalid",
+    )
+    require(
+        by_id["postgresql"].get("restore_test") == "required",
+        "PostgreSQL restore test must be required",
+    )
+    require(
+        by_id["evidence_object_storage"].get("restore_test") == "required",
+        "evidence restore test must be required",
+    )
+    require(
+        by_id["release_bundle"].get("restore_test") == "integrity_required",
+        "release bundle integrity test must be required",
+    )
 
     assertions = value.get("required_stage_assertions")
     require(isinstance(assertions, list), "required_stage_assertions missing")
@@ -49,7 +67,8 @@ def main() -> None:
     forbidden = value.get("production_claims_forbidden_from_stage")
     require(isinstance(forbidden, list), "forbidden Production claims missing")
     require(
-        set(forbidden) == {
+        set(forbidden)
+        == {
             "production_managed_backup_verified",
             "production_pitr_verified",
             "external_backup_retention_verified",
@@ -65,7 +84,8 @@ def main() -> None:
         if isinstance(item, dict) and item.get("required_when") == "self_hosted"
     }
     require(
-        conditional_ids == {
+        conditional_ids
+        == {
             "nats_jetstream",
             "temporal_persistence",
             "keycloak_database_and_config",
@@ -81,8 +101,7 @@ def main() -> None:
     objective_assets = value.get("required_recovery_objective_assets")
     require(
         isinstance(objective_assets, list)
-        and set(objective_assets)
-        == {"postgresql", "evidence_object_storage"},
+        and set(objective_assets) == {"postgresql", "evidence_object_storage"},
         "required recovery objective asset set invalid",
     )
     objective_approval = value.get("recovery_objectives_approval")
@@ -110,25 +129,88 @@ def main() -> None:
         "recovery objectives approval must be authorization-only",
     )
     require(
-        objective_approval.get("requires_successful_stage_rehearsal")
-        is True,
+        objective_approval.get("requires_successful_stage_rehearsal") is True,
         "recovery objectives approval must require Stage rehearsal",
     )
     workflow_path = objective_approval.get("workflow")
     require(
-        isinstance(workflow_path, str)
-        and (repo_root / workflow_path).is_file(),
+        isinstance(workflow_path, str) and (repo_root / workflow_path).is_file(),
         "recovery objectives approval workflow missing",
     )
+
+    production_verification = value.get("production_recovery_verification")
+    require(
+        isinstance(production_verification, dict),
+        "production_recovery_verification missing",
+    )
+    require(
+        production_verification.get("workflow")
+        == ".github/workflows/production-recovery-verification.yml",
+        "Production recovery verification workflow invalid",
+    )
+    require(
+        production_verification.get("artifact_prefix")
+        == "hamoon-production-recovery-",
+        "Production recovery artifact prefix invalid",
+    )
+    require(
+        production_verification.get("verification_scope")
+        == "PRODUCTION_BACKUP_RESTORE_PITR",
+        "Production recovery verification scope invalid",
+    )
+    for field in (
+        "requires_recovery_objectives_approval",
+        "requires_production_monitoring_baseline",
+        "requires_remote_https_evidence",
+    ):
+        require(
+            production_verification.get(field) is True,
+            f"{field} must be true",
+        )
+    forbidden_evidence = production_verification.get("forbidden_evidence_fields")
+    require(
+        isinstance(forbidden_evidence, list)
+        and set(forbidden_evidence)
+        == {
+            "password",
+            "secret",
+            "token",
+            "credentials",
+            "private_key",
+            "access_key",
+            "secret_key",
+            "connection_string",
+        },
+        "forbidden Production recovery evidence fields invalid",
+    )
+    production_workflow = production_verification.get("workflow")
+    require(
+        isinstance(production_workflow, str)
+        and (repo_root / production_workflow).is_file(),
+        "Production recovery verification workflow missing",
+    )
+    production_runbook = production_verification.get("runbook")
+    require(
+        isinstance(production_runbook, str)
+        and (repo_root / production_runbook).is_file(),
+        "Production recovery verification runbook missing",
+    )
+
     runbook = value.get("runbook")
     require(isinstance(runbook, str) and runbook, "runbook missing")
     require((repo_root / runbook).is_file(), f"runbook missing: {runbook}")
 
-    print(json.dumps({
-        "status": "valid",
-        "asset_count": len(assets),
-        "rpo_rto_policy_status": value["rpo_rto_policy_status"],
-    }, sort_keys=True))
+    print(
+        json.dumps(
+            {
+                "status": "valid",
+                "asset_count": len(assets),
+                "rpo_rto_policy_status": value["rpo_rto_policy_status"],
+                "production_recovery_verification": "required",
+            },
+            sort_keys=True,
+        )
+    )
 
 
 if __name__ == "__main__":

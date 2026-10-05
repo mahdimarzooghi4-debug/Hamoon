@@ -58,5 +58,24 @@
     "approval_scope": "PRODUCTION_RECOVERY_OBJECTIVES",
     "authorization_only": true,
     "requires_successful_stage_rehearsal": true
+  },
+  "production_recovery_verification": {
+    "workflow": ".github/workflows/production-recovery-verification.yml",
+    "artifact_prefix": "hamoon-production-recovery-",
+    "verification_scope": "PRODUCTION_BACKUP_RESTORE_PITR",
+    "requires_recovery_objectives_approval": true,
+    "requires_production_monitoring_baseline": true,
+    "requires_remote_https_evidence": true,
+    "runbook": "docs/runbooks/HAMOON_RECOVERY_REHEARSAL.md",
+    "forbidden_evidence_fields": [
+      "password",
+      "secret",
+      "token",
+      "credentials",
+      "private_key",
+      "access_key",
+      "secret_key",
+      "connection_string"
+    ]
   }
 }

@@ -31,14 +31,18 @@ If any restore differs from the source, block release readiness for the affected
 
 Never upload raw database dumps or evidence objects as CI artifacts. Persist only non-sensitive hashes, sizes, version identifiers, and pass/fail attestation metadata.
 
-
 ## Recovery objectives approval
 
-Production RPO/RTO values are an Operations governance decision and must not be
-inferred from the Stage rehearsal. After a successful rehearsal, a human operator
-may run `Recovery Objectives Approval` for the exact commit and explicitly approve
-positive RPO/RTO targets for PostgreSQL and evidence object storage.
+Production RPO/RTO values are an Operations governance decision and must not be inferred from the Stage rehearsal. After a successful rehearsal, a human operator may run `Recovery Objectives Approval` for the exact commit and explicitly approve positive RPO/RTO targets for PostgreSQL and evidence object storage.
 
-The approval is authorization-only. It does not prove managed Production backups,
-PITR, provider retention, or that the approved objectives are currently achieved.
-Those claims require separate Production recovery evidence.
+The approval is authorization-only. It does not prove managed Production backups, PITR, provider retention, or that the approved objectives are currently achieved.
+
+## Production recovery verification
+
+Run `Production Recovery Verification` only for the exact commit that has both a successful Recovery Objectives Approval and a successful Production Monitoring baseline. The workflow requires `VERIFY_PRODUCTION_RECOVERY` confirmation plus a remote HTTPS verification adapter configured through `HAMOON_RECOVERY_VERIFICATION_URL` and `HAMOON_RECOVERY_VERIFICATION_TOKEN`.
+
+The provider observation must prove PostgreSQL backup/PITR/retention/encryption and an isolated restore with schema and critical-data sanity. Evidence object storage must prove backup or versioning, retention, encryption, isolated restore, integrity, and critical-evidence sanity. The verifier computes RPO/RTO from timestamps and compares them to the exact approved objectives; provider Booleans cannot override a missed objective.
+
+For self-hosted Production, the same evidence must also prove backup restore and integrity for NATS JetStream, Temporal persistence, and Keycloak database/config. Managed Production must not claim those self-hosted assets.
+
+The raw provider observation is ephemeral and is not uploaded. Secret-like evidence fields are rejected. Only the sanitized immutable Production recovery attestation may persist.
