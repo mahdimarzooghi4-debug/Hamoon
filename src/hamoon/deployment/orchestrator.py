@@ -240,6 +240,12 @@ def _validate_preflight_receipt(
             "Production runtime preflight did not reach READY state."
         )
 
+    runtime_preflight_value = request.get("runtime_preflight")
+    if not isinstance(runtime_preflight_value, dict):
+        raise DeploymentOrchestratorError(
+            "Deployment request runtime preflight binding is missing."
+        )
+    runtime_preflight = cast(dict[str, object], runtime_preflight_value)
     expected = {
         "commit_sha": request["commit_sha"],
         "deployment_id": request["deployment_id"],
@@ -247,6 +253,10 @@ def _validate_preflight_receipt(
         "production_endpoint": request["production_endpoint"],
         "backend_image_id": cast(dict[str, object], request["backend"])["image_id"],
         "frontend_image_id": cast(dict[str, object], request["frontend"])["image_id"],
+        "preflight_id": _require_string(
+            runtime_preflight.get("preflight_id"),
+            field="runtime_preflight.preflight_id",
+        ),
     }
     for field, value in expected.items():
         if receipt.get(field) != value:
@@ -269,16 +279,24 @@ def _validate_preflight_receipt(
     if timestamp.tzinfo is None:
         raise DeploymentOrchestratorError("checked_at must include a timezone.")
 
-    runtime_preflight = request.get("runtime_preflight")
-    if not isinstance(runtime_preflight, dict):
+    runtime_preflight_value = request.get("runtime_preflight")
+    if not isinstance(runtime_preflight_value, dict):
         raise DeploymentOrchestratorError(
             "Production runtime preflight request metadata is missing."
         )
-    required_checks = runtime_preflight.get("required_checks")
-    if not isinstance(required_checks, list):
+    runtime_preflight = cast(dict[str, object], runtime_preflight_value)
+    required_checks_value = runtime_preflight.get("required_checks")
+    if not isinstance(required_checks_value, list):
         raise DeploymentOrchestratorError(
             "Production runtime preflight required checks are missing."
         )
+    required_checks: list[str] = []
+    for value in cast(list[object], required_checks_value):
+        if not isinstance(value, str):
+            raise DeploymentOrchestratorError(
+                "Production runtime preflight required check is invalid."
+            )
+        required_checks.append(value)
 
     raw_checks = receipt.get("checks")
     if not isinstance(raw_checks, dict):
@@ -286,13 +304,13 @@ def _validate_preflight_receipt(
             "Production runtime preflight checks are missing."
         )
     checks = cast(dict[str, object], raw_checks)
-    if set(checks) != set(cast(list[str], required_checks)):
+    if set(checks) != set(required_checks):
         raise DeploymentOrchestratorError(
             "Production runtime preflight receipt check set does not match contract."
         )
     failed = [
         check
-        for check in cast(list[str], required_checks)
+        for check in required_checks
         if checks.get(check) is not True
     ]
     if failed:
@@ -456,6 +474,8 @@ def execute_production_deployment(
     repository: str,
     manifest: dict[str, object],
     admission: dict[str, object],
+    preflight_receipt: dict[str, object],
+    preflight_contract_sha256: str,
     timeout_seconds: float = 30.0,
     max_wait_seconds: float = 600.0,
     poll_interval_seconds: float = 5.0,
@@ -480,6 +500,25 @@ def execute_production_deployment(
         manifest=manifest,
         admission=admission,
     )
+    if preflight_receipt.get("status") != "READY":
+        raise DeploymentOrchestratorError(
+            "Production deployment requires a READY preflight receipt."
+        )
+    preflight_id = _require_string(
+        preflight_receipt.get("preflight_id"),
+        field="preflight_id",
+    )
+    if len(preflight_contract_sha256) != 64 or any(
+        character not in "0123456789abcdef"
+        for character in preflight_contract_sha256
+    ):
+        raise DeploymentOrchestratorError(
+            "Production runtime preflight SHA-256 is invalid."
+        )
+    request_payload["runtime_preflight"] = {
+        "preflight_id": preflight_id,
+        "contract_sha256": preflight_contract_sha256,
+    }
     headers = {
         "Authorization": f"Bearer {secret}",
         "Accept": "application/json",
