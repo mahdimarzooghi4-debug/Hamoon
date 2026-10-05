@@ -30,9 +30,11 @@ FORBIDDEN_KEYS = {
 }
 REQUIRED_CHECKS = {
     "storage_put",
+    "storage_overwrite_denied",
     "storage_metadata_integrity",
     "storage_signed_read_integrity",
     "storage_anonymous_read_denied",
+    "storage_anonymous_list_denied",
     "scanner_clean",
     "storage_cleanup",
 }
