@@ -30,6 +30,8 @@ def _storage_transport(
 
         if request.method == "PUT":
             assert request.headers["if-none-match"] == "*"
+            if state["exists"]:
+                return httpx.Response(412, request=request)
             assert request.headers["x-amz-meta-sha256"] == DIGEST
             state["exists"] = True
             return httpx.Response(200, request=request)
@@ -111,7 +113,7 @@ async def test_evidence_integration_verifies_private_storage_scanner_and_cleanup
     checks = observation["checks"]
     assert isinstance(checks, dict)
     assert all(checks.values())
-    assert storage_methods == ["PUT", "HEAD", "GET", "DELETE", "HEAD"]
+    assert storage_methods == ["PUT", "PUT", "HEAD", "GET", "DELETE", "HEAD"]
 
 
 @pytest.mark.asyncio
@@ -221,3 +223,54 @@ async def test_evidence_integration_rejects_non_https_external_endpoints() -> No
             scanner_endpoint="https://scanner.example.com/v1/scan",
             scanner_token="s" * 32,
         )
+
+
+
+@pytest.mark.asyncio
+async def test_evidence_integration_rejects_public_bucket_listing() -> None:
+    storage_methods: list[str] = []
+    anonymous_calls = 0
+
+    def scanner_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"status": "CLEAN"},
+            request=request,
+        )
+
+    def anonymous_handler(request: httpx.Request) -> httpx.Response:
+        nonlocal anonymous_calls
+        anonymous_calls += 1
+        if anonymous_calls == 1:
+            return httpx.Response(403, request=request)
+        return httpx.Response(200, content=b"<ListBucketResult/>", request=request)
+
+    async with (
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(scanner_handler),
+            follow_redirects=False,
+        ) as scanner_client,
+        httpx.AsyncClient(
+            transport=httpx.MockTransport(anonymous_handler),
+            follow_redirects=False,
+        ) as anonymous_client,
+    ):
+        with pytest.raises(
+            EvidenceIntegrationVerificationError,
+            match="bucket listing is not proven private",
+        ):
+            await verify_evidence_integration(
+                commit_sha=COMMIT,
+                s3_endpoint="https://objects.example.com",
+                s3_access_key="access-key",
+                s3_secret_key="secret-secret-secret-secret",
+                s3_bucket="hamoon-evidence",
+                s3_region="us-east-1",
+                scanner_endpoint="https://scanner.example.com/v1/scan",
+                scanner_token="s" * 32,
+                storage_transport=_storage_transport(storage_methods),
+                scanner_client=scanner_client,
+                anonymous_client=anonymous_client,
+            )
+
+    assert "DELETE" in storage_methods
