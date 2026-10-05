@@ -102,13 +102,15 @@ jobs:
           docker compose up -d --no-build postgres minio minio-init
 
           for i in {1..60}; do
-            if docker compose exec -T postgres \
-              pg_isready -U hamoon -d hamoon >/dev/null 2>&1; then
+            if [ "$(docker compose exec -T postgres psql \
+              -U hamoon -d hamoon -At -c 'SELECT 1' \
+              2>/dev/null | tr -d '\\r')" = "1" ]; then
               break
             fi
             sleep 1
           done
-          docker compose exec -T postgres pg_isready -U hamoon -d hamoon
+          test "$(docker compose exec -T postgres psql \
+            -U hamoon -d hamoon -At -c 'SELECT 1' | tr -d '\\r')" = "1"
 
           for i in {1..60}; do
             if curl --fail --silent \

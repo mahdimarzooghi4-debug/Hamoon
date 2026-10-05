@@ -107,3 +107,13 @@ def test_recovery_rehearsal_rejects_changed_restored_evidence(tmp_path: Path) ->
     result = _verify(*chain)
     assert result.returncode != 0
     assert "restored evidence probe differs" in result.stderr
+
+def test_recovery_workflow_waits_for_actual_database_query() -> None:
+    repo_root = Path(__file__).parents[3]
+    workflow = (
+        repo_root / ".github/workflows/recovery-rehearsal.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "-U hamoon -d hamoon -At -c 'SELECT 1'" in workflow
+    assert "pg_isready -U hamoon -d hamoon" not in workflow
+
