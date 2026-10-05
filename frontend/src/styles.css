@@ -2979,3 +2979,59 @@ a {
     justify-content: space-between;
   }
 }
+
+
+.household-timeline-panel {
+  display: grid;
+  gap: var(--hamoon-space-16);
+}
+
+.household-timeline {
+  display: grid;
+  gap: 4px;
+}
+
+.household-timeline article {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--hamoon-border);
+}
+
+.household-timeline article:last-child {
+  border-bottom: 0;
+}
+
+.household-timeline__dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--hamoon-cyan);
+  box-shadow: 0 0 0 4px var(--hamoon-cyan-soft);
+}
+
+.household-timeline article > div {
+  display: grid;
+  gap: 5px;
+}
+
+.household-timeline__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.household-timeline strong {
+  color: var(--hamoon-ink);
+  font-size: 13px;
+}
+
+.household-timeline span,
+.household-timeline small {
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}

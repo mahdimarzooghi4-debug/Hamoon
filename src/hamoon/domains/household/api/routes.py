@@ -17,6 +17,8 @@ from hamoon.domains.household.api.schemas import (
     HouseholdListResponse,
     HouseholdPGORData,
     HouseholdSummaryData,
+    HouseholdTimelineItemData,
+    HouseholdTimelineResponse,
     HouseholdWorkItemData,
     ResponseMeta,
 )
@@ -27,6 +29,9 @@ from hamoon.domains.household.domain.errors import HouseholdCaseCodeExistsError
 from hamoon.domains.household.infrastructure.repositories import (
     SqlAlchemyCaseAssignmentRepository,
     SqlAlchemyHouseholdRepository,
+)
+from hamoon.domains.household.infrastructure.timeline import (
+    SqlAlchemyHouseholdTimelineRepository,
 )
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
@@ -198,6 +203,50 @@ async def get_household(
             intervention=interventions.get(household_id),
             next_work_item=work_items.get(household_id),
         )
+    )
+
+
+@router.get(
+    "/{household_id}/timeline",
+    response_model=HouseholdTimelineResponse,
+)
+async def get_household_timeline(
+    household_id: UUID,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+) -> HouseholdTimelineResponse:
+    household = await SqlAlchemyHouseholdRepository(session).get(household_id)
+    if household is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RESOURCE_NOT_FOUND"},
+        )
+    await require_household_assignment(
+        session=session,
+        context=context,
+        household_id=household_id,
+    )
+    items = await SqlAlchemyHouseholdTimelineRepository(
+        session
+    ).list_for_household(
+        household_id=household_id,
+        limit=limit,
+    )
+    return HouseholdTimelineResponse(
+        data=[
+            HouseholdTimelineItemData(
+                kind=item.kind,
+                entity_id=item.entity_id,
+                occurred_at=item.occurred_at,
+                status=item.status,
+                detail=item.detail,
+            )
+            for item in items
+        ]
     )
 
 

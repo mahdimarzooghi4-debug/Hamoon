@@ -86,6 +86,18 @@ class HouseholdSummaryData(BaseModel):
     next_work_item: HouseholdWorkItemData | None
 
 
+class HouseholdTimelineItemData(BaseModel):
+    kind: str
+    entity_id: UUID
+    occurred_at: datetime
+    status: str
+    detail: str | None = None
+
+
+class HouseholdTimelineResponse(BaseModel):
+    data: list[HouseholdTimelineItemData]
+
+
 class HouseholdListResponse(BaseModel):
     data: list[HouseholdSummaryData]
 
