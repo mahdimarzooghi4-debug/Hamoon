@@ -23,6 +23,11 @@ from hamoon.domains.family_data.domain.entities import (
     SourceType,
 )
 from hamoon.domains.family_data.domain.errors import FactNotValidatedError
+from hamoon.domains.operations.domain.entities import (
+    WorkItem,
+    WorkItemStatus,
+    WorkItemType,
+)
 from hamoon.shared.contracts.records import AuditRecord, DomainEventRecord
 
 ACTOR_ID = UUID("11111111-1111-1111-1111-111111111111")
@@ -126,6 +131,37 @@ class FakeAcceptedStateRepository:
         event_id: UUID,
     ) -> None:
         self.items[(accepted.household_id, accepted.fact_type)] = accepted
+
+
+class FakeWorkItems:
+    def __init__(self) -> None:
+        self.items: dict[UUID, WorkItem] = {}
+
+    async def get_by_resource(
+        self,
+        *,
+        work_type: WorkItemType,
+        resource_type: str,
+        resource_id: UUID,
+    ) -> WorkItem | None:
+        return next(
+            (
+                item
+                for item in self.items.values()
+                if item.work_type is work_type
+                and item.resource_type == resource_type
+                and item.resource_id == resource_id
+            ),
+            None,
+        )
+
+    async def add(self, item: WorkItem) -> None:
+        self.items[item.id] = item
+
+    async def update(self, item: WorkItem, *, expected_version: int) -> None:
+        current = self.items[item.id]
+        assert current.version == expected_version
+        self.items[item.id] = item
 
 
 class FakeEventRecorder:
@@ -299,3 +335,75 @@ async def test_validated_fact_can_become_current_accepted_state() -> None:
     assert projection.fact_id == fact.id
     assert projection.projection_version == 1
     assert events.items[-1].event_type == "CurrentAcceptedStateChanged"
+
+
+@pytest.mark.asyncio
+async def test_disputed_household_fact_creates_and_resolves_conflict_task() -> None:
+    facts = FakeFactRepository()
+    validations = FakeValidationRepository()
+    work_items = FakeWorkItems()
+    events = FakeEventRecorder()
+    audits = FakeAuditRecorder()
+
+    fact = await make_record_handler(facts, validations, events, audits).handle(
+        RecordHouseholdFactCommand(
+            household_id=HOUSEHOLD_ID,
+            actor_id=ACTOR_ID,
+            fact_type="EMPLOYMENT_STATUS",
+            value_type=FactValueType.CODE,
+            value="UNEMPLOYED",
+            source_id=SOURCE_ID,
+            source_detail="conflicting registry",
+            effective_from=datetime.now(UTC),
+            request_id="req-conflict-1",
+            correlation_id="corr-conflict",
+        )
+    )
+
+    disputed = await ChangeFactValidationHandler(
+        facts=facts,
+        validations=validations,
+        work_items=work_items,
+        events=events,
+        audits=audits,
+    ).handle(
+        ChangeFactValidationCommand(
+            household_id=HOUSEHOLD_ID,
+            fact_id=fact.id,
+            actor_id=ACTOR_ID,
+            to_status=FactValidationStatus.DISPUTED,
+            expected_validation_version=1,
+            reason_code="SOURCE_CONFLICT",
+            reason_text=None,
+            request_id="req-conflict-2",
+            correlation_id="corr-conflict",
+        )
+    )
+    assert disputed.status is FactValidationStatus.DISPUTED
+    task = next(iter(work_items.items.values()))
+    assert task.work_type is WorkItemType.CONFLICT_RESOLUTION
+    assert task.resource_type == "HOUSEHOLD_FACT"
+    assert task.resource_id == fact.id
+    assert task.status is WorkItemStatus.OPEN
+
+    resolved = await ChangeFactValidationHandler(
+        facts=facts,
+        validations=validations,
+        work_items=work_items,
+        events=events,
+        audits=audits,
+    ).handle(
+        ChangeFactValidationCommand(
+            household_id=HOUSEHOLD_ID,
+            fact_id=fact.id,
+            actor_id=ACTOR_ID,
+            to_status=FactValidationStatus.VALIDATED,
+            expected_validation_version=2,
+            reason_code="CONFLICT_RESOLVED",
+            reason_text=None,
+            request_id="req-conflict-3",
+            correlation_id="corr-conflict",
+        )
+    )
+    assert resolved.status is FactValidationStatus.VALIDATED
+    assert work_items.items[task.id].status is WorkItemStatus.COMPLETED

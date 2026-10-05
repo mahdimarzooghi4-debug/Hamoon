@@ -798,6 +798,7 @@ appear as ordered timeline projections.
 
 ## PB-101 — Caseworker Work Queue
 Priority: P0
+Implementation: COMPLETE. Work items are source-linked and idempotent, queue visibility is constrained by active household assignment, unassigned tasks can be claimed, due/overdue is part of the API read model, and diagnosis/prescription/referral/reassessment/outcome/data-completion/conflict transitions create or complete their operational projections.
 
 Initial task types:
 

@@ -101,6 +101,13 @@ class WorkItemModel(Base):
             unique=True,
             postgresql_where=text("work_type = 'REFERRAL_FOLLOWUP'"),
         ),
+        Index(
+            "uq_work_item_type_resource",
+            "work_type",
+            "resource_type",
+            "resource_id",
+            unique=True,
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)

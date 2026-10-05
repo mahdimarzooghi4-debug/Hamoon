@@ -27,6 +27,9 @@ from hamoon.domains.intelligence.ports.repositories import (
     DiagnosisRepository,
     FeaturePackageRepository,
 )
+from hamoon.domains.operations.application.handlers import EnsureWorkItemHandler
+from hamoon.domains.operations.domain.entities import WorkItemType
+from hamoon.domains.operations.ports import WorkItemRepository
 from hamoon.domains.pgor.domain.engine import PGORSnapshotStatus
 from hamoon.domains.pgor.domain.snapshots import PGORSnapshot
 from hamoon.domains.pgor.ports.repositories import PGORSnapshotRepository
@@ -74,6 +77,7 @@ class GeneratePrescriptionHandler:
         traces: DecisionTraceRepository,
         ai_client: PrescriptionAIClient,
         accepted_state: AcceptedStateRepository | None = None,
+        work_items: WorkItemRepository | None = None,
         events: DomainEventRecorder,
         audits: AuditRecorder,
     ) -> None:
@@ -85,6 +89,7 @@ class GeneratePrescriptionHandler:
         self._traces = traces
         self._ai_client = ai_client
         self._accepted_state = accepted_state
+        self._work_items = work_items
         self._events = events
         self._audits = audits
 
@@ -395,4 +400,24 @@ class GeneratePrescriptionHandler:
                 },
             )
         )
+        if self._work_items is not None:
+            await EnsureWorkItemHandler(
+                work_items=self._work_items,
+                events=self._events,
+                audits=self._audits,
+            ).handle(
+                household_id=prescription.household_id,
+                work_type=WorkItemType.PRESCRIPTION_REVIEW,
+                resource_type="PRESCRIPTION",
+                resource_id=prescription.id,
+                title="بازبینی نسخه پیشنهادی",
+                reason=(
+                    "نسخه پیشنهادی هوش مصنوعی آماده تصمیم انسانی است."
+                ),
+                priority=70,
+                actor_id=command.actor_id,
+                request_id=command.request_id,
+                correlation_id=command.correlation_id,
+                policy_version="prescription-review-v1",
+            )
         return prescription, ai_decision

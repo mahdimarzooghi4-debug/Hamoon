@@ -5,10 +5,15 @@ from uuid import UUID
 
 
 class WorkItemType(StrEnum):
-    REASSESSMENT = "REASSESSMENT"
-    OUTCOME_REVIEW = "OUTCOME_REVIEW"
+    DIAGNOSIS_REVIEW = "DIAGNOSIS_REVIEW"
+    PRESCRIPTION_REVIEW = "PRESCRIPTION_REVIEW"
     REFERRAL_FOLLOWUP = "REFERRAL_FOLLOWUP"
+    REASSESSMENT_DUE = "REASSESSMENT_DUE"
+    OUTCOME_REVIEW = "OUTCOME_REVIEW"
+    DATA_COMPLETION = "DATA_COMPLETION"
+    CONFLICT_RESOLUTION = "CONFLICT_RESOLUTION"
     AI_FALLBACK = "AI_FALLBACK"
+    REASSESSMENT = "REASSESSMENT"
 
 
 class WorkItemStatus(StrEnum):
@@ -74,6 +79,24 @@ class WorkItem:
             status=WorkItemStatus.COMPLETED,
             version=self.version + 1,
             assigned_actor_id=self.assigned_actor_id or actor_id,
+            completed_at=completed_at,
+            completed_by=actor_id,
+        )
+
+    def complete_from_source(
+        self,
+        *,
+        actor_id: UUID,
+        completed_at: datetime,
+    ) -> "WorkItem":
+        if self.status is WorkItemStatus.COMPLETED:
+            return self
+        if self.status is WorkItemStatus.CANCELLED:
+            return self
+        return replace(
+            self,
+            status=WorkItemStatus.COMPLETED,
+            version=self.version + 1,
             completed_at=completed_at,
             completed_by=actor_id,
         )

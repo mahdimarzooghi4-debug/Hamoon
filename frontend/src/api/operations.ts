@@ -1,10 +1,15 @@
 import { requestJson } from "./client";
 
 export type WorkItemType =
-  | "REASSESSMENT"
-  | "OUTCOME_REVIEW"
+  | "DIAGNOSIS_REVIEW"
+  | "PRESCRIPTION_REVIEW"
   | "REFERRAL_FOLLOWUP"
-  | "AI_FALLBACK";
+  | "REASSESSMENT_DUE"
+  | "OUTCOME_REVIEW"
+  | "DATA_COMPLETION"
+  | "CONFLICT_RESOLUTION"
+  | "AI_FALLBACK"
+  | "REASSESSMENT";
 
 export type WorkItemStatus = "OPEN" | "CLAIMED" | "COMPLETED" | "CANCELLED";
 
@@ -24,6 +29,7 @@ export interface WorkItem {
   policy_version: string | null;
   created_at: string;
   claimed_at: string | null;
+  is_overdue: boolean;
 }
 
 interface WorkQueueResponse {

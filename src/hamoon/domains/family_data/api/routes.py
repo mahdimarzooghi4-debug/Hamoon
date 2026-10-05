@@ -49,6 +49,9 @@ from hamoon.domains.family_data.infrastructure.repositories import (
     SqlAlchemyFactValidationRepository,
     SqlAlchemyHouseholdFactRepository,
 )
+from hamoon.domains.operations.infrastructure.repositories import (
+    SqlAlchemyWorkItemRepository,
+)
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
@@ -211,6 +214,7 @@ async def change_fact_validation(
     handler = ChangeFactValidationHandler(
         facts=SqlAlchemyHouseholdFactRepository(session),
         validations=SqlAlchemyFactValidationRepository(session),
+        work_items=SqlAlchemyWorkItemRepository(session),
         events=SqlAlchemyDomainEventRecorder(session),
         audits=SqlAlchemyAuditRecorder(session),
     )

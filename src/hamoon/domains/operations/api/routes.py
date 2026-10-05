@@ -80,6 +80,11 @@ def _work_item_data(item: WorkItem) -> WorkItemData:
         policy_version=item.policy_version,
         created_at=item.created_at,
         claimed_at=item.claimed_at,
+        is_overdue=(
+            item.due_at is not None
+            and item.due_at < datetime.now(UTC)
+            and item.status in {WorkItemStatus.OPEN, WorkItemStatus.CLAIMED}
+        ),
     )
 
 

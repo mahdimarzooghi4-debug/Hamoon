@@ -23,6 +23,7 @@ from hamoon.domains.intelligence.domain.entities import (
     FeatureValue,
 )
 from hamoon.domains.intelligence.domain.errors import DiagnosisGenerationError
+from hamoon.domains.operations.domain.entities import WorkItem, WorkItemType
 from hamoon.domains.pgor.domain.definitions import PGORVariableCode
 from hamoon.domains.pgor.domain.engine import (
     EBand,
@@ -210,6 +211,32 @@ class AcceptedStateRepo:
         return self.version
 
 
+class WorkItems:
+    def __init__(self) -> None:
+        self.items: list[WorkItem] = []
+
+    async def get_by_resource(
+        self,
+        *,
+        work_type: WorkItemType,
+        resource_type: str,
+        resource_id: UUID,
+    ) -> WorkItem | None:
+        return next(
+            (
+                item
+                for item in self.items
+                if item.work_type is work_type
+                and item.resource_type == resource_type
+                and item.resource_id == resource_id
+            ),
+            None,
+        )
+
+    async def add(self, item: WorkItem) -> None:
+        self.items.append(item)
+
+
 class EventRecorder:
     def __init__(self) -> None:
         self.items: list[DomainEventRecord] = []
@@ -232,6 +259,7 @@ async def test_generate_diagnosis_persists_ai_proposal_and_open_trace() -> None:
     diagnoses = DiagnosisRepo()
     traces = TraceRepo()
     events = EventRecorder()
+    work_items = WorkItems()
 
     accepted_state = AcceptedStateRepo()
     diagnosis, decision = await GenerateDiagnosisHandler(
@@ -243,6 +271,7 @@ async def test_generate_diagnosis_persists_ai_proposal_and_open_trace() -> None:
         traces=traces,
         ai_client=AIClient(),
         accepted_state=accepted_state,
+        work_items=work_items,
         events=events,
         audits=AuditRecorder(),
     ).handle(
@@ -263,7 +292,13 @@ async def test_generate_diagnosis_persists_ai_proposal_and_open_trace() -> None:
     assert traces.item.human_decision_id is None
     assert traces.item.household_context_version == 7
     assert traces.item.closed_at is None
-    assert events.items[-1].event_type == "DiagnosisGenerated"
+    assert [item.event_type for item in events.items] == [
+        "DiagnosisGenerated",
+        "WorkItemCreated",
+    ]
+    assert len(work_items.items) == 1
+    assert work_items.items[0].work_type is WorkItemType.DIAGNOSIS_REVIEW
+    assert work_items.items[0].resource_id == diagnosis.id
 
 
 @pytest.mark.asyncio

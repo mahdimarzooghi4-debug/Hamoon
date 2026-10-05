@@ -23,6 +23,9 @@ from hamoon.domains.intelligence.infrastructure.repositories import (
     SqlAlchemyHumanDecisionRepository,
     SqlAlchemyLearningSignalRepository,
 )
+from hamoon.domains.operations.infrastructure.repositories import (
+    SqlAlchemyWorkItemRepository,
+)
 from hamoon.domains.pgor.infrastructure.repositories import (
     SqlAlchemyPGORSnapshotRepository,
 )
@@ -150,6 +153,7 @@ async def generate_prescription(
                 traces=SqlAlchemyDecisionTraceRepository(session),
                 ai_client=ai_client,
                 accepted_state=SqlAlchemyAcceptedStateRepository(session),
+                work_items=SqlAlchemyWorkItemRepository(session),
                 events=SqlAlchemyDomainEventRecorder(session),
                 audits=SqlAlchemyAuditRecorder(session),
             )
@@ -371,6 +375,7 @@ async def _review_prescription(
                 human_decisions=SqlAlchemyHumanDecisionRepository(session),
                 learning_signals=SqlAlchemyLearningSignalRepository(session),
                 traces=SqlAlchemyDecisionTraceRepository(session),
+                work_items=SqlAlchemyWorkItemRepository(session),
                 events=SqlAlchemyDomainEventRecorder(session),
                 audits=SqlAlchemyAuditRecorder(session),
                 output_schema=PRESCRIPTION_V1_SCHEMA,

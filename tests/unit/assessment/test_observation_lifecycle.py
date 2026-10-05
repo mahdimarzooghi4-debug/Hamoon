@@ -25,6 +25,11 @@ from hamoon.domains.assessment.domain.entities import (
 )
 from hamoon.domains.assessment.domain.errors import ObservationNotValidatedError
 from hamoon.domains.family_data.domain.entities import DataSource, SourceType
+from hamoon.domains.operations.domain.entities import (
+    WorkItem,
+    WorkItemStatus,
+    WorkItemType,
+)
 from hamoon.domains.pgor.domain.definitions import (
     PGORDefinitionBundle,
     PGORDefinitionStatus,
@@ -229,6 +234,37 @@ class FakeAcceptedRepository:
         ] = accepted
 
 
+class FakeWorkItems:
+    def __init__(self) -> None:
+        self.items: dict[UUID, WorkItem] = {}
+
+    async def get_by_resource(
+        self,
+        *,
+        work_type: WorkItemType,
+        resource_type: str,
+        resource_id: UUID,
+    ) -> WorkItem | None:
+        return next(
+            (
+                item
+                for item in self.items.values()
+                if item.work_type is work_type
+                and item.resource_type == resource_type
+                and item.resource_id == resource_id
+            ),
+            None,
+        )
+
+    async def add(self, item: WorkItem) -> None:
+        self.items[item.id] = item
+
+    async def update(self, item: WorkItem, *, expected_version: int) -> None:
+        current = self.items[item.id]
+        assert current.version == expected_version
+        self.items[item.id] = item
+
+
 class FakeEventRecorder:
     def __init__(self) -> None:
         self.items: list[DomainEventRecord] = []
@@ -334,3 +370,84 @@ async def test_observation_starts_pending_and_requires_validation_before_accepta
     )
     assert projection.observation_id == observation.id
     assert events.items[-1].event_type == "AssessmentAcceptedObservationChanged"
+
+
+@pytest.mark.asyncio
+async def test_disputed_observation_creates_and_resolution_completes_conflict_task() -> None:
+    assessments = FakeAssessmentRepository()
+    observations = FakeObservationRepository()
+    validations = FakeValidationRepository()
+    work_items = FakeWorkItems()
+    events = FakeEventRecorder()
+    audits = FakeAuditRecorder()
+
+    observation, _ = await RecordIndicatorObservationHandler(
+        assessments=assessments,
+        definitions=FakeDefinitionRepository(),
+        sources=FakeSourceRepository(),
+        observations=observations,
+        validations=validations,
+        events=events,
+        audits=audits,
+    ).handle(
+        RecordIndicatorObservationCommand(
+            assessment_id=ASSESSMENT_ID,
+            actor_id=ACTOR_ID,
+            indicator_definition_id=INDICATOR_ID,
+            raw_score_0_100=Decimal("55"),
+            source_id=SOURCE_ID,
+            source_detail=None,
+            effective_at=datetime.now(UTC),
+            request_id="req-conflict-1",
+            correlation_id="corr-conflict",
+        )
+    )
+
+    disputed = await ChangeObservationValidationHandler(
+        observations=observations,
+        validations=validations,
+        assessments=assessments,
+        work_items=work_items,
+        events=events,
+        audits=audits,
+    ).handle(
+        ChangeObservationValidationCommand(
+            assessment_id=ASSESSMENT_ID,
+            observation_id=observation.id,
+            actor_id=ACTOR_ID,
+            to_status=ObservationValidationStatus.DISPUTED,
+            expected_validation_version=1,
+            reason_code="SOURCE_CONFLICT",
+            reason_text=None,
+            request_id="req-conflict-2",
+            correlation_id="corr-conflict",
+        )
+    )
+    assert disputed.status is ObservationValidationStatus.DISPUTED
+    task = next(iter(work_items.items.values()))
+    assert task.work_type is WorkItemType.CONFLICT_RESOLUTION
+    assert task.resource_id == observation.id
+    assert task.status is WorkItemStatus.OPEN
+
+    resolved = await ChangeObservationValidationHandler(
+        observations=observations,
+        validations=validations,
+        assessments=assessments,
+        work_items=work_items,
+        events=events,
+        audits=audits,
+    ).handle(
+        ChangeObservationValidationCommand(
+            assessment_id=ASSESSMENT_ID,
+            observation_id=observation.id,
+            actor_id=ACTOR_ID,
+            to_status=ObservationValidationStatus.VALIDATED,
+            expected_validation_version=2,
+            reason_code="CONFLICT_RESOLVED",
+            reason_text=None,
+            request_id="req-conflict-3",
+            correlation_id="corr-conflict",
+        )
+    )
+    assert resolved.status is ObservationValidationStatus.VALIDATED
+    assert work_items.items[task.id].status is WorkItemStatus.COMPLETED

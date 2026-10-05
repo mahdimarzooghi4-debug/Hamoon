@@ -73,6 +73,9 @@ from hamoon.domains.family_data.infrastructure.repositories import (
 from hamoon.domains.intervention.infrastructure.repositories import (
     SqlAlchemyInterventionRepository,
 )
+from hamoon.domains.operations.infrastructure.repositories import (
+    SqlAlchemyWorkItemRepository,
+)
 from hamoon.domains.pgor.infrastructure.repositories import (
     SqlAlchemyPGORDefinitionRepository,
 )
@@ -357,6 +360,8 @@ async def record_observation(
         sources=SqlAlchemyDataSourceRepository(session),
         observations=SqlAlchemyIndicatorObservationRepository(session),
         validations=SqlAlchemyObservationValidationRepository(session),
+        assessments=SqlAlchemyAssessmentRepository(session),
+        work_items=SqlAlchemyWorkItemRepository(session),
         events=SqlAlchemyDomainEventRecorder(session),
         audits=SqlAlchemyAuditRecorder(session),
     )

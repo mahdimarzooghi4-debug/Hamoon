@@ -19,6 +19,11 @@ from hamoon.domains.intelligence.ports.repositories import (
     HumanDecisionRepository,
     LearningSignalRepository,
 )
+from hamoon.domains.operations.application.handlers import (
+    CompleteWorkItemFromSourceHandler,
+)
+from hamoon.domains.operations.domain.entities import WorkItemType
+from hamoon.domains.operations.ports import WorkItemRepository
 from hamoon.domains.prescription.application.commands import ReviewPrescriptionCommand
 from hamoon.domains.prescription.domain.entities import Prescription, PrescriptionItem
 from hamoon.domains.prescription.domain.errors import PrescriptionGenerationError
@@ -67,6 +72,7 @@ class ReviewPrescriptionHandler:
         human_decisions: HumanDecisionRepository,
         learning_signals: LearningSignalRepository,
         traces: DecisionTraceRepository,
+        work_items: WorkItemRepository | None = None,
         events: DomainEventRecorder,
         audits: AuditRecorder,
         output_schema: dict[str, JsonValue],
@@ -77,6 +83,7 @@ class ReviewPrescriptionHandler:
         self._human_decisions = human_decisions
         self._learning_signals = learning_signals
         self._traces = traces
+        self._work_items = work_items
         self._events = events
         self._audits = audits
         self._output_schema = output_schema
@@ -273,4 +280,20 @@ class ReviewPrescriptionHandler:
                 },
             )
         )
+        if (
+            self._work_items is not None
+            and command.action is not HumanDecisionAction.DEFER
+        ):
+            await CompleteWorkItemFromSourceHandler(
+                work_items=self._work_items,
+                events=self._events,
+                audits=self._audits,
+            ).handle(
+                work_type=WorkItemType.PRESCRIPTION_REVIEW,
+                resource_type="PRESCRIPTION",
+                resource_id=prescription.id,
+                actor_id=command.actor_id,
+                request_id=command.request_id,
+                correlation_id=command.correlation_id,
+            )
         return updated, human_decision, signal, accepted_items

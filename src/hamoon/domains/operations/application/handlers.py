@@ -28,6 +28,199 @@ from hamoon.shared.ports.recorders import AuditRecorder, DomainEventRecorder
 REASSESSMENT_SCHEDULE_POLICY_VERSION = "prescription-item-review-v1"
 
 
+class EnsureWorkItemHandler:
+    def __init__(
+        self,
+        *,
+        work_items: WorkItemRepository,
+        events: DomainEventRecorder,
+        audits: AuditRecorder,
+    ) -> None:
+        self._work_items = work_items
+        self._events = events
+        self._audits = audits
+
+    async def handle(
+        self,
+        *,
+        household_id: UUID,
+        work_type: WorkItemType,
+        resource_type: str,
+        resource_id: UUID,
+        title: str,
+        reason: str,
+        priority: int,
+        actor_id: UUID,
+        request_id: str,
+        correlation_id: str,
+        due_at: datetime | None = None,
+        assigned_actor_id: UUID | None = None,
+        policy_version: str | None = None,
+    ) -> WorkItem:
+        existing = await self._work_items.get_by_resource(
+            work_type=work_type,
+            resource_type=resource_type,
+            resource_id=resource_id,
+        )
+        if existing is not None:
+            return existing
+
+        now = datetime.now(UTC)
+        item = WorkItem(
+            id=uuid4(),
+            household_id=household_id,
+            work_type=work_type,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            title=title,
+            reason=reason,
+            priority=priority,
+            status=WorkItemStatus.OPEN,
+            version=1,
+            due_at=due_at,
+            assigned_actor_id=assigned_actor_id,
+            policy_version=policy_version,
+            created_at=now,
+            created_by=actor_id,
+        )
+        await self._work_items.add(item)
+
+        event_id = uuid4()
+        await self._events.record(
+            DomainEventRecord(
+                event_id=event_id,
+                event_type="WorkItemCreated",
+                event_version=1,
+                aggregate_type="WORK_ITEM",
+                aggregate_id=item.id,
+                aggregate_version=item.version,
+                actor_id=actor_id,
+                occurred_at=now,
+                recorded_at=now,
+                correlation_id=correlation_id,
+                causation_id=None,
+                payload={
+                    "household_id": str(household_id),
+                    "work_item_id": str(item.id),
+                    "work_type": work_type.value,
+                    "resource_type": resource_type,
+                    "resource_id": str(resource_id),
+                    "assigned_actor_id": (
+                        None
+                        if assigned_actor_id is None
+                        else str(assigned_actor_id)
+                    ),
+                    "due_at": None if due_at is None else due_at.isoformat(),
+                    "policy_version": policy_version,
+                },
+            )
+        )
+        await self._audits.record(
+            AuditRecord(
+                id=uuid4(),
+                actor_id=actor_id,
+                action="work_item.create",
+                resource_type="WORK_ITEM",
+                resource_id=item.id,
+                request_id=request_id,
+                correlation_id=correlation_id,
+                created_at=now,
+                purpose="CASEWORKER_WORK_QUEUE",
+                metadata={
+                    "event_id": str(event_id),
+                    "work_type": work_type.value,
+                    "source_resource_type": resource_type,
+                    "source_resource_id": str(resource_id),
+                },
+            )
+        )
+        return item
+
+
+class CompleteWorkItemFromSourceHandler:
+    def __init__(
+        self,
+        *,
+        work_items: WorkItemRepository,
+        events: DomainEventRecorder,
+        audits: AuditRecorder,
+    ) -> None:
+        self._work_items = work_items
+        self._events = events
+        self._audits = audits
+
+    async def handle(
+        self,
+        *,
+        work_type: WorkItemType,
+        resource_type: str,
+        resource_id: UUID,
+        actor_id: UUID,
+        request_id: str,
+        correlation_id: str,
+    ) -> WorkItem | None:
+        item = await self._work_items.get_by_resource(
+            work_type=work_type,
+            resource_type=resource_type,
+            resource_id=resource_id,
+        )
+        if item is None:
+            return None
+        if item.status in {WorkItemStatus.COMPLETED, WorkItemStatus.CANCELLED}:
+            return item
+
+        now = datetime.now(UTC)
+        updated = item.complete_from_source(
+            actor_id=actor_id,
+            completed_at=now,
+        )
+        await self._work_items.update(updated, expected_version=item.version)
+
+        event_id = uuid4()
+        await self._events.record(
+            DomainEventRecord(
+                event_id=event_id,
+                event_type="WorkItemCompleted",
+                event_version=1,
+                aggregate_type="WORK_ITEM",
+                aggregate_id=updated.id,
+                aggregate_version=updated.version,
+                actor_id=actor_id,
+                occurred_at=now,
+                recorded_at=now,
+                correlation_id=correlation_id,
+                causation_id=None,
+                payload={
+                    "household_id": str(updated.household_id),
+                    "work_item_id": str(updated.id),
+                    "work_type": updated.work_type.value,
+                    "resource_type": updated.resource_type,
+                    "resource_id": str(updated.resource_id),
+                },
+            )
+        )
+        await self._audits.record(
+            AuditRecord(
+                id=uuid4(),
+                actor_id=actor_id,
+                action="work_item.complete_from_source",
+                resource_type="WORK_ITEM",
+                resource_id=updated.id,
+                request_id=request_id,
+                correlation_id=correlation_id,
+                created_at=now,
+                purpose="CASEWORKER_WORK_QUEUE",
+                metadata={
+                    "event_id": str(event_id),
+                    "work_type": updated.work_type.value,
+                    "source_resource_type": updated.resource_type,
+                    "source_resource_id": str(updated.resource_id),
+                },
+            )
+        )
+        return updated
+
+
 class ScheduleReassessmentHandler:
     def __init__(
         self,
@@ -164,7 +357,7 @@ class MaterializeReassessmentWorkItemHandler:
         item = WorkItem(
             id=uuid4(),
             household_id=plan.household_id,
-            work_type=WorkItemType.REASSESSMENT,
+            work_type=WorkItemType.REASSESSMENT_DUE,
             resource_type="REASSESSMENT_PLAN",
             resource_id=plan.id,
             title="بازسنجی توانمندسازی خانوار",
@@ -375,7 +568,10 @@ class StartPlannedReassessmentHandler:
         item = await self._work_items.get(work_item_id)
         if item is None:
             raise LookupError("WORK_ITEM_NOT_FOUND")
-        if item.work_type is not WorkItemType.REASSESSMENT:
+        if item.work_type not in {
+            WorkItemType.REASSESSMENT_DUE,
+            WorkItemType.REASSESSMENT,
+        }:
             raise ValueError("WORK_ITEM_NOT_REASSESSMENT")
         if item.resource_type != "REASSESSMENT_PLAN":
             raise ValueError("WORK_ITEM_RESOURCE_INVALID")

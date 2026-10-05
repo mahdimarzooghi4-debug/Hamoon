@@ -34,6 +34,12 @@ from hamoon.domains.assessment.ports.repositories import (
     ObservationValidationRepository,
 )
 from hamoon.domains.family_data.ports.repositories import DataSourceRepository
+from hamoon.domains.operations.application.handlers import (
+    CompleteWorkItemFromSourceHandler,
+    EnsureWorkItemHandler,
+)
+from hamoon.domains.operations.domain.entities import WorkItemType
+from hamoon.domains.operations.ports import WorkItemRepository
 from hamoon.domains.pgor.domain.definitions import (
     PGORDefinitionStatus,
     RequirementPolicyStatus,
@@ -235,11 +241,15 @@ class ChangeObservationValidationHandler:
         *,
         observations: IndicatorObservationRepository,
         validations: ObservationValidationRepository,
+        assessments: AssessmentRepository | None = None,
+        work_items: WorkItemRepository | None = None,
         events: DomainEventRecorder,
         audits: AuditRecorder,
     ) -> None:
         self._observations = observations
         self._validations = validations
+        self._assessments = assessments
+        self._work_items = work_items
         self._events = events
         self._audits = audits
 
@@ -321,6 +331,49 @@ class ChangeObservationValidationHandler:
                 },
             )
         )
+
+        if self._work_items is not None and self._assessments is not None:
+            assessment = await self._assessments.get(command.assessment_id)
+            if assessment is None:
+                raise AssessmentNotFoundError(str(command.assessment_id))
+            if current.status is ObservationValidationStatus.DISPUTED:
+                await EnsureWorkItemHandler(
+                    work_items=self._work_items,
+                    events=self._events,
+                    audits=self._audits,
+                ).handle(
+                    household_id=assessment.household_id,
+                    work_type=WorkItemType.CONFLICT_RESOLUTION,
+                    resource_type="INDICATOR_OBSERVATION",
+                    resource_id=observation.id,
+                    title="حل تعارض داده ارزیابی",
+                    reason=(
+                        "اعتبار مشاهده ارزیابی مورد اختلاف است و نیاز به "
+                        "تصمیم انسانی دارد."
+                    ),
+                    priority=80,
+                    actor_id=command.actor_id,
+                    request_id=command.request_id,
+                    correlation_id=command.correlation_id,
+                    policy_version="observation-conflict-v1",
+                )
+            elif current.status in {
+                ObservationValidationStatus.VALIDATED,
+                ObservationValidationStatus.REJECTED,
+                ObservationValidationStatus.SUPERSEDED,
+            }:
+                await CompleteWorkItemFromSourceHandler(
+                    work_items=self._work_items,
+                    events=self._events,
+                    audits=self._audits,
+                ).handle(
+                    work_type=WorkItemType.CONFLICT_RESOLUTION,
+                    resource_type="INDICATOR_OBSERVATION",
+                    resource_id=observation.id,
+                    actor_id=command.actor_id,
+                    request_id=command.request_id,
+                    correlation_id=command.correlation_id,
+                )
         return current
 
 

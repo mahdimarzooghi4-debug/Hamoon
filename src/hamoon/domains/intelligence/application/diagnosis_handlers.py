@@ -48,6 +48,12 @@ from hamoon.domains.intelligence.ports.repositories import (
     HumanDecisionRepository,
     LearningSignalRepository,
 )
+from hamoon.domains.operations.application.handlers import (
+    CompleteWorkItemFromSourceHandler,
+    EnsureWorkItemHandler,
+)
+from hamoon.domains.operations.domain.entities import WorkItemType
+from hamoon.domains.operations.ports import WorkItemRepository
 from hamoon.domains.pgor.domain.engine import PGORSnapshotStatus
 from hamoon.domains.pgor.domain.snapshots import PGORSnapshot
 from hamoon.domains.pgor.ports.repositories import (
@@ -107,6 +113,7 @@ class GenerateDiagnosisHandler:
         traces: DecisionTraceRepository,
         ai_client: DiagnosisAIClient,
         accepted_state: AcceptedStateRepository | None = None,
+        work_items: WorkItemRepository | None = None,
         events: DomainEventRecorder,
         audits: AuditRecorder,
     ) -> None:
@@ -118,6 +125,7 @@ class GenerateDiagnosisHandler:
         self._traces = traces
         self._ai_client = ai_client
         self._accepted_state = accepted_state
+        self._work_items = work_items
         self._events = events
         self._audits = audits
 
@@ -291,6 +299,26 @@ class GenerateDiagnosisHandler:
                 },
             )
         )
+        if self._work_items is not None:
+            await EnsureWorkItemHandler(
+                work_items=self._work_items,
+                events=self._events,
+                audits=self._audits,
+            ).handle(
+                household_id=diagnosis.household_id,
+                work_type=WorkItemType.DIAGNOSIS_REVIEW,
+                resource_type="DIAGNOSIS",
+                resource_id=diagnosis.id,
+                title="بازبینی تشخیص هوش مصنوعی",
+                reason=(
+                    "تشخیص پیشنهادی هوش مصنوعی آماده تصمیم انسانی است."
+                ),
+                priority=70,
+                actor_id=command.actor_id,
+                request_id=command.request_id,
+                correlation_id=command.correlation_id,
+                policy_version="diagnosis-review-v1",
+            )
         return diagnosis, ai_decision
 
     async def handle(
@@ -319,6 +347,7 @@ class ReviewDiagnosisHandler:
         feature_packages: FeaturePackageRepository,
         traces: DecisionTraceRepository,
         learning_signals: LearningSignalRepository,
+        work_items: WorkItemRepository | None = None,
         events: DomainEventRecorder,
         audits: AuditRecorder,
         output_schema: dict[str, JsonValue],
@@ -329,6 +358,7 @@ class ReviewDiagnosisHandler:
         self._feature_packages = feature_packages
         self._traces = traces
         self._learning_signals = learning_signals
+        self._work_items = work_items
         self._events = events
         self._audits = audits
         self._output_schema = output_schema
@@ -486,4 +516,20 @@ class ReviewDiagnosisHandler:
                 },
             )
         )
+        if (
+            self._work_items is not None
+            and command.action is not HumanDecisionAction.DEFER
+        ):
+            await CompleteWorkItemFromSourceHandler(
+                work_items=self._work_items,
+                events=self._events,
+                audits=self._audits,
+            ).handle(
+                work_type=WorkItemType.DIAGNOSIS_REVIEW,
+                resource_type="DIAGNOSIS",
+                resource_id=diagnosis.id,
+                actor_id=command.actor_id,
+                request_id=command.request_id,
+                correlation_id=command.correlation_id,
+            )
         return updated, human_decision, signal

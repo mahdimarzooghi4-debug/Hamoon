@@ -26,10 +26,15 @@ type QueueLoadState =
 type Filter = "ALL" | WorkItemType;
 
 const typeLabels: Record<WorkItemType, string> = {
-  REASSESSMENT: "بازسنجی",
-  OUTCOME_REVIEW: "بازبینی نتیجه",
+  DIAGNOSIS_REVIEW: "بازبینی تشخیص",
+  PRESCRIPTION_REVIEW: "بازبینی نسخه",
   REFERRAL_FOLLOWUP: "پیگیری ارجاع",
+  REASSESSMENT_DUE: "بازسنجی موعددار",
+  OUTCOME_REVIEW: "بازبینی نتیجه",
+  DATA_COMPLETION: "تکمیل داده",
+  CONFLICT_RESOLUTION: "حل تعارض",
   AI_FALLBACK: "بررسی جایگزین هوش مصنوعی",
+  REASSESSMENT: "بازسنجی",
 };
 
 const persianDateTime = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
@@ -42,7 +47,7 @@ function dueLabel(value: string | null): string {
 }
 
 function isOverdue(item: WorkItem): boolean {
-  return item.due_at !== null && new Date(item.due_at).getTime() < Date.now();
+  return item.is_overdue;
 }
 
 function priorityTone(priority: number): "danger" | "warning" | "neutral" {
@@ -148,9 +153,13 @@ export function WorkQueuePage() {
           {(
             [
               ["ALL", "همه"],
-              ["REASSESSMENT", "بازسنجی"],
-              ["OUTCOME_REVIEW", "بازبینی نتیجه"],
+              ["DIAGNOSIS_REVIEW", "تشخیص"],
+              ["PRESCRIPTION_REVIEW", "نسخه"],
               ["REFERRAL_FOLLOWUP", "پیگیری ارجاع"],
+              ["REASSESSMENT_DUE", "بازسنجی"],
+              ["OUTCOME_REVIEW", "نتیجه"],
+              ["DATA_COMPLETION", "تکمیل داده"],
+              ["CONFLICT_RESOLUTION", "حل تعارض"],
               ["AI_FALLBACK", "بررسی جایگزین"],
             ] as const
           ).map(([value, label]) => (

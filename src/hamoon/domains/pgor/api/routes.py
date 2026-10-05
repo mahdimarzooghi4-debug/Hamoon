@@ -16,8 +16,12 @@ from hamoon.domains.assessment.infrastructure.repositories import (
     SqlAlchemyIndicatorObservationRepository,
     SqlAlchemyObservationValidationRepository,
 )
-from hamoon.domains.operations.application.handlers import MarkPostPGORReadyHandler
-from hamoon.domains.operations.domain.entities import ReassessmentPlan
+from hamoon.domains.operations.application.handlers import (
+    CompleteWorkItemFromSourceHandler,
+    EnsureWorkItemHandler,
+    MarkPostPGORReadyHandler,
+)
+from hamoon.domains.operations.domain.entities import ReassessmentPlan, WorkItemType
 from hamoon.domains.operations.infrastructure.repositories import (
     SqlAlchemyReassessmentPlanRepository,
     SqlAlchemyWorkItemRepository,
@@ -182,6 +186,7 @@ async def calculate_official_pgor(
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
     plan: ReassessmentPlan | None = None
+    assessment_household_id: UUID | None = None
 
     try:
         async with session.begin():
@@ -192,6 +197,7 @@ async def calculate_official_pgor(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail={"code": "RESOURCE_NOT_FOUND"},
                 )
+            assessment_household_id = assessment.household_id
             await require_household_assignment(
                 session=session,
                 context=context,
@@ -218,6 +224,19 @@ async def calculate_official_pgor(
                 )
             )
 
+            await CompleteWorkItemFromSourceHandler(
+                work_items=SqlAlchemyWorkItemRepository(session),
+                events=SqlAlchemyDomainEventRecorder(session),
+                audits=SqlAlchemyAuditRecorder(session),
+            ).handle(
+                work_type=WorkItemType.DATA_COMPLETION,
+                resource_type="ASSESSMENT",
+                resource_id=assessment.id,
+                actor_id=context.actor_id,
+                request_id=request_id,
+                correlation_id=correlation_id,
+            )
+
             if (
                 assessment.assessment_type is AssessmentType.OUTCOME_REASSESSMENT
                 and assessment.provider_result_id is not None
@@ -241,9 +260,34 @@ async def calculate_official_pgor(
             detail={"code": "INVALID_FORMULA_VERSION"},
         ) from exc
     except PGORCalculationBlockedError as exc:
+        reason = str(exc)
+        if (
+            "MISSING_REQUIRED_INDICATOR" in reason
+            and assessment_household_id is not None
+        ):
+            async with session.begin():
+                await EnsureWorkItemHandler(
+                    work_items=SqlAlchemyWorkItemRepository(session),
+                    events=SqlAlchemyDomainEventRecorder(session),
+                    audits=SqlAlchemyAuditRecorder(session),
+                ).handle(
+                    household_id=assessment_household_id,
+                    work_type=WorkItemType.DATA_COMPLETION,
+                    resource_type="ASSESSMENT",
+                    resource_id=assessment_id,
+                    title="تکمیل داده‌های ضروری ارزیابی",
+                    reason=(
+                        "محاسبه PGOR به دلیل نبود داده ضروری مسدود شده است."
+                    ),
+                    priority=80,
+                    actor_id=context.actor_id,
+                    request_id=request_id,
+                    correlation_id=correlation_id,
+                    policy_version="assessment-data-completion-v1",
+                )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"code": "PGOR_CALCULATION_BLOCKED", "reason": str(exc)},
+            detail={"code": "PGOR_CALCULATION_BLOCKED", "reason": reason},
         ) from exc
     except (LookupError, ValueError) as exc:
         raise HTTPException(

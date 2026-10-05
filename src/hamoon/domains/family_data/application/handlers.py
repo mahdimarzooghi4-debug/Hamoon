@@ -20,6 +20,12 @@ from hamoon.domains.family_data.domain.errors import (
     HouseholdFactNotFoundError,
     ProjectionVersionConflictError,
 )
+from hamoon.domains.operations.application.handlers import (
+    CompleteWorkItemFromSourceHandler,
+    EnsureWorkItemHandler,
+)
+from hamoon.domains.operations.domain.entities import WorkItemType
+from hamoon.domains.operations.ports import WorkItemRepository
 from hamoon.domains.family_data.ports.repositories import (
     AcceptedStateRepository,
     DataSourceRepository,
@@ -137,11 +143,13 @@ class ChangeFactValidationHandler:
         *,
         facts: HouseholdFactRepository,
         validations: FactValidationRepository,
+        work_items: WorkItemRepository | None = None,
         events: DomainEventRecorder,
         audits: AuditRecorder,
     ) -> None:
         self._facts = facts
         self._validations = validations
+        self._work_items = work_items
         self._events = events
         self._audits = audits
 
@@ -224,6 +232,45 @@ class ChangeFactValidationHandler:
                 },
             )
         )
+        if self._work_items is not None:
+            if current.status is FactValidationStatus.DISPUTED:
+                await EnsureWorkItemHandler(
+                    work_items=self._work_items,
+                    events=self._events,
+                    audits=self._audits,
+                ).handle(
+                    household_id=fact.household_id,
+                    work_type=WorkItemType.CONFLICT_RESOLUTION,
+                    resource_type="HOUSEHOLD_FACT",
+                    resource_id=fact.id,
+                    title="حل تعارض داده خانوار",
+                    reason=(
+                        "اعتبار داده خانوار مورد اختلاف است و نیاز به "
+                        "تصمیم انسانی دارد."
+                    ),
+                    priority=80,
+                    actor_id=command.actor_id,
+                    request_id=command.request_id,
+                    correlation_id=command.correlation_id,
+                    policy_version="household-fact-conflict-v1",
+                )
+            elif current.status in {
+                FactValidationStatus.VALIDATED,
+                FactValidationStatus.REJECTED,
+                FactValidationStatus.SUPERSEDED,
+            }:
+                await CompleteWorkItemFromSourceHandler(
+                    work_items=self._work_items,
+                    events=self._events,
+                    audits=self._audits,
+                ).handle(
+                    work_type=WorkItemType.CONFLICT_RESOLUTION,
+                    resource_type="HOUSEHOLD_FACT",
+                    resource_id=fact.id,
+                    actor_id=command.actor_id,
+                    request_id=command.request_id,
+                    correlation_id=command.correlation_id,
+                )
         return current
 
 

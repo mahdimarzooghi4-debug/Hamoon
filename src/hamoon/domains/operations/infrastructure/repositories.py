@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
@@ -11,6 +11,7 @@ from hamoon.domains.operations.domain.entities import (
     WorkItemStatus,
     WorkItemType,
 )
+from hamoon.domains.household.infrastructure.models import CaseAssignmentModel
 from hamoon.domains.operations.infrastructure.models import (
     ReassessmentPlanModel,
     WorkItemModel,
@@ -246,21 +247,40 @@ class SqlAlchemyWorkItemRepository:
         due_before: datetime | None,
         limit: int,
     ) -> list[WorkItem]:
-        statement = select(WorkItemModel).where(
-            or_(
-                WorkItemModel.assigned_actor_id == actor_id,
-                WorkItemModel.claimed_by == actor_id,
+        now = datetime.now(UTC)
+        statement = (
+            select(WorkItemModel)
+            .join(
+                CaseAssignmentModel,
+                CaseAssignmentModel.household_id == WorkItemModel.household_id,
+            )
+            .where(
+                CaseAssignmentModel.actor_id == actor_id,
+                CaseAssignmentModel.valid_from <= now,
+                or_(
+                    CaseAssignmentModel.valid_to.is_(None),
+                    CaseAssignmentModel.valid_to > now,
+                ),
+                or_(
+                    WorkItemModel.assigned_actor_id.is_(None),
+                    WorkItemModel.assigned_actor_id == actor_id,
+                    WorkItemModel.claimed_by == actor_id,
+                ),
             )
         )
         if statuses:
             statement = statement.where(WorkItemModel.status.in_(statuses))
         if due_before is not None:
             statement = statement.where(WorkItemModel.due_at <= due_before)
-        statement = statement.order_by(
-            WorkItemModel.priority.desc(),
-            WorkItemModel.due_at.asc().nulls_last(),
-            WorkItemModel.created_at.asc(),
-        ).limit(limit)
+        statement = (
+            statement.distinct()
+            .order_by(
+                WorkItemModel.priority.desc(),
+                WorkItemModel.due_at.asc().nulls_last(),
+                WorkItemModel.created_at.asc(),
+            )
+            .limit(limit)
+        )
         result = await self._session.execute(statement)
         return [_work_item(model) for model in result.scalars().all()]
 

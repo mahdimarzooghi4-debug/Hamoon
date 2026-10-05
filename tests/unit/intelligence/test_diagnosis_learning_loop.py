@@ -21,6 +21,11 @@ from hamoon.domains.intelligence.domain.decisions import (
     HumanDecisionAction,
     LearningSignal,
 )
+from hamoon.domains.operations.domain.entities import (
+    WorkItem,
+    WorkItemStatus,
+    WorkItemType,
+)
 from hamoon.infrastructure.ai.diagnosis_runtime import DIAGNOSIS_V1_SCHEMA
 
 ACTOR_ID = UUID("11111111-1111-1111-1111-111111111111")
@@ -177,6 +182,46 @@ class LearningRepo:
         self.items.append(signal)
 
 
+class WorkItems:
+    def __init__(self) -> None:
+        self.item = WorkItem(
+            id=UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            household_id=HOUSEHOLD_ID,
+            work_type=WorkItemType.DIAGNOSIS_REVIEW,
+            resource_type="DIAGNOSIS",
+            resource_id=DIAGNOSIS_ID,
+            title="review",
+            reason="human review required",
+            priority=70,
+            status=WorkItemStatus.OPEN,
+            version=1,
+            due_at=None,
+            assigned_actor_id=None,
+            policy_version="diagnosis-review-v1",
+            created_at=datetime.now(UTC),
+            created_by=ACTOR_ID,
+        )
+
+    async def get_by_resource(
+        self,
+        *,
+        work_type: WorkItemType,
+        resource_type: str,
+        resource_id: UUID,
+    ) -> WorkItem | None:
+        if (
+            work_type is self.item.work_type
+            and resource_type == self.item.resource_type
+            and resource_id == self.item.resource_id
+        ):
+            return self.item
+        return None
+
+    async def update(self, item: WorkItem, *, expected_version: int) -> None:
+        assert self.item.version == expected_version
+        self.item = item
+
+
 class EventRecorder:
     def __init__(self) -> None:
         self.items = []
@@ -201,6 +246,7 @@ async def test_confirm_preserves_machine_output_and_creates_learning_signal() ->
     learning = LearningRepo()
     events = EventRecorder()
     audits = AuditRecorder()
+    work_items = WorkItems()
 
     updated, human, signal = await ReviewDiagnosisHandler(
         diagnoses=diagnoses,
@@ -209,6 +255,7 @@ async def test_confirm_preserves_machine_output_and_creates_learning_signal() ->
         feature_packages=FeaturePackageRepo(),
         traces=traces,
         learning_signals=learning,
+        work_items=work_items,
         events=events,
         audits=audits,
         output_schema=DIAGNOSIS_V1_SCHEMA,
@@ -233,6 +280,8 @@ async def test_confirm_preserves_machine_output_and_creates_learning_signal() ->
     assert events.items[-1].event_type == "DiagnosisConfirmed"
     assert traces.item.closed_at is not None
     assert traces.item.learning_signal_id == signal.id
+    assert work_items.item.status is WorkItemStatus.COMPLETED
+    assert work_items.item.completed_by == ACTOR_ID
 
 
 @pytest.mark.asyncio

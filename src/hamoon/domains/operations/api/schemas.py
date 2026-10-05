@@ -26,6 +26,7 @@ class WorkItemData(BaseModel):
     policy_version: str | None
     created_at: datetime
     claimed_at: datetime | None
+    is_overdue: bool
 
 
 class WorkQueueResponse(BaseModel):

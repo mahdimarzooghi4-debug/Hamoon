@@ -20,6 +20,7 @@ The local product boundary includes:
 - Durable PostgreSQL outbox with NATS JetStream delivery and retry.
 - Private S3-compatible evidence storage through the real MinIO adapter, with integrity verification, quarantine and download.
 - Structured PII-safe logs, Prometheus-compatible metrics and OpenTelemetry hooks.
+- Authorization-scoped Caseworker Work Queue with source-linked review, follow-up, reassessment, data-completion and conflict tasks.
 - Data Health and Machine Health aggregate read models.
 - Unit, contract, security, closed-loop Golden Path and infrastructure integration gates.
 - One-command local Docker Compose stack, including the real web frontend runtime.
