@@ -80,6 +80,7 @@ class LearningDatasetExportCase(BaseModel):
 class LearningDatasetExportData(BaseModel):
     dataset_id: UUID
     dataset_version: str
+    status: DatasetVersionStatus
     manifest_digest: str
     selection_policy_version: str
     cases: list[LearningDatasetExportCase]
