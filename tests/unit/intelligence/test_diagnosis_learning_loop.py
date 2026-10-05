@@ -277,7 +277,10 @@ async def test_confirm_preserves_machine_output_and_creates_learning_signal() ->
     assert updated.accepted_payload == MACHINE_OUTPUT
     assert human.accepted_payload == MACHINE_OUTPUT
     assert signal.signal_type.value == "DIAGNOSIS_CONFIRMED"
-    assert events.items[-1].event_type == "DiagnosisConfirmed"
+    assert [item.event_type for item in events.items] == [
+        "DiagnosisConfirmed",
+        "WorkItemCompleted",
+    ]
     assert traces.item.closed_at is not None
     assert traces.item.learning_signal_id == signal.id
     assert work_items.item.status is WorkItemStatus.COMPLETED

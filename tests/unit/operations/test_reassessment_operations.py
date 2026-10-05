@@ -148,7 +148,7 @@ async def test_schedule_is_versioned_idempotent_and_materializes_work_item() -> 
         correlation_id=plan.workflow_id,
     )
 
-    assert work_item.work_type is WorkItemType.REASSESSMENT
+    assert work_item.work_type is WorkItemType.REASSESSMENT_DUE
     assert work_item.status is WorkItemStatus.OPEN
     assert work_item.assigned_actor_id == ACTOR
     assert work_item.due_at == plan.due_at
