@@ -360,8 +360,6 @@ async def record_observation(
         sources=SqlAlchemyDataSourceRepository(session),
         observations=SqlAlchemyIndicatorObservationRepository(session),
         validations=SqlAlchemyObservationValidationRepository(session),
-        assessments=SqlAlchemyAssessmentRepository(session),
-        work_items=SqlAlchemyWorkItemRepository(session),
         events=SqlAlchemyDomainEventRecorder(session),
         audits=SqlAlchemyAuditRecorder(session),
     )
@@ -433,6 +431,8 @@ async def change_observation_validation(
     handler = ChangeObservationValidationHandler(
         observations=SqlAlchemyIndicatorObservationRepository(session),
         validations=SqlAlchemyObservationValidationRepository(session),
+        assessments=SqlAlchemyAssessmentRepository(session),
+        work_items=SqlAlchemyWorkItemRepository(session),
         events=SqlAlchemyDomainEventRecorder(session),
         audits=SqlAlchemyAuditRecorder(session),
     )
