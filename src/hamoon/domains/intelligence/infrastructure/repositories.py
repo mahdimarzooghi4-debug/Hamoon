@@ -182,7 +182,6 @@ def _human_decision(model: HumanDecisionModel) -> HumanDecision:
         prescription_id=model.prescription_id,
         provider_match_id=model.provider_match_id,
         outcome_id=model.outcome_id,
-        learning_signal_id=model.learning_signal_id,
     )
 
 def _trace(model: DecisionTraceModel) -> DecisionTrace:
@@ -202,6 +201,7 @@ def _trace(model: DecisionTraceModel) -> DecisionTrace:
         referral_id=model.referral_id,
         provider_result_id=model.provider_result_id,
         outcome_id=model.outcome_id,
+        learning_signal_id=model.learning_signal_id,
     )
 
 class SqlAlchemyAIDecisionRepository:
