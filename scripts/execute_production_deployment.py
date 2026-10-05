@@ -80,6 +80,8 @@ def main() -> None:
             repository=repository,
             manifest=manifest,
             admission=admission,
+            preflight_receipt=preflight_receipt,
+            preflight_contract_sha256=requirements_sha256,
         )
     except DeploymentOrchestratorError as exc:
         raise SystemExit(f"production deployment failed: {exc}") from exc
