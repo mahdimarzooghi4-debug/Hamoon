@@ -30,6 +30,47 @@ production_deployed = true
 and only after a trusted deployment orchestrator returns a final receipt bound to the
 exact admitted release.
 
+## Mandatory runtime preflight
+
+Before the orchestrator receives the deploy operation, the same protected workflow
+sends a separate:
+
+```text
+PREFLIGHT_HAMOON_PRODUCTION
+```
+
+request bound to:
+
+```text
+ops/production/runtime-preflight.json
+```
+
+The versioned V1 contract requires positive evidence for:
+
+- PostgreSQL connectivity;
+- NATS JetStream connectivity;
+- Temporal connectivity;
+- HTTPS OIDC discovery;
+- private HTTPS S3-compatible Evidence storage;
+- HTTPS Evidence malware scanner;
+- HTTPS OTLP trace export configuration;
+- HTTPS OTLP log export configuration;
+- protected metrics configuration;
+- Provider dispatch configuration;
+- backup policy configuration;
+- retention policy configuration.
+
+The orchestrator must return `status=READY`, the exact release/deployment identity,
+a unique `preflight_id`, a timezone-aware `checked_at`, and exactly the required
+check set with every value equal to `true`.
+
+Any missing, extra or false required check blocks the deploy operation. A preflight
+receipt is not deployment evidence; it only proves the target was ready immediately
+before the deploy request.
+
+The deployment attestation hashes the preflight contract, request and receipt, and
+Production Verification re-verifies all three before probing the hosted runtime.
+
 ## Provider-neutral orchestrator contract
 
 The workflow uses a Production GitHub Environment and reads two environment secrets:
@@ -107,6 +148,8 @@ The workflow stores:
 
 ```text
 hamoon-production-deployment-<commit-sha>/
+  preflight-request.json
+  preflight-receipt.json
   orchestrator-request.json
   orchestrator-receipt.json
   production-deployment.json
