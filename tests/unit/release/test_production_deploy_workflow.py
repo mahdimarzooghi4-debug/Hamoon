@@ -18,6 +18,9 @@ def test_production_deploy_workflow_requires_protected_orchestrator_contract() -
         in workflow
     )
     assert "scripts/execute_production_deployment.py" in workflow
+    assert "ops/production/runtime-preflight.json" in workflow
+    assert "preflight-request.json" in workflow
+    assert "preflight-receipt.json" in workflow
     assert "scripts/verify_production_deployment.py" in workflow
     assert "hamoon-production-deployment-${{ inputs.commit_sha }}" in workflow
 
@@ -29,5 +32,8 @@ def test_production_verification_requires_immutable_deployment_evidence() -> Non
 
     assert 'artifact_name="hamoon-production-deployment-$PROMOTED_SHA"' in workflow
     assert "scripts/verify_production_deployment.py" in workflow
+    assert "verification-input/deployment/preflight-request.json" in workflow
+    assert "verification-input/deployment/preflight-receipt.json" in workflow
+    assert "ops/production/runtime-preflight.json" in workflow
     assert "production_deployment_run_id" in workflow
     assert "production_deployment_sha256" in workflow
