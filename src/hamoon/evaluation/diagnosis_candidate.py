@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
@@ -22,12 +21,13 @@ from hamoon.infrastructure.ai.contracts import (
     ProviderStructuredRequest,
 )
 from hamoon.infrastructure.ai.diagnosis_runtime import DIAGNOSIS_V1_SCHEMA
-from hamoon.infrastructure.ai.providers.openai import OpenAIProvider
+from hamoon.infrastructure.ai.providers.local_artifact import LocalArtifactAIProvider
 
 
 class CandidateEvaluationBundle(BaseModel):
     provider_code: str
     model_id: str
+    model_artifact_sha256: str
     model_alias: str
     prompt_policy_version: str
     output_schema_version: str
@@ -69,9 +69,11 @@ def _load_policy(path: Path) -> DiagnosisEvaluationPolicy:
 
 async def run_candidate_evaluation(
     *,
-    api_key: str,
-    base_url: str,
+    model_root: Path,
+    runner_path: Path,
     model_id: str,
+    artifact_ref: str,
+    artifact_sha256: str,
     model_alias: str,
     prompt_policy_version: str,
     output_schema_version: str,
@@ -80,9 +82,9 @@ async def run_candidate_evaluation(
     cases: list[DiagnosisEvaluationCase],
     policy: DiagnosisEvaluationPolicy,
 ) -> tuple[CandidateEvaluationBundle, DiagnosisEvaluationReport]:
-    provider = OpenAIProvider(
-        api_key=api_key,
-        base_url=base_url,
+    provider = LocalArtifactAIProvider(
+        model_root=model_root,
+        runner_path=runner_path,
         timeout_seconds=90.0,
     )
     outputs: list[DiagnosisEvaluationOutput] = []
@@ -93,6 +95,8 @@ async def run_candidate_evaluation(
                 task_class=AITaskClass.DIAGNOSIS,
                 model_id=model_id,
                 model_alias=model_alias,
+                model_artifact_ref=artifact_ref,
+                model_artifact_sha256=artifact_sha256,
                 prompt_policy_version=prompt_policy_version,
                 output_schema_version=output_schema_version,
                 feature_schema_version="diagnosis-input-v1",
@@ -111,8 +115,9 @@ async def run_candidate_evaluation(
 
     generated_at = datetime.now(UTC)
     bundle = CandidateEvaluationBundle(
-        provider_code="OPENAI",
+        provider_code="HAMOON_LOCAL",
         model_id=model_id,
+        model_artifact_sha256=artifact_sha256,
         model_alias=model_alias,
         prompt_policy_version=prompt_policy_version,
         output_schema_version=output_schema_version,
@@ -147,15 +152,20 @@ async def _async_main() -> int:
     parser.add_argument("--model-alias", default="hamoon.diagnosis.v1")
     parser.add_argument("--prompt-policy-version", default="diagnosis-prompt-v1")
     parser.add_argument("--output-schema-version", default="diagnosis-v1")
+    parser.add_argument("--model-root", type=Path, required=True)
+    parser.add_argument("--runner-path", type=Path, required=True)
+    parser.add_argument("--artifact-ref", required=True)
     parser.add_argument(
-        "--base-url",
-        default=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        "--artifact-sha256",
+        required=True,
     )
     args = parser.parse_args()
 
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is required for candidate evaluation.")
+    if (
+        len(args.artifact_sha256) != 64
+        or any(ch not in "0123456789abcdef" for ch in args.artifact_sha256)
+    ):
+        raise ValueError("Model artifact SHA-256 must be lowercase hexadecimal.")
 
     dataset_version, cases = _load_cases(args.dataset)
     policy = _load_policy(args.policy)
@@ -164,9 +174,11 @@ async def _async_main() -> int:
         raise ValueError("Diagnosis evaluation instructions must not be empty.")
 
     bundle, report = await run_candidate_evaluation(
-        api_key=api_key,
-        base_url=args.base_url,
+        model_root=args.model_root,
+        runner_path=args.runner_path,
         model_id=args.model_id,
+        artifact_ref=args.artifact_ref,
+        artifact_sha256=args.artifact_sha256,
         model_alias=args.model_alias,
         prompt_policy_version=args.prompt_policy_version,
         output_schema_version=args.output_schema_version,
