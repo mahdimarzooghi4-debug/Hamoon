@@ -36,8 +36,11 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path]:
             "commit_sha": COMMIT,
             "synthetic": True,
             "contains_pii": False,
-            "object_sha256": "b" * 64,
-            "object_size_bytes": 48,
+            "object_sha256": (
+                "2e1fdb7035fa524273cbac5fc9a0cbec"
+                "448af449cf33e120bbf926688a1f84d5"
+            ),
+            "object_size_bytes": 44,
             "checks": {
                 "storage_put": True,
                 "storage_metadata_integrity": True,
