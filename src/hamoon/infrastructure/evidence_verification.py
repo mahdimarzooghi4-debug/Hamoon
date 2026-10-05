@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import re
 from datetime import UTC, datetime
 from urllib.parse import quote, urlsplit, urlunsplit
@@ -28,7 +29,17 @@ def _remote_https(value: str) -> bool:
     if parsed.username is not None or parsed.password is not None:
         return False
     host = parsed.hostname.lower()
-    return host != "localhost" and not host.endswith(".localhost")
+    if host == "localhost" or host.endswith(".localhost"):
+        return False
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return True
+    return not (
+        address.is_loopback
+        or address.is_link_local
+        or address.is_unspecified
+    )
 
 
 def _anonymous_object_url(
