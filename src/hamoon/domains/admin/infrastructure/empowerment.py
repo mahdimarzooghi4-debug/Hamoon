@@ -121,10 +121,7 @@ class SqlAlchemyEmpowermentOverviewRepository:
             e_band_counts[e_band] += 1
 
             for value in cast(list[str], row["bottleneck_variables"]):
-                try:
-                    variable = PGORVariableCode(value)
-                except ValueError:
-                    continue
+                variable = PGORVariableCode(value)
                 bottleneck_counts[variable] += 1
 
         outcome_rows = (
