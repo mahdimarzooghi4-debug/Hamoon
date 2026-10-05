@@ -85,7 +85,10 @@ jobs:
           uv run python scripts/verify_recovery_policy.py \
             ops/recovery/recovery-policy.json .
 
-      - name: Closed-loop golden path gate
+      - name: Core E2E golden path gate
+        run: uv run pytest tests/unit/operations/test_core_e2e_golden_path.py
+
+      - name: Closed-loop reassessment and learning gate
         run: uv run pytest tests/unit/operations/test_reassessment_learning_loop_golden_path.py
 
       - name: Docker Compose contract
