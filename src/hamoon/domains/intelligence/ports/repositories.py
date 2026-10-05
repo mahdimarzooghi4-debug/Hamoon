@@ -13,6 +13,7 @@ from hamoon.domains.intelligence.domain.decisions import (
 )
 from hamoon.domains.intelligence.domain.entities import FeaturePackage
 from hamoon.domains.intelligence.domain.registry import (
+    AIModelVersionCatalogItem,
     EvaluationRunState,
     ResolvedAIRoute,
     RoutingPolicyDraft,
@@ -132,6 +133,17 @@ class AIRuntimeRegistryRepository(Protocol):
         self,
         task_class: AITaskClass,
     ) -> ResolvedAIRoute | None: ...
+
+    async def register_native_model_candidate(
+        self,
+        *,
+        task_class: AITaskClass,
+        model_key: str,
+        version: str,
+        concrete_model_id: str,
+        artifact_sha256: str,
+        limitations: str | None,
+    ) -> AIModelVersionCatalogItem: ...
 
     async def get_evaluation_run(
         self,
