@@ -908,6 +908,7 @@ Must test:
 
 ## PB-123 — Core E2E Test
 Priority: P0
+Implementation: COMPLETE. CI executes the full application/domain golden path from real Household creation and human Accepted State resolution through deterministic pre/post PGOR, AI diagnosis + human review, prescription + intervention, rule-based Provider Match + explicit human Provider selection/referral, sent referral + Provider Result, version-pinned reassessment, Outcome review and the resulting Learning Signal. Infrastructure persistence is isolated behind in-memory repositories in this acceptance test; PostgreSQL/NATS/MinIO and exact-image runtime boundaries remain covered by their dedicated integration, release and Stage gates.
 
 Scenario:
 
