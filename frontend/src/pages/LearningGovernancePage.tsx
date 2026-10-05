@@ -12,6 +12,7 @@ import {
   completeEvaluation,
   createEvaluation,
   createOutcomeDataset,
+  createReviewedDecisionDataset,
   createRoutingPolicy,
   curateLearningSignal,
   exportLearningDataset,
@@ -22,6 +23,7 @@ import {
   listPromptPolicyVersions,
   listRoutingPolicies,
   promoteRoutingPolicy,
+  trainNativeModel,
   type DatasetExport,
   type DatasetStatus,
   type EvaluationRun,
@@ -43,6 +45,11 @@ import {
   MetricCard,
   Panel,
 } from "../design-system/components";
+
+type TrainableTask =
+  | "DIAGNOSIS"
+  | "PRESCRIPTION"
+  | "OUTCOME_INTERPRETATION";
 
 type AdminData = {
   signals: LearningSignal[];
@@ -91,7 +98,7 @@ const signalTypeLabels: Record<string, string> = {
   DIAGNOSIS_REPLACED: "جایگزینی تشخیص",
   DIAGNOSIS_REJECTED: "رد تشخیص",
   DIAGNOSIS_DEFERRED: "تعویق تشخیص",
-  PRESCRIPTION_APPROVED: "تأیید نسخه",
+  PRESCRIPTION_CONFIRMED: "تأیید نسخه",
   PRESCRIPTION_MODIFIED: "اصلاح نسخه",
   PRESCRIPTION_REPLACED: "جایگزینی نسخه",
   PRESCRIPTION_DEFERRED: "تعویق نسخه",
@@ -175,12 +182,20 @@ export function LearningGovernancePage() {
     new Set(),
   );
 
+  const [datasetTaskClass, setDatasetTaskClass] =
+    useState<TrainableTask>("OUTCOME_INTERPRETATION");
   const [datasetKey, setDatasetKey] = useState("outcome-interpretation");
   const [datasetVersion, setDatasetVersion] = useState("");
   const [selectionPolicyVersion, setSelectionPolicyVersion] = useState(
     "outcome-learning-selection-v1",
   );
   const [exportPreview, setExportPreview] = useState<DatasetExport | null>(null);
+
+  const [trainingDatasetId, setTrainingDatasetId] = useState("");
+  const [trainingModelKey, setTrainingModelKey] = useState("");
+  const [trainingVersion, setTrainingVersion] = useState("");
+  const [trainingModelId, setTrainingModelId] = useState("");
+  const [trainingLimitations, setTrainingLimitations] = useState("");
 
   const [evaluationDatasetId, setEvaluationDatasetId] = useState("");
   const [evaluationModelId, setEvaluationModelId] = useState("");
@@ -254,22 +269,54 @@ export function LearningGovernancePage() {
     );
   }, [ready, signalQualityFilter, signalTypeFilter]);
 
-  const eligibleDatasetSignals = useMemo(
-    () =>
-      ready?.signals.filter(
-        (signal) =>
-          signal.quality_status === "CURATED" &&
+  const eligibleDatasetSignals = useMemo(() => {
+    if (!ready) return [];
+    return ready.signals.filter((signal) => {
+      if (signal.quality_status !== "CURATED") return false;
+      if (datasetTaskClass === "OUTCOME_INTERPRETATION") {
+        return (
           signal.signal_type === "OUTCOME_OBSERVED" &&
           signal.outcome_id !== null &&
           signal.provider_result_id !== null &&
-          signal.intervention_id !== null,
-      ) ?? [],
-    [ready],
-  );
+          signal.intervention_id !== null
+        );
+      }
+      if (datasetTaskClass === "DIAGNOSIS") {
+        return (
+          signal.ai_decision_id !== null &&
+          signal.diagnosis_id !== null &&
+          [
+            "DIAGNOSIS_CONFIRMED",
+            "DIAGNOSIS_MODIFIED",
+            "DIAGNOSIS_REPLACED",
+          ].includes(signal.signal_type)
+        );
+      }
+      return (
+        signal.ai_decision_id !== null &&
+        signal.prescription_id !== null &&
+        [
+          "PRESCRIPTION_CONFIRMED",
+          "PRESCRIPTION_MODIFIED",
+          "PRESCRIPTION_REPLACED",
+        ].includes(signal.signal_type)
+      );
+    });
+  }, [datasetTaskClass, ready]);
 
   const approvedDatasets = useMemo(
     () => ready?.datasets.filter((item) => item.status === "APPROVED") ?? [],
     [ready],
+  );
+
+  const trainableDatasets = useMemo(
+    () =>
+      approvedDatasets.filter((item) =>
+        ["DIAGNOSIS", "PRESCRIPTION", "OUTCOME_INTERPRETATION"].includes(
+          item.purpose,
+        ),
+      ),
+    [approvedDatasets],
   );
 
   const eligibleModels = useMemo(
@@ -277,6 +324,8 @@ export function LearningGovernancePage() {
       ready?.models.filter(
         (item) =>
           item.provider_status === "ACTIVE" &&
+          item.provider_code === "HAMOON_NATIVE" &&
+          item.artifact_sha256 !== null &&
           (item.status === "CANDIDATE" || item.status === "APPROVED") &&
           item.purpose === "OUTCOME_INTERPRETATION",
       ) ?? [],
@@ -423,22 +472,71 @@ export function LearningGovernancePage() {
       signalIds.length === 0
     ) {
       setActionError(
-        "کلید، نسخه، policy انتخاب و حداقل یک Outcome Signal کیوریت‌شده الزامی است.",
+        "کلید، نسخه، policy انتخاب و حداقل یک Learning Signal کیوریت‌شده الزامی است.",
       );
       return;
     }
     await runAction(
       "create-dataset",
       async () => {
-        await createOutcomeDataset({
-          datasetKey: datasetKey.trim(),
-          version: datasetVersion.trim(),
-          selectionPolicyVersion: selectionPolicyVersion.trim(),
-          signalIds,
-        });
+        if (datasetTaskClass === "OUTCOME_INTERPRETATION") {
+          await createOutcomeDataset({
+            datasetKey: datasetKey.trim(),
+            version: datasetVersion.trim(),
+            selectionPolicyVersion: selectionPolicyVersion.trim(),
+            signalIds,
+          });
+        } else {
+          await createReviewedDecisionDataset({
+            taskClass: datasetTaskClass,
+            datasetKey: datasetKey.trim(),
+            version: datasetVersion.trim(),
+            selectionPolicyVersion: selectionPolicyVersion.trim(),
+            signalIds,
+          });
+        }
         setSelectedSignalIds(new Set());
       },
       "Dataset نسخه‌دار ساخته شد و manifest آن قفل شد.",
+    );
+  }
+
+  async function submitNativeTraining(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const dataset = ready?.datasets.find(
+      (item) => item.id === trainingDatasetId,
+    );
+    if (
+      !dataset ||
+      dataset.status !== "APPROVED" ||
+      !["DIAGNOSIS", "PRESCRIPTION", "OUTCOME_INTERPRETATION"].includes(
+        dataset.purpose,
+      ) ||
+      !trainingModelKey.trim() ||
+      !trainingVersion.trim() ||
+      !trainingModelId.trim()
+    ) {
+      setActionError(
+        "Dataset تأییدشده و مشخصات نسخه مدل بومی برای آموزش الزامی است.",
+      );
+      return;
+    }
+    await runAction(
+      "train-native-model",
+      async () => {
+        await trainNativeModel({
+          taskClass: dataset.purpose as TrainableTask,
+          datasetVersionId: dataset.id,
+          modelKey: trainingModelKey.trim(),
+          version: trainingVersion.trim(),
+          modelId: trainingModelId.trim(),
+          limitations: trainingLimitations.trim(),
+        });
+        setTrainingVersion("");
+        setTrainingModelId("");
+        setTrainingLimitations("");
+      },
+      "مدل بومی از Dataset تأییدشده آموزش دید و فقط به‌صورت CANDIDATE ثبت شد.",
     );
   }
 
@@ -832,7 +930,7 @@ export function LearningGovernancePage() {
       <Panel className="admin-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Curated Outcome فقط</span>
+            <span className="eyebrow">Curated Human-reviewed Data</span>
             <h2>Dataset Builder</h2>
           </div>
           <Badge tone="accent">
@@ -842,6 +940,37 @@ export function LearningGovernancePage() {
 
         <form className="dataset-builder" onSubmit={submitDataset}>
           <div className="admin-form-grid">
+            <label>
+              <span>نوع یادگیری</span>
+              <select
+                value={datasetTaskClass}
+                onChange={(event) => {
+                  const value = event.target.value as TrainableTask;
+                  setDatasetTaskClass(value);
+                  setSelectedSignalIds(new Set());
+                  if (value === "DIAGNOSIS") {
+                    setDatasetKey("diagnosis-learning");
+                    setSelectionPolicyVersion("diagnosis-reviewed-selection-v1");
+                  } else if (value === "PRESCRIPTION") {
+                    setDatasetKey("prescription-learning");
+                    setSelectionPolicyVersion(
+                      "prescription-reviewed-selection-v1",
+                    );
+                  } else {
+                    setDatasetKey("outcome-interpretation");
+                    setSelectionPolicyVersion(
+                      "outcome-learning-selection-v1",
+                    );
+                  }
+                }}
+              >
+                <option value="DIAGNOSIS">Diagnosis</option>
+                <option value="PRESCRIPTION">Prescription</option>
+                <option value="OUTCOME_INTERPRETATION">
+                  Outcome Interpretation
+                </option>
+              </select>
+            </label>
             <label>
               <span>Dataset key</span>
               <input
@@ -871,10 +1000,14 @@ export function LearningGovernancePage() {
             </label>
           </div>
           <div className="dataset-invariants">
-            <Badge tone="success">OUTCOME_OBSERVED</Badge>
+            <Badge tone="success">{datasetTaskClass}</Badge>
             <span>فقط CURATED Signal با Human Review معتبر</span>
-            <span>Provider Result فقط structured type/status</span>
-            <span>causal_claim_allowed = false</span>
+            <span>Reject/Defer وارد مدل Diagnosis/Prescription نمی‌شود</span>
+            {datasetTaskClass === "OUTCOME_INTERPRETATION" ? (
+              <span>Provider Result فقط structured و causal_claim=false</span>
+            ) : (
+              <span>Target همان payload نهایی پذیرفته‌شده توسط انسان است</span>
+            )}
           </div>
           <Button disabled={busy === "create-dataset"} type="submit">
             ساخت Dataset DRAFT
@@ -935,6 +1068,107 @@ export function LearningGovernancePage() {
             <code>{exportPreview.manifest_digest}</code>
           </div>
         ) : null}
+      </Panel>
+
+      <Panel className="admin-section">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">APPROVED Dataset → Native Training</span>
+            <h2>آموزش مدل بومی هامون</h2>
+          </div>
+          <Badge tone="success">بدون API / بدون شبکه</Badge>
+        </div>
+        <p>
+          آموزش داخل خود هامون انجام می‌شود و یک artifact محلی immutable با
+          SHA-256 می‌سازد. خروجی فقط CANDIDATE است و تا Evaluation و Promotion
+          صریح انسانی وارد Production نمی‌شود.
+        </p>
+        <form className="evaluation-builder" onSubmit={submitNativeTraining}>
+          <div className="admin-form-grid admin-form-grid--four">
+            <label>
+              <span>Dataset APPROVED</span>
+              <select
+                value={trainingDatasetId}
+                onChange={(event) => setTrainingDatasetId(event.target.value)}
+              >
+                <option value="">انتخاب کنید</option>
+                {trainableDatasets.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.purpose} — {item.dataset_key} / {item.version}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Model key</span>
+              <input
+                maxLength={150}
+                placeholder="hamoon.outcome.native"
+                value={trainingModelKey}
+                onChange={(event) => setTrainingModelKey(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Model version</span>
+              <input
+                maxLength={100}
+                placeholder="native-2026-10-r1"
+                value={trainingVersion}
+                onChange={(event) => setTrainingVersion(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Model ID</span>
+              <input
+                maxLength={250}
+                placeholder="hamoon-native-outcome-v1"
+                value={trainingModelId}
+                onChange={(event) => setTrainingModelId(event.target.value)}
+              />
+            </label>
+          </div>
+          <label className="admin-field-wide">
+            <span>محدودیت‌های نسخه</span>
+            <input
+              maxLength={2000}
+              value={trainingLimitations}
+              onChange={(event) => setTrainingLimitations(event.target.value)}
+            />
+          </label>
+          <Button disabled={busy === "train-native-model"} type="submit">
+            آموزش و ثبت CANDIDATE
+          </Button>
+        </form>
+
+        <div className="dataset-list">
+          {readyData.models.map((model) => (
+            <article className="dataset-card" key={model.id}>
+              <div>
+                <strong>
+                  {model.model_key} / {model.version}
+                </strong>
+                <span>
+                  {model.provider_code} • {model.purpose} • {model.status}
+                </span>
+                <span className="digest-value">
+                  artifact: {model.artifact_sha256 ?? "legacy / بدون artifact"}
+                </span>
+              </div>
+              <Badge
+                tone={
+                  model.provider_code === "HAMOON_NATIVE" &&
+                  model.artifact_sha256
+                    ? "success"
+                    : "warning"
+                }
+              >
+                {model.provider_code === "HAMOON_NATIVE"
+                  ? "بومی هامون"
+                  : "غیرقابل Promotion تولیدی"}
+              </Badge>
+            </article>
+          ))}
+        </div>
       </Panel>
 
       <Panel className="admin-section">
