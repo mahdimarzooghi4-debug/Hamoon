@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import cast
 
 import httpx
@@ -264,7 +265,7 @@ def test_execute_production_preflight_requires_all_checks_ready() -> None:
     observed_operations: list[object] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        observed_operations.append(request.json()["operation"])
+        observed_operations.append(json.loads(request.content)["operation"])
         return httpx.Response(200, json=_preflight_receipt())
 
     request_payload, receipt = execute_production_preflight(
