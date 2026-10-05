@@ -72,10 +72,11 @@ Hamoon then polls until the final state.
 
 Security rule:
 
-> The status URL must remain HTTPS on the exact same hostname as the configured
-> orchestrator endpoint.
+> The status URL must remain on the exact same HTTPS origin as the configured
+> orchestrator endpoint: same hostname and effective port.
 
-This prevents the deployment bearer token from following a cross-host status URL.
+This prevents the deployment bearer token from following a cross-host or cross-port
+status URL.
 
 Redirects are not followed automatically.
 
