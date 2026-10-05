@@ -12,6 +12,7 @@ The local product boundary includes:
 - PostgreSQL migrations and versioned domain persistence.
 - OIDC/RBAC contracts and security regression tests.
 - Household, accepted state, assessment and deterministic PGOR.
+- Historical PGOR trace over immutable persisted snapshot inputs, with no recomputation.
 - AI gateway boundaries with FakeAIProvider for local execution.
 - Human-reviewed diagnosis, prescription, provider selection and outcome.
 - Referral lifecycle and provider callback/result contracts.
