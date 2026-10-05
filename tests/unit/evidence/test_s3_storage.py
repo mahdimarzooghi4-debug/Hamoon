@@ -9,7 +9,6 @@ from hamoon.domains.evidence.infrastructure.s3_storage import (
     S3CompatibleEvidenceStorage,
 )
 
-
 @pytest.mark.asyncio
 async def test_s3_storage_put_metadata_and_read_are_private_and_signed() -> None:
     content = b"private evidence"
@@ -69,7 +68,6 @@ async def test_s3_storage_put_metadata_and_read_are_private_and_signed() -> None
         for request in seen
     )
 
-
 @pytest.mark.asyncio
 async def test_s3_storage_rejects_overwrite() -> None:
     def handler(_request: httpx.Request) -> httpx.Response:
@@ -85,7 +83,6 @@ async def test_s3_storage_rejects_overwrite() -> None:
 
     with pytest.raises(ValueError, match="EVIDENCE_OBJECT_ALREADY_EXISTS"):
         await storage.put(storage_key="evidence/object", content=b"immutable")
-
 
 
 @pytest.mark.asyncio
