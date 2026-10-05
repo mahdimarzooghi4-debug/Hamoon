@@ -200,6 +200,22 @@ class S3CompatibleEvidenceStorage:
             sha256=digest.lower(),
         )
 
+    async def delete_verification_object(
+        self,
+        *,
+        storage_key: str,
+    ) -> None:
+        if not storage_key.startswith("_hamoon-verification/"):
+            raise ValueError("EVIDENCE_VERIFICATION_DELETE_KEY_INVALID")
+        response = await self._request(
+            method="DELETE",
+            storage_key=storage_key,
+        )
+        if response.status_code == 404:
+            return
+        if response.is_error:
+            raise ValueError("EVIDENCE_STORAGE_UNAVAILABLE")
+
     async def read(
         self,
         *,
