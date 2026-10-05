@@ -17,6 +17,8 @@ def _production_settings(**overrides: object) -> Settings:
         "otel_exporter_otlp_endpoint": "https://otel.internal/v1/traces",
         "otel_exporter_otlp_logs_endpoint": "https://otel.internal/v1/logs",
         "structured_logging": True,
+        "ai_model_root": "/opt/hamoon/models",
+        "ai_local_runner_path": "/opt/hamoon/bin/hamoon-local-ai-runner",
         "database_url": (
             "postgresql+asyncpg://hamoon:strong-password@db.internal:5432/hamoon"
         ),
@@ -99,6 +101,16 @@ def test_production_configuration_accepts_remote_secure_dependencies() -> None:
             "structured_logging",
             False,
             "PRODUCTION_STRUCTURED_LOGGING_REQUIRED",
+        ),
+        (
+            "ai_model_root",
+            ".hamoon/models",
+            "PRODUCTION_LOCAL_AI_MODEL_ROOT_ABSOLUTE_REQUIRED",
+        ),
+        (
+            "ai_local_runner_path",
+            ".hamoon/bin/hamoon-local-ai-runner",
+            "PRODUCTION_LOCAL_AI_RUNNER_ABSOLUTE_REQUIRED",
         ),
         (
             "database_url",
@@ -192,3 +204,16 @@ def test_unknown_evidence_storage_backend_is_rejected_in_all_environments() -> N
 def test_unknown_evidence_scanner_backend_is_rejected_in_all_environments() -> None:
     with pytest.raises(ValidationError, match="EVIDENCE_SCANNER_BACKEND_INVALID"):
         Settings(_env_file=None, evidence_scanner_backend="magic")
+
+
+
+def test_production_configuration_rejects_external_ai_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "external-ai-key")
+
+    with pytest.raises(
+        ValidationError,
+        match="PRODUCTION_EXTERNAL_AI_CREDENTIAL_FORBIDDEN",
+    ):
+        _production_settings()
