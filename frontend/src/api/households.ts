@@ -112,3 +112,43 @@ export async function getHouseholdTimeline(
   );
   return response.data;
 }
+
+
+export interface PGORTraceInput {
+  observation_id: string;
+  observation_version: number;
+  indicator_definition_id: string;
+  indicator_code: string;
+  indicator_name_fa: string;
+  dimension_definition_id: string;
+  dimension_code: string;
+  dimension_name_fa: string;
+  variable_code: PGORVariable;
+  raw_score_0_100: DecimalValue;
+  normalized_score: DecimalValue;
+}
+
+export interface PGORTrace {
+  snapshot_id: string;
+  household_id: string;
+  assessment_id: string;
+  definition_version_id: string;
+  definition_version: string;
+  formula_version_id: string;
+  engine_version: string;
+  scoring_version: string;
+  input_fingerprint: string;
+  calculated_at: string;
+  inputs: PGORTraceInput[];
+}
+
+interface PGORTraceResponse {
+  data: PGORTrace;
+}
+
+export async function getPGORTrace(snapshotId: string): Promise<PGORTrace> {
+  const response = await requestJson<PGORTraceResponse>(
+    `/api/v1/pgor/snapshots/${encodeURIComponent(snapshotId)}/trace`,
+  );
+  return response.data;
+}
