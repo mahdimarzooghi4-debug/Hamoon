@@ -178,6 +178,15 @@ class Store:
         self.items.append(item)
 
 
+class AcceptedStateRepo:
+    def __init__(self, version: int = 13) -> None:
+        self.version = version
+
+    async def context_version(self, household_id: UUID) -> int:
+        assert household_id == HH
+        return self.version
+
+
 class Recorder:
     def __init__(self):
         self.items = []
@@ -192,6 +201,7 @@ async def test_outcome_ai_builds_minimized_feature_package_and_trace() -> None:
     decisions = Store()
     traces = Store()
     proposals = Proposals()
+    accepted_state = AcceptedStateRepo()
     handler = GenerateOutcomeInterpretationHandler(
         outcomes=Outcomes(),
         proposals=proposals,
@@ -201,6 +211,7 @@ async def test_outcome_ai_builds_minimized_feature_package_and_trace() -> None:
         feature_packages=packages,
         ai_decisions=decisions,
         traces=traces,
+        accepted_state=accepted_state,
         ai_client=GatewayOutcomeAIClient(
             gateway=ProviderAIGateway(providers={"FAKE": FakeAIProvider()}),
             routing_policy=local_fake_outcome_policy(),
@@ -232,3 +243,4 @@ async def test_outcome_ai_builds_minimized_feature_package_and_trace() -> None:
     assert proposal.ai_decision_id == ai_decision.id
     assert traces.items[0].outcome_id == OUTCOME
     assert traces.items[0].provider_result_id == RESULT
+    assert traces.items[0].household_context_version == 13

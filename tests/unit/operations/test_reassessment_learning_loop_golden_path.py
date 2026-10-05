@@ -12,6 +12,7 @@ from hamoon.domains.assessment.domain.entities import (
 )
 from hamoon.domains.intelligence.domain.decisions import (
     AIDecision,
+    AIDecisionType,
     DecisionTrace,
     HumanDecision,
     HumanDecisionAction,
@@ -363,6 +364,45 @@ class Traces:
             closed_at=closed_at,
         )
 
+    async def attach_referral(self, *, intervention_id, referral_id) -> None:
+        current = next(
+            item
+            for item in self.items.values()
+            if item.intervention_id == intervention_id
+        )
+        self.items[current.ai_decision_id] = replace(
+            current,
+            referral_id=referral_id,
+        )
+
+    async def attach_provider_result(
+        self,
+        *,
+        referral_id,
+        provider_result_id,
+    ) -> None:
+        current = next(
+            item
+            for item in self.items.values()
+            if item.referral_id == referral_id
+        )
+        self.items[current.ai_decision_id] = replace(
+            current,
+            provider_result_id=provider_result_id,
+        )
+
+    async def attach_outcome(self, *, intervention_id, outcome_id) -> None:
+        current = next(
+            item
+            for item in self.items.values()
+            if item.intervention_id == intervention_id
+            and item.trace_type is AIDecisionType.PRESCRIPTION
+        )
+        self.items[current.ai_decision_id] = replace(
+            current,
+            outcome_id=outcome_id,
+        )
+
 
 class HumanDecisions:
     def __init__(self) -> None:
@@ -471,6 +511,7 @@ async def test_reassessment_learning_loop_golden_path() -> None:
     plans = Plans()
     work_items = WorkItems()
     results = Results()
+    traces = Traces()
 
     pre_assessment = Assessment(
         id=PRE_ASSESSMENT_ID,
@@ -562,6 +603,22 @@ async def test_reassessment_learning_loop_golden_path() -> None:
         data_items=(),
     )
     referrals = Referrals(referral)
+    await traces.add(
+        DecisionTrace(
+            id=DIAGNOSIS_ID,
+            household_id=HOUSEHOLD,
+            trace_type=AIDecisionType.PRESCRIPTION,
+            state_fingerprint="a" * 64,
+            pgor_snapshot_id=PRE_SNAPSHOT_ID,
+            feature_package_id=FORMULA_ID,
+            ai_decision_id=PRESCRIPTION_AI_ID,
+            opened_at=datetime(2026, 1, 2, tzinfo=UTC),
+            human_decision_id=ACTOR,
+            prescription_id=PRESCRIPTION_ID,
+            intervention_id=INTERVENTION_ID,
+            referral_id=REFERRAL_ID,
+        )
+    )
     service_completed_at = datetime(2026, 2, 1, tzinfo=UTC)
 
     submitted = await SubmitProviderResultHandler(
@@ -572,6 +629,7 @@ async def test_reassessment_learning_loop_golden_path() -> None:
         interventions=interventions,
         prescriptions=prescriptions,
         reassessment_plans=plans,
+        traces=traces,
     ).handle(
         SubmitProviderResultCommand(
             provider_id=PROVIDER,
@@ -593,6 +651,7 @@ async def test_reassessment_learning_loop_golden_path() -> None:
     plan = submitted.reassessment_plan
     assert plan is not None
     assert provider_result.id != plan.id
+    assert traces.items[PRESCRIPTION_AI_ID].provider_result_id == provider_result.id
     assert plan.status is ReassessmentPlanStatus.SCHEDULED
     assert plan.due_at == service_completed_at + timedelta(days=30)
 
@@ -678,6 +737,7 @@ async def test_reassessment_learning_loop_golden_path() -> None:
         referrals=referrals,
         outcomes=outcomes,
         events=events,
+        traces=traces,
         audits=audits,
     ).handle(
         PrepareOutcomeCommand(
@@ -692,13 +752,13 @@ async def test_reassessment_learning_loop_golden_path() -> None:
     )
     assert outcome.provider_result_id == provider_result.id
     assert outcome.id != provider_result.id
+    assert traces.items[PRESCRIPTION_AI_ID].outcome_id == outcome.id
     assert outcome.e_delta == Decimal("0.07")
     assert "does not by itself establish causality" in outcome.observed_change_summary
 
     packages = Packages()
     decisions = Decisions()
     proposals = Proposals()
-    traces = Traces()
     ai_handler = GenerateOutcomeInterpretationHandler(
         outcomes=outcomes,
         proposals=proposals,

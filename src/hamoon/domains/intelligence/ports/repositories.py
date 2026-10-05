@@ -83,6 +83,27 @@ class DecisionTraceRepository(Protocol):
         intervention_id: UUID,
     ) -> None: ...
 
+    async def attach_referral(
+        self,
+        *,
+        intervention_id: UUID,
+        referral_id: UUID,
+    ) -> None: ...
+
+    async def attach_provider_result(
+        self,
+        *,
+        referral_id: UUID,
+        provider_result_id: UUID,
+    ) -> None: ...
+
+    async def attach_outcome(
+        self,
+        *,
+        intervention_id: UUID,
+        outcome_id: UUID,
+    ) -> None: ...
+
 
 class LearningSignalRepository(Protocol):
     async def add(self, signal: LearningSignal) -> None: ...

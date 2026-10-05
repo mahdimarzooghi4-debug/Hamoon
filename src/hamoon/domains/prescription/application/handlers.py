@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
+from hamoon.domains.family_data.ports.repositories import AcceptedStateRepository
 from hamoon.domains.intelligence.domain.decisions import (
     AIDecision,
     AIDecisionStatus,
@@ -50,6 +51,7 @@ class PreparedPrescriptionGeneration:
     snapshot: PGORSnapshot
     feature_package: FeaturePackage
     diagnosis_id: UUID
+    household_context_version: int | None = None
 
 
 def _accepted_diagnosis_status(status: DiagnosisStatus) -> bool:
@@ -71,6 +73,7 @@ class GeneratePrescriptionHandler:
         prescriptions: PrescriptionRepository,
         traces: DecisionTraceRepository,
         ai_client: PrescriptionAIClient,
+        accepted_state: AcceptedStateRepository | None = None,
         events: DomainEventRecorder,
         audits: AuditRecorder,
     ) -> None:
@@ -81,6 +84,7 @@ class GeneratePrescriptionHandler:
         self._prescriptions = prescriptions
         self._traces = traces
         self._ai_client = ai_client
+        self._accepted_state = accepted_state
         self._events = events
         self._audits = audits
 
@@ -118,10 +122,16 @@ class GeneratePrescriptionHandler:
             schema_version=PRESCRIPTION_FEATURE_SCHEMA_VERSION,
         )
         if existing is not None:
+            household_context_version = (
+                await self._accepted_state.context_version(command.household_id)
+                if self._accepted_state is not None
+                else None
+            )
             return PreparedPrescriptionGeneration(
                 snapshot=snapshot,
                 feature_package=existing,
                 diagnosis_id=diagnosis.id,
+                household_context_version=household_context_version,
             )
 
         intensity = Decimal("1") - snapshot.e
@@ -244,10 +254,16 @@ class GeneratePrescriptionHandler:
                 },
             )
         )
+        household_context_version = (
+            await self._accepted_state.context_version(command.household_id)
+            if self._accepted_state is not None
+            else None
+        )
         return PreparedPrescriptionGeneration(
             snapshot=snapshot,
             feature_package=package,
             diagnosis_id=diagnosis.id,
+            household_context_version=household_context_version,
         )
 
     async def infer(
@@ -274,6 +290,17 @@ class GeneratePrescriptionHandler:
         prepared: PreparedPrescriptionGeneration,
         result: AIExecutionResult,
     ) -> tuple[Prescription, AIDecision]:
+        if (
+            prepared.household_context_version is not None
+            and self._accepted_state is not None
+        ):
+            current_context_version = await self._accepted_state.context_version(
+                command.household_id
+            )
+            if current_context_version != prepared.household_context_version:
+                raise PrescriptionGenerationError(
+                    "HOUSEHOLD_CONTEXT_VERSION_CONFLICT"
+                )
         now = datetime.now(UTC)
         trace_id = uuid4()
         ai_decision = AIDecision(
@@ -312,6 +339,7 @@ class GeneratePrescriptionHandler:
             household_id=command.household_id,
             trace_type=AIDecisionType.PRESCRIPTION,
             state_fingerprint=prepared.feature_package.source_fingerprint,
+            household_context_version=prepared.household_context_version,
             pgor_snapshot_id=prepared.snapshot.id,
             feature_package_id=prepared.feature_package.id,
             ai_decision_id=ai_decision.id,

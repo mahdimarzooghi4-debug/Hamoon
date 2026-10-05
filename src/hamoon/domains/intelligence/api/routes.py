@@ -11,6 +11,9 @@ from hamoon.app.observability.request_context import current_correlation_id, cur
 from hamoon.app.security.context import AuthorizationContext, Role
 from hamoon.app.security.dependencies import require_roles
 from hamoon.app.security.resource_scope import require_household_assignment
+from hamoon.domains.family_data.infrastructure.repositories import (
+    SqlAlchemyAcceptedStateRepository,
+)
 from hamoon.domains.intelligence.api.schemas import (
     AIDecisionData,
     AIDecisionResponse,
@@ -195,6 +198,7 @@ async def generate_diagnosis(
                 diagnoses=SqlAlchemyDiagnosisRepository(session),
                 traces=SqlAlchemyDecisionTraceRepository(session),
                 ai_client=ai_client,
+                accepted_state=SqlAlchemyAcceptedStateRepository(session),
                 events=SqlAlchemyDomainEventRecorder(session),
                 audits=SqlAlchemyAuditRecorder(session),
             )
@@ -212,9 +216,14 @@ async def generate_diagnosis(
                 result=result,
             )
     except DiagnosisGenerationError as exc:
+        code = str(exc)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"code": str(exc)},
+            status_code=(
+                status.HTTP_409_CONFLICT
+                if code == "HOUSEHOLD_CONTEXT_VERSION_CONFLICT"
+                else status.HTTP_422_UNPROCESSABLE_ENTITY
+            ),
+            detail={"code": code},
         ) from exc
 
     return GenerateDiagnosisResponse(
@@ -618,10 +627,17 @@ async def get_ai_decision_trace(
             household_id=trace.household_id,
             trace_type=trace.trace_type,
             state_fingerprint=trace.state_fingerprint,
+            household_context_version=trace.household_context_version,
             pgor_snapshot_id=trace.pgor_snapshot_id,
             feature_package_id=trace.feature_package_id,
             ai_decision_id=trace.ai_decision_id,
             human_decision_id=trace.human_decision_id,
+            prescription_id=trace.prescription_id,
+            intervention_id=trace.intervention_id,
+            referral_id=trace.referral_id,
+            provider_result_id=trace.provider_result_id,
+            outcome_id=trace.outcome_id,
+            learning_signal_id=trace.learning_signal_id,
             opened_at=trace.opened_at,
             closed_at=trace.closed_at,
         )

@@ -71,6 +71,7 @@ class PrepareOutcomeHandler:
         referrals: ReferralRepository,
         outcomes: OutcomeRepository,
         events: DomainEventRecorder,
+        traces: DecisionTraceRepository | None = None,
         audits: AuditRecorder,
     ) -> None:
         self._interventions = interventions
@@ -80,6 +81,7 @@ class PrepareOutcomeHandler:
         self._referrals = referrals
         self._outcomes = outcomes
         self._events = events
+        self._traces = traces
         self._audits = audits
 
     async def handle(self, command: PrepareOutcomeCommand) -> HamoonOutcome:
@@ -179,6 +181,11 @@ class PrepareOutcomeHandler:
             version=1,
         )
         await self._outcomes.add(outcome)
+        if self._traces is not None:
+            await self._traces.attach_outcome(
+                intervention_id=intervention.id,
+                outcome_id=outcome.id,
+            )
         event_id = uuid4()
         await self._events.record(
             DomainEventRecord(

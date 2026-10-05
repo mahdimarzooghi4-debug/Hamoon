@@ -60,6 +60,8 @@ class AcceptedStateRepository(Protocol):
         household_id: UUID,
     ) -> list[CurrentAcceptedFact]: ...
 
+    async def context_version(self, household_id: UUID) -> int: ...
+
     async def set_current(
         self,
         *,

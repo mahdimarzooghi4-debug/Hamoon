@@ -242,6 +242,10 @@ class DecisionTraceModel(Base):
         nullable=False,
     )
     state_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    household_context_version: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
     pgor_snapshot_id: Mapped[UUID] = mapped_column(
         ForeignKey("pgor_snapshot.id", ondelete="RESTRICT"),
         nullable=False,

@@ -146,6 +146,7 @@ async def prepare_outcome(
                 referrals=SqlAlchemyReferralRepository(session),
                 outcomes=SqlAlchemyOutcomeRepository(session),
                 events=SqlAlchemyDomainEventRecorder(session),
+                traces=SqlAlchemyDecisionTraceRepository(session),
                 audits=SqlAlchemyAuditRecorder(session),
             ).handle(
                 PrepareOutcomeCommand(

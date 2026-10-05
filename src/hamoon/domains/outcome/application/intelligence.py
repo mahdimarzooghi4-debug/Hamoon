@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 from pydantic import JsonValue
 
+from hamoon.domains.family_data.ports.repositories import AcceptedStateRepository
 from hamoon.domains.intelligence.domain.decisions import (
     AIDecision,
     AIDecisionStatus,
@@ -62,6 +63,7 @@ class PreparedOutcomeInterpretation:
     provider_result_id: UUID | None
     post_snapshot: PGORSnapshot
     feature_package: FeaturePackage
+    household_context_version: int | None = None
 
 
 def _validate_output(
@@ -96,6 +98,7 @@ class GenerateOutcomeInterpretationHandler:
         ai_decisions: AIDecisionRepository,
         traces: DecisionTraceRepository,
         ai_client: OutcomeAIClient,
+        accepted_state: AcceptedStateRepository | None = None,
         events: DomainEventRecorder,
         audits: AuditRecorder,
     ) -> None:
@@ -108,6 +111,7 @@ class GenerateOutcomeInterpretationHandler:
         self._ai_decisions = ai_decisions
         self._traces = traces
         self._ai_client = ai_client
+        self._accepted_state = accepted_state
         self._events = events
         self._audits = audits
 
@@ -153,6 +157,11 @@ class GenerateOutcomeInterpretationHandler:
             schema_version=OUTCOME_FEATURE_SCHEMA_VERSION,
         )
         if existing is not None:
+            household_context_version = (
+                await self._accepted_state.context_version(outcome.household_id)
+                if self._accepted_state is not None
+                else None
+            )
             return PreparedOutcomeInterpretation(
                 outcome_id=outcome.id,
                 household_id=outcome.household_id,
@@ -161,6 +170,7 @@ class GenerateOutcomeInterpretationHandler:
                 provider_result_id=outcome.provider_result_id,
                 post_snapshot=post,
                 feature_package=existing,
+                household_context_version=household_context_version,
             )
 
         provider_ref = (
@@ -287,6 +297,11 @@ class GenerateOutcomeInterpretationHandler:
                 },
             )
         )
+        household_context_version = (
+            await self._accepted_state.context_version(outcome.household_id)
+            if self._accepted_state is not None
+            else None
+        )
         return PreparedOutcomeInterpretation(
             outcome_id=outcome.id,
             household_id=outcome.household_id,
@@ -295,6 +310,7 @@ class GenerateOutcomeInterpretationHandler:
             provider_result_id=outcome.provider_result_id,
             post_snapshot=post,
             feature_package=package,
+            household_context_version=household_context_version,
         )
 
     async def infer(
@@ -317,6 +333,17 @@ class GenerateOutcomeInterpretationHandler:
         prepared: PreparedOutcomeInterpretation,
         result: AIExecutionResult,
     ) -> tuple[OutcomeInterpretationProposal, AIDecision]:
+        if (
+            prepared.household_context_version is not None
+            and self._accepted_state is not None
+        ):
+            current_context_version = await self._accepted_state.context_version(
+                prepared.household_id
+            )
+            if current_context_version != prepared.household_context_version:
+                raise OutcomeInterpretationError(
+                    "HOUSEHOLD_CONTEXT_VERSION_CONFLICT"
+                )
         now = datetime.now(UTC)
         trace_id = uuid4()
         ai_decision = AIDecision(
@@ -349,6 +376,7 @@ class GenerateOutcomeInterpretationHandler:
             household_id=prepared.household_id,
             trace_type=AIDecisionType.OUTCOME_INTERPRETATION,
             state_fingerprint=prepared.feature_package.source_fingerprint,
+            household_context_version=prepared.household_context_version,
             pgor_snapshot_id=prepared.post_snapshot.id,
             feature_package_id=prepared.feature_package.id,
             ai_decision_id=ai_decision.id,

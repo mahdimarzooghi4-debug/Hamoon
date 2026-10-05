@@ -14,6 +14,7 @@ from hamoon.domains.intelligence.domain.decisions import (
     LearningSignalType,
 )
 from hamoon.domains.intelligence.ports.repositories import (
+    DecisionTraceRepository,
     HumanDecisionRepository,
     LearningSignalRepository,
 )
@@ -49,6 +50,7 @@ class CreateReferralHandler:
         accepted_state: AcceptedStateRepository,
         human_decisions: HumanDecisionRepository,
         learning_signals: LearningSignalRepository,
+        traces: DecisionTraceRepository | None = None,
         events: DomainEventRecorder,
         audits: AuditRecorder,
     ) -> None:
@@ -61,6 +63,7 @@ class CreateReferralHandler:
         self._accepted_state = accepted_state
         self._human_decisions = human_decisions
         self._learning_signals = learning_signals
+        self._traces = traces
         self._events = events
         self._audits = audits
 
@@ -196,6 +199,11 @@ class CreateReferralHandler:
         await self._selections.add(selection)
         await self._referrals.add(referral)
         await self._learning_signals.add(signal)
+        if self._traces is not None:
+            await self._traces.attach_referral(
+                intervention_id=intervention.id,
+                referral_id=referral.id,
+            )
 
         selection_event_id = uuid4()
         await self._events.record(

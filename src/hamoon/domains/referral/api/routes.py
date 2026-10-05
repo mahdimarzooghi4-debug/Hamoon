@@ -17,6 +17,7 @@ from hamoon.domains.family_data.infrastructure.repositories import (
     SqlAlchemyHouseholdFactRepository,
 )
 from hamoon.domains.intelligence.infrastructure.repositories import (
+    SqlAlchemyDecisionTraceRepository,
     SqlAlchemyHumanDecisionRepository,
     SqlAlchemyLearningSignalRepository,
 )
@@ -192,6 +193,7 @@ async def create_referral(
                 accepted_state=SqlAlchemyAcceptedStateRepository(session),
                 human_decisions=SqlAlchemyHumanDecisionRepository(session),
                 learning_signals=SqlAlchemyLearningSignalRepository(session),
+                traces=SqlAlchemyDecisionTraceRepository(session),
                 events=SqlAlchemyDomainEventRecorder(session),
                 audits=SqlAlchemyAuditRecorder(session),
             ).handle(

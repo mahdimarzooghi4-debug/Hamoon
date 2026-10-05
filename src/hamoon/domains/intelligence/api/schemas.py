@@ -88,10 +88,17 @@ class DecisionTraceData(BaseModel):
     household_id: UUID
     trace_type: AIDecisionType
     state_fingerprint: str
+    household_context_version: int | None
     pgor_snapshot_id: UUID
     feature_package_id: UUID
     ai_decision_id: UUID
     human_decision_id: UUID | None
+    prescription_id: UUID | None
+    intervention_id: UUID | None
+    referral_id: UUID | None
+    provider_result_id: UUID | None
+    outcome_id: UUID | None
+    learning_signal_id: UUID | None
     opened_at: datetime
     closed_at: datetime | None
 

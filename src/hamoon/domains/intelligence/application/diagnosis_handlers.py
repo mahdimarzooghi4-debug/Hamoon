@@ -5,6 +5,7 @@ from uuid import uuid4
 from jsonschema import ValidationError, validate
 from pydantic import JsonValue
 
+from hamoon.domains.family_data.ports.repositories import AcceptedStateRepository
 from hamoon.domains.intelligence.application.commands import (
     BuildDiagnosisFeaturePackageCommand,
 )
@@ -81,6 +82,7 @@ def _validate_grounding(
 class PreparedDiagnosisGeneration:
     snapshot: PGORSnapshot
     feature_package: FeaturePackage
+    household_context_version: int | None = None
 
 
 def _learning_signal_type(action: HumanDecisionAction) -> LearningSignalType:
@@ -104,6 +106,7 @@ class GenerateDiagnosisHandler:
         diagnoses: DiagnosisRepository,
         traces: DecisionTraceRepository,
         ai_client: DiagnosisAIClient,
+        accepted_state: AcceptedStateRepository | None = None,
         events: DomainEventRecorder,
         audits: AuditRecorder,
     ) -> None:
@@ -114,6 +117,7 @@ class GenerateDiagnosisHandler:
         self._diagnoses = diagnoses
         self._traces = traces
         self._ai_client = ai_client
+        self._accepted_state = accepted_state
         self._events = events
         self._audits = audits
 
@@ -143,9 +147,15 @@ class GenerateDiagnosisHandler:
                 correlation_id=command.correlation_id,
             )
         )
+        household_context_version = (
+            await self._accepted_state.context_version(command.household_id)
+            if self._accepted_state is not None
+            else None
+        )
         return PreparedDiagnosisGeneration(
             snapshot=snapshot,
             feature_package=package,
+            household_context_version=household_context_version,
         )
 
     async def infer(
@@ -175,6 +185,17 @@ class GenerateDiagnosisHandler:
     ) -> tuple[Diagnosis, AIDecision]:
         snapshot = prepared.snapshot
         package = prepared.feature_package
+        if (
+            prepared.household_context_version is not None
+            and self._accepted_state is not None
+        ):
+            current_context_version = await self._accepted_state.context_version(
+                command.household_id
+            )
+            if current_context_version != prepared.household_context_version:
+                raise DiagnosisGenerationError(
+                    "HOUSEHOLD_CONTEXT_VERSION_CONFLICT"
+                )
         now = datetime.now(UTC)
         trace_id = uuid4()
         ai_decision = AIDecision(
@@ -210,6 +231,7 @@ class GenerateDiagnosisHandler:
             household_id=command.household_id,
             trace_type=AIDecisionType.DIAGNOSIS,
             state_fingerprint=package.source_fingerprint,
+            household_context_version=prepared.household_context_version,
             pgor_snapshot_id=snapshot.id,
             feature_package_id=package.id,
             ai_decision_id=ai_decision.id,

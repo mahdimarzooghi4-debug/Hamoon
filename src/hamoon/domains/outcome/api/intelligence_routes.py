@@ -9,6 +9,9 @@ from hamoon.app.observability.request_context import current_correlation_id, cur
 from hamoon.app.security.context import AuthorizationContext, Role
 from hamoon.app.security.dependencies import require_roles
 from hamoon.app.security.resource_scope import require_household_assignment
+from hamoon.domains.family_data.infrastructure.repositories import (
+    SqlAlchemyAcceptedStateRepository,
+)
 from hamoon.domains.intelligence.infrastructure.repositories import (
     SqlAlchemyAIDecisionRepository,
     SqlAlchemyDecisionTraceRepository,
@@ -117,6 +120,7 @@ async def generate_outcome_interpretation(
                 ai_decisions=SqlAlchemyAIDecisionRepository(session),
                 traces=SqlAlchemyDecisionTraceRepository(session),
                 ai_client=ai_client,
+                accepted_state=SqlAlchemyAcceptedStateRepository(session),
                 events=SqlAlchemyDomainEventRecorder(session),
                 audits=SqlAlchemyAuditRecorder(session),
             )
@@ -137,7 +141,10 @@ async def generate_outcome_interpretation(
         code = str(exc)
         http_status = (
             status.HTTP_409_CONFLICT
-            if code == "OUTCOME_INTERPRETATION_ALREADY_EXISTS"
+            if code in {
+                "OUTCOME_INTERPRETATION_ALREADY_EXISTS",
+                "HOUSEHOLD_CONTEXT_VERSION_CONFLICT",
+            }
             else status.HTTP_422_UNPROCESSABLE_ENTITY
         )
         raise HTTPException(status_code=http_status, detail={"code": code}) from exc

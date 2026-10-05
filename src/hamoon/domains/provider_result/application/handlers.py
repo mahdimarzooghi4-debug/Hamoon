@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from hamoon.domains.intelligence.ports.repositories import DecisionTraceRepository
 from hamoon.domains.intervention.ports.repositories import InterventionRepository
 from hamoon.domains.operations.application.handlers import ScheduleReassessmentHandler
 from hamoon.domains.operations.domain.entities import ReassessmentPlan
@@ -68,6 +69,7 @@ class SubmitProviderResultHandler:
         interventions: InterventionRepository | None = None,
         prescriptions: PrescriptionRepository | None = None,
         reassessment_plans: ReassessmentPlanRepository | None = None,
+        traces: DecisionTraceRepository | None = None,
     ) -> None:
         self._referrals = referrals
         self._results = results
@@ -76,6 +78,7 @@ class SubmitProviderResultHandler:
         self._interventions = interventions
         self._prescriptions = prescriptions
         self._reassessment_plans = reassessment_plans
+        self._traces = traces
 
     async def handle(
         self,
@@ -142,6 +145,11 @@ class SubmitProviderResultHandler:
             evidence_ids=command.evidence_ids,
         )
         await self._results.add(result)
+        if self._traces is not None:
+            await self._traces.attach_provider_result(
+                referral_id=referral.id,
+                provider_result_id=result.id,
+            )
 
         event_id = uuid4()
         await self._events.record(

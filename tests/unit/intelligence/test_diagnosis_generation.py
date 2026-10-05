@@ -201,6 +201,15 @@ class TraceRepo:
         raise AssertionError("not used")
 
 
+class AcceptedStateRepo:
+    def __init__(self, version: int = 7) -> None:
+        self.version = version
+
+    async def context_version(self, household_id: UUID) -> int:
+        assert household_id == HOUSEHOLD_ID
+        return self.version
+
+
 class EventRecorder:
     def __init__(self) -> None:
         self.items: list[DomainEventRecord] = []
@@ -224,6 +233,7 @@ async def test_generate_diagnosis_persists_ai_proposal_and_open_trace() -> None:
     traces = TraceRepo()
     events = EventRecorder()
 
+    accepted_state = AcceptedStateRepo()
     diagnosis, decision = await GenerateDiagnosisHandler(
         snapshots=SnapshotRepo(),
         definitions=DefinitionRepo(),
@@ -232,6 +242,7 @@ async def test_generate_diagnosis_persists_ai_proposal_and_open_trace() -> None:
         diagnoses=diagnoses,
         traces=traces,
         ai_client=AIClient(),
+        accepted_state=accepted_state,
         events=events,
         audits=AuditRecorder(),
     ).handle(
@@ -250,6 +261,7 @@ async def test_generate_diagnosis_persists_ai_proposal_and_open_trace() -> None:
     assert decision.feature_package_id == PACKAGE_ID
     assert traces.item is not None
     assert traces.item.human_decision_id is None
+    assert traces.item.household_context_version == 7
     assert traces.item.closed_at is None
     assert events.items[-1].event_type == "DiagnosisGenerated"
 
@@ -275,4 +287,44 @@ async def test_generate_diagnosis_rejects_ungrounded_model_output() -> None:
                 request_id="req-2",
                 correlation_id="corr-2",
             )
+        )
+
+
+@pytest.mark.asyncio
+async def test_generate_diagnosis_rejects_stale_household_context() -> None:
+    accepted_state = AcceptedStateRepo(version=11)
+    handler = GenerateDiagnosisHandler(
+        snapshots=SnapshotRepo(),
+        definitions=DefinitionRepo(),
+        feature_packages=FeatureRepo(),
+        ai_decisions=AIDecisionRepo(),
+        diagnoses=DiagnosisRepo(),
+        traces=TraceRepo(),
+        ai_client=AIClient(),
+        accepted_state=accepted_state,
+        events=EventRecorder(),
+        audits=AuditRecorder(),
+    )
+    command = GenerateDiagnosisCommand(
+        household_id=HOUSEHOLD_ID,
+        pgor_snapshot_id=SNAPSHOT_ID,
+        actor_id=ACTOR_ID,
+        request_id="req-stale",
+        correlation_id="corr-stale",
+    )
+    prepared = await handler.prepare(command)
+    accepted_state.version = 12
+    result = await handler.infer(
+        prepared=prepared,
+        correlation_id="corr-stale",
+    )
+
+    with pytest.raises(
+        DiagnosisGenerationError,
+        match="HOUSEHOLD_CONTEXT_VERSION_CONFLICT",
+    ):
+        await handler.persist(
+            command=command,
+            prepared=prepared,
+            result=result,
         )

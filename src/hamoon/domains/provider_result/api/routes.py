@@ -12,6 +12,9 @@ from hamoon.app.security.dependencies import (
     require_roles,
 )
 from hamoon.app.security.resource_scope import require_household_assignment
+from hamoon.domains.intelligence.infrastructure.repositories import (
+    SqlAlchemyDecisionTraceRepository,
+)
 from hamoon.domains.intervention.infrastructure.repositories import (
     SqlAlchemyInterventionRepository,
 )
@@ -123,6 +126,7 @@ async def submit_provider_result(
                 interventions=SqlAlchemyInterventionRepository(session),
                 prescriptions=SqlAlchemyPrescriptionRepository(session),
                 reassessment_plans=SqlAlchemyReassessmentPlanRepository(session),
+                traces=SqlAlchemyDecisionTraceRepository(session),
             ).handle(
                 SubmitProviderResultCommand(
                     provider_id=context.provider_id,

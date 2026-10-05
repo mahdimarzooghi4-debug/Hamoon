@@ -213,6 +213,15 @@ class AIClient:
         )
 
 
+class AcceptedStateRepo:
+    def __init__(self, version: int = 9) -> None:
+        self.version = version
+
+    async def context_version(self, household_id: UUID) -> int:
+        assert household_id == HOUSEHOLD_ID
+        return self.version
+
+
 class Recorder:
     def __init__(self) -> None:
         self.items: list[object] = []
@@ -228,14 +237,17 @@ async def test_prescription_generation_requires_accepted_diagnosis_and_targets_b
     features = FeatureRepo()
     events = Recorder()
     audits = Recorder()
+    accepted_state = AcceptedStateRepo()
+    traces = TraceRepo()
     handler = GeneratePrescriptionHandler(
         snapshots=SnapshotRepo(),
         diagnoses=DiagnosisRepo(),
         ai_decisions=decisions,
         feature_packages=features,
         prescriptions=prescriptions,
-        traces=TraceRepo(),
+        traces=traces,
         ai_client=AIClient(),
+        accepted_state=accepted_state,
         events=events,
         audits=audits,
     )
@@ -260,6 +272,7 @@ async def test_prescription_generation_requires_accepted_diagnosis_and_targets_b
     assert prescription.status.value == "UNDER_REVIEW"
     assert decision.decision_type is AIDecisionType.PRESCRIPTION
     assert decision.structured_output["items"][0]["target_variable"] == "O"
+    assert traces.item.household_context_version == 9
 
 
 @pytest.mark.asyncio

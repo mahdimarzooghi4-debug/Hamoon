@@ -7,6 +7,7 @@ from pydantic import JsonValue
 
 from hamoon.domains.intelligence.domain.decisions import (
     AIDecision,
+    AIDecisionType,
     DecisionTrace,
     Diagnosis,
     HumanDecision,
@@ -190,6 +191,7 @@ def _trace(model: DecisionTraceModel) -> DecisionTrace:
         household_id=model.household_id,
         trace_type=model.trace_type,
         state_fingerprint=model.state_fingerprint,
+        household_context_version=model.household_context_version,
         pgor_snapshot_id=model.pgor_snapshot_id,
         feature_package_id=model.feature_package_id,
         ai_decision_id=model.ai_decision_id,
@@ -399,6 +401,7 @@ class SqlAlchemyDecisionTraceRepository:
                 household_id=trace.household_id,
                 trace_type=trace.trace_type,
                 state_fingerprint=trace.state_fingerprint,
+                household_context_version=trace.household_context_version,
                 pgor_snapshot_id=trace.pgor_snapshot_id,
                 feature_package_id=trace.feature_package_id,
                 ai_decision_id=trace.ai_decision_id,
@@ -462,6 +465,63 @@ class SqlAlchemyDecisionTraceRepository:
         if model is None:
             raise RuntimeError("Decision trace is missing.")
         model.intervention_id = intervention_id
+
+    async def attach_referral(
+        self,
+        *,
+        intervention_id: UUID,
+        referral_id: UUID,
+    ) -> None:
+        result = await self._session.execute(
+            select(DecisionTraceModel)
+            .where(
+                DecisionTraceModel.trace_type == AIDecisionType.PRESCRIPTION,
+                DecisionTraceModel.intervention_id == intervention_id,
+            )
+            .with_for_update()
+        )
+        model = result.scalar_one_or_none()
+        if model is None:
+            raise RuntimeError("Prescription decision trace is missing.")
+        model.referral_id = referral_id
+
+    async def attach_provider_result(
+        self,
+        *,
+        referral_id: UUID,
+        provider_result_id: UUID,
+    ) -> None:
+        result = await self._session.execute(
+            select(DecisionTraceModel)
+            .where(
+                DecisionTraceModel.trace_type == AIDecisionType.PRESCRIPTION,
+                DecisionTraceModel.referral_id == referral_id,
+            )
+            .with_for_update()
+        )
+        model = result.scalar_one_or_none()
+        if model is None:
+            raise RuntimeError("Prescription decision trace is missing.")
+        model.provider_result_id = provider_result_id
+
+    async def attach_outcome(
+        self,
+        *,
+        intervention_id: UUID,
+        outcome_id: UUID,
+    ) -> None:
+        result = await self._session.execute(
+            select(DecisionTraceModel)
+            .where(
+                DecisionTraceModel.trace_type == AIDecisionType.PRESCRIPTION,
+                DecisionTraceModel.intervention_id == intervention_id,
+            )
+            .with_for_update()
+        )
+        model = result.scalar_one_or_none()
+        if model is None:
+            raise RuntimeError("Prescription decision trace is missing.")
+        model.outcome_id = outcome_id
 
 
 class SqlAlchemyLearningSignalRepository:

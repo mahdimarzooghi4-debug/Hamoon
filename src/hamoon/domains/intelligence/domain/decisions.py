@@ -173,6 +173,7 @@ class DecisionTrace:
     feature_package_id: UUID
     ai_decision_id: UUID
     opened_at: datetime
+    household_context_version: int | None = None
     human_decision_id: UUID | None = None
     closed_at: datetime | None = None
     prescription_id: UUID | None = None
