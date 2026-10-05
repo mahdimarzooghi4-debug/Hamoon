@@ -97,7 +97,6 @@ def _receipt() -> dict[str, object]:
         "deployed_at": "2026-10-05T13:00:00+00:00",
     }
 
-
 def test_build_deployment_request_binds_exact_release_identity() -> None:
     request = build_deployment_request(
         repository="owner/Hamoon",
@@ -112,7 +111,6 @@ def test_build_deployment_request_binds_exact_release_identity() -> None:
     frontend = cast(dict[str, object], request["frontend"])
     assert backend["image_id"] == API_IMAGE_ID
     assert frontend["image_id"] == WEB_IMAGE_ID
-
 
 def test_execute_production_deployment_accepts_bound_final_receipt() -> None:
     observed_authorization: list[str] = []
@@ -136,7 +134,6 @@ def test_execute_production_deployment_accepts_bound_final_receipt() -> None:
     assert receipt["status"] == "DEPLOYED"
     assert observed_authorization == [f"Bearer {TOKEN}"]
 
-
 def test_execute_production_deployment_polls_same_host_until_deployed() -> None:
     calls: list[str] = []
 
@@ -158,6 +155,8 @@ def test_execute_production_deployment_polls_same_host_until_deployed() -> None:
         repository="owner/Hamoon",
         manifest=_manifest(),
         admission=_admission(),
+        preflight_receipt=_preflight_receipt(),
+        preflight_contract_sha256="2" * 64,
         max_wait_seconds=1,
         poll_interval_seconds=0.001,
         transport=httpx.MockTransport(handler),
@@ -168,7 +167,6 @@ def test_execute_production_deployment_polls_same_host_until_deployed() -> None:
         "https://deploy.example.com/v1/deployments",
         "https://deploy.example.com/v1/deployments/receipt-001",
     ]
-
 
 def test_execute_production_deployment_rejects_cross_host_status_url() -> None:
     def handler(_request: httpx.Request) -> httpx.Response:
@@ -190,9 +188,10 @@ def test_execute_production_deployment_rejects_cross_host_status_url() -> None:
             repository="owner/Hamoon",
             manifest=_manifest(),
             admission=_admission(),
+            preflight_receipt=_preflight_receipt(),
+            preflight_contract_sha256="2" * 64,
             transport=httpx.MockTransport(handler),
         )
-
 
 def test_execute_production_deployment_rejects_local_orchestrator() -> None:
     with pytest.raises(
@@ -209,7 +208,6 @@ def test_execute_production_deployment_rejects_local_orchestrator() -> None:
             preflight_contract_sha256="2" * 64,
         )
 
-
 def test_build_deployment_request_rejects_image_drift() -> None:
     admission = _admission()
     admission["backend_image_id"] = "sha256:" + "9" * 64
@@ -223,7 +221,6 @@ def test_build_deployment_request_rejects_image_drift() -> None:
             manifest=_manifest(),
             admission=admission,
         )
-
 
 
 def test_execute_production_deployment_rejects_cross_port_status_url() -> None:
@@ -246,9 +243,10 @@ def test_execute_production_deployment_rejects_cross_port_status_url() -> None:
             repository="owner/Hamoon",
             manifest=_manifest(),
             admission=_admission(),
+            preflight_receipt=_preflight_receipt(),
+            preflight_contract_sha256="2" * 64,
             transport=httpx.MockTransport(handler),
         )
-
 
 
 def test_build_preflight_request_binds_runtime_contract() -> None:
@@ -264,7 +262,6 @@ def test_build_preflight_request_binds_runtime_contract() -> None:
     metadata = cast(dict[str, object], request["runtime_preflight"])
     assert metadata["contract_sha256"] == "2" * 64
     assert metadata["required_checks"] == PREFLIGHT_CHECKS
-
 
 def test_execute_production_preflight_requires_all_checks_ready() -> None:
     observed_operations: list[object] = []
@@ -288,7 +285,6 @@ def test_execute_production_preflight_requires_all_checks_ready() -> None:
     assert receipt["status"] == "READY"
     assert observed_operations == ["PREFLIGHT_HAMOON_PRODUCTION"]
 
-
 def test_execute_production_preflight_rejects_failed_required_check() -> None:
     receipt = _preflight_receipt()
     checks = cast(dict[str, object], receipt["checks"])
@@ -311,7 +307,6 @@ def test_execute_production_preflight_rejects_failed_required_check() -> None:
             requirements_sha256="2" * 64,
             transport=httpx.MockTransport(handler),
         )
-
 
 def test_execute_production_preflight_rejects_false_required_check() -> None:
     receipt = _preflight_receipt()
