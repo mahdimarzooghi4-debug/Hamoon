@@ -868,6 +868,11 @@ Metrics:
 
 ## PB-112 — Empowerment Overview
 Priority: P2
+Implementation: COMPLETE. MANAGER/ADMIN users with an explicit OIDC unit_id receive a
+de-identified unit-scoped aggregate over the latest OFFICIAL PGOR snapshot per Household.
+The projection exposes numeric P/G/O/R/E distribution summaries, persisted E-band counts,
+persisted bottleneck counts (including ties), and reviewed Outcome classification counts.
+Missing unit scope is denied server-side and no Household drill-down is exposed.
 
 Includes:
 - PGOR distribution

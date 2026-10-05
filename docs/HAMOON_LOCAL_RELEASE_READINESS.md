@@ -24,6 +24,7 @@ The local product boundary includes:
 - Authorization-scoped Caseworker Work Queue with source-linked review, follow-up, reassessment, data-completion and conflict tasks.
 - Assignment-scoped, PII-minimal Household Timeline spanning facts, assessment, PGOR, diagnosis, prescription, referral, provider result and Outcome.
 - Complete Data Health and Machine Health projections plus a live ADMIN/SECURITY_AUDITOR workspace, including missing-data/conflict/stale-source/integration and diagnosis/schema/fallback/inference/workflow metrics.
+- De-identified, unit-scoped Empowerment Overview for MANAGER/ADMIN using latest OFFICIAL PGOR per Household, persisted E bands/bottlenecks and reviewed Outcome classifications.
 - Explicit PB-122 security regression acceptance gate for household/provider/AI/Accepted-State/Evidence/logging boundaries.\n- PB-123 full core E2E acceptance gate spanning Household → Accepted State → deterministic PGOR → AI/human decisions → Provider flow → reassessment → Outcome → Learning Signal.
 - Unit, contract, security, closed-loop Golden Path and infrastructure integration gates.
 - One-command local Docker Compose stack, including the real web frontend runtime.

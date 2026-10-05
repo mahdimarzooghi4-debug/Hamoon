@@ -4,12 +4,14 @@ import {
   accessForPath,
   canUseAdminHealth,
   canUseCasework,
+  canUseEmpowermentOverview,
   canUseLearningGovernance,
 } from "../.tmp-auth-test/access.js";
 import { extractHamoonRoles } from "../.tmp-auth-test/claims.js";
 
 const caseworker = { roles: ["CASEWORKER"] };
 const admin = { roles: ["ADMIN"] };
+const manager = { roles: ["MANAGER"] };
 const auditor = { roles: ["SECURITY_AUDITOR"] };
 const mixed = { roles: ["CASEWORKER", "ADMIN"] };
 
@@ -33,18 +35,25 @@ assert.equal(
 
 assert.equal(accessForPath("/admin/learning", admin), "allowed");
 assert.equal(accessForPath("/admin/health", admin), "allowed");
+assert.equal(accessForPath("/admin/empowerment", admin), "allowed");
+assert.equal(accessForPath("/admin/empowerment", manager), "allowed");
 assert.equal(accessForPath("/work-queue", admin), "forbidden");
 assert.equal(
   accessForPath("/admin/learning", auditor),
   "forbidden",
 );
 assert.equal(accessForPath("/admin/health", auditor), "allowed");
+assert.equal(accessForPath("/admin/empowerment", auditor), "forbidden");
 assert.equal(accessForPath("/admin/health", caseworker), "forbidden");
+assert.equal(accessForPath("/admin/empowerment", caseworker), "forbidden");
 
 assert.equal(canUseCasework(mixed), true);
 assert.equal(canUseLearningGovernance(mixed), true);
 assert.equal(canUseAdminHealth(mixed), true);
 assert.equal(canUseAdminHealth(auditor), true);
+assert.equal(canUseEmpowermentOverview(manager), true);
+assert.equal(canUseEmpowermentOverview(admin), true);
+assert.equal(canUseEmpowermentOverview(auditor), false);
 
 assert.deepEqual(
   extractHamoonRoles({

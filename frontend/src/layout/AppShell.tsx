@@ -5,6 +5,7 @@ import { type AppPath, AppLink } from "../app/navigation";
 import {
   canUseAdminHealth,
   canUseCasework,
+  canUseEmpowermentOverview,
   canUseLearningGovernance,
 } from "../auth/access";
 import {
@@ -28,6 +29,7 @@ export function AppShell({
   const caseworkAllowed = canUseCasework(principal);
   const governanceAllowed = canUseLearningGovernance(principal);
   const healthAllowed = canUseAdminHealth(principal);
+  const empowermentAllowed = canUseEmpowermentOverview(principal);
 
   useEffect(() => {
     let mounted = true;
@@ -47,7 +49,9 @@ export function AppShell({
   const householdsActive =
     activePath === "/households" || activePath.startsWith("/households/");
   const adminActive =
-    activePath === "/admin/learning" || activePath === "/admin/health";
+    activePath === "/admin/learning"
+    || activePath === "/admin/health"
+    || activePath === "/admin/empowerment";
 
   return (
     <div className="app-shell">
@@ -65,7 +69,9 @@ export function AppShell({
                   ? "مدیریت یادگیری و حاکمیت AI"
                   : healthAllowed
                     ? "پایش سلامت داده و ماشین"
-                    : caseworkAllowed
+                    : empowermentAllowed
+                      ? "تحلیل تجمیعی توانمندسازی"
+                      : caseworkAllowed
                     ? "مددکار پرونده"
                     : authenticated
                       ? "کاربر سازمانی"
@@ -98,6 +104,18 @@ export function AppShell({
                   کارتابل
                 </AppLink>
               </>
+            ) : null}
+            {empowermentAllowed ? (
+              <AppLink
+                className={
+                  activePath === "/admin/empowerment"
+                    ? "topbar__link is-active"
+                    : "topbar__link"
+                }
+                to="/admin/empowerment"
+              >
+                نمای توانمندسازی
+              </AppLink>
             ) : null}
             {healthAllowed ? (
               <AppLink

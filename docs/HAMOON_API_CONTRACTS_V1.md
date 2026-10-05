@@ -1229,29 +1229,33 @@ Response item:
 
 Admin UI نباید مستقیماً raw OLTP aggregateها را query کند.
 
-Projection APIs:
+Implemented V1 projection:
 
 ```text
-GET /admin/empowerment-overview
-GET /admin/pgor-distribution
-GET /admin/bottlenecks
-GET /admin/intervention-outcomes
-GET /admin/operational-health
-GET /admin/machine-health
-GET /admin/data-health
+GET /api/v1/admin/empowerment/overview
 ```
 
-Filters:
+Authorization and scope:
 
 ```text
-organization_level
-province
-region
-unit
-caseworker
-from
-to
+role = MANAGER | ADMIN
+unit_id = required from trusted OIDC authorization context
+missing unit_id → 403 ANALYTICS_UNIT_SCOPE_REQUIRED
 ```
+
+The V1 response is de-identified and contains no Household drill-down. It aggregates the
+latest OFFICIAL PGOR snapshot per Household within the authorized unit and returns:
+
+```text
+P/G/O/R/E numeric distribution summaries (mean/min/max)
+persisted E-band counts
+persisted bottleneck counts, including ties
+reviewed Outcome classification counts
+unreviewed Outcome count
+```
+
+Organization-wide/province/region rollups are not inferred until an explicit persisted
+organization hierarchy and authorization contract exist.
 
 ---
 

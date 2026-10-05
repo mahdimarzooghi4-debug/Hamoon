@@ -4,6 +4,7 @@ import { AppShell } from "../layout/AppShell";
 import { AccessGatePage } from "../pages/AccessGatePage";
 import { AdminHealthPage } from "../pages/AdminHealthPage";
 import { AuthCallbackPage } from "../pages/AuthCallbackPage";
+import { EmpowermentOverviewPage } from "../pages/EmpowermentOverviewPage";
 import { HomePage } from "../pages/HomePage";
 import { HouseholdPage } from "../pages/HouseholdPage";
 import { HouseholdsPage } from "../pages/HouseholdsPage";
@@ -32,6 +33,8 @@ export function App() {
     page = <LearningGovernancePage />;
   } else if (path === "/admin/health") {
     page = <AdminHealthPage />;
+  } else if (path === "/admin/empowerment") {
+    page = <EmpowermentOverviewPage />;
   } else if (principal !== null && !canUseCasework(principal)) {
     page = <RoleHomePage principal={principal} />;
   } else {

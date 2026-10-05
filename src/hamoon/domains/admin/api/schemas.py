@@ -1,6 +1,11 @@
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel
+
+from hamoon.domains.outcome.domain.entities import OutcomeClassification
+from hamoon.domains.pgor.domain.definitions import PGORVariableCode
+from hamoon.domains.pgor.domain.engine import EBand
 
 
 class DataHealthData(BaseModel):
@@ -49,3 +54,30 @@ class MachineHealthData(BaseModel):
 
 class MachineHealthResponse(BaseModel):
     data: MachineHealthData
+
+
+
+class PGORDistributionData(BaseModel):
+    mean: Decimal | None
+    minimum: Decimal | None
+    maximum: Decimal | None
+
+
+class EmpowermentOverviewData(BaseModel):
+    scope_unit_id: str
+    household_count: int
+    households_with_official_pgor: int
+    p: PGORDistributionData
+    g: PGORDistributionData
+    o: PGORDistributionData
+    r: PGORDistributionData
+    e: PGORDistributionData
+    e_band_counts: dict[EBand, int]
+    bottleneck_counts: dict[PGORVariableCode, int]
+    outcome_counts: dict[OutcomeClassification, int]
+    unreviewed_outcomes: int
+    generated_at: datetime
+
+
+class EmpowermentOverviewResponse(BaseModel):
+    data: EmpowermentOverviewData
