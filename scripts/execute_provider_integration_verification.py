@@ -19,7 +19,7 @@ from hamoon.infrastructure.provider_verification import (
 
 
 async def _run(provider_id: UUID, output_dir: Path) -> None:
-    settings = Settings(_env_file=None)
+    settings = Settings(_env_file=None, environment="local")
     try:
         targets = load_provider_dispatch_targets(settings)
     except ProviderDispatchConfigurationError as exc:
