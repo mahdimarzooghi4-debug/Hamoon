@@ -45,7 +45,9 @@ class _Session:
 
 @pytest.mark.asyncio
 async def test_timeline_repository_orders_cross_domain_items_without_provider_text() -> None:
-    day = lambda value: datetime(2026, 10, value, tzinfo=UTC)
+    def day(value: int) -> datetime:
+        return datetime(2026, 10, value, tzinfo=UTC)
+
     responses = [
         [
             SimpleNamespace(
