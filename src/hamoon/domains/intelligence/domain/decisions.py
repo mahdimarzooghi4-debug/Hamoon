@@ -78,6 +78,7 @@ class AIExecutionResult:
     prompt_policy_version: str
     output_schema_version: str
     output: dict[str, JsonValue]
+    model_artifact_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +100,7 @@ class AIDecision:
     structured_output: dict[str, JsonValue]
     trace_id: UUID
     generated_at: datetime
+    model_artifact_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
