@@ -205,7 +205,12 @@ class S3CompatibleEvidenceStorage:
         *,
         storage_key: str,
     ) -> None:
-        if not storage_key.startswith("_hamoon-verification/"):
+        parts = storage_key.split("/")
+        if (
+            len(parts) < 2
+            or parts[0] != "_hamoon-verification"
+            or any(part in {"", ".", ".."} for part in parts[1:])
+        ):
             raise ValueError("EVIDENCE_VERIFICATION_DELETE_KEY_INVALID")
         response = await self._request(
             method="DELETE",
