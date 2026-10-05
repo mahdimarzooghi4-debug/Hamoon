@@ -27,6 +27,7 @@ class AIRoutingPolicy:
     prompt_policy_version: str
     output_schema_version: str
     structured_output_required: bool = True
+    model_artifact_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +37,7 @@ class StructuredAIRequest:
     feature_schema_version: str
     features: dict[str, JsonValue]
     correlation_id: str
+    model_artifact_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
