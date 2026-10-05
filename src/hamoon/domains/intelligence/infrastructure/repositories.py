@@ -767,6 +767,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         artifact_ref: str,
         artifact_sha256: str,
         parent_model_version_id: UUID | None,
+        parent_model_artifact_sha256: str | None,
         training_dataset_version_id: UUID,
         training_dataset_manifest_digest: str,
         training_recipe_version: str,
@@ -818,6 +819,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         if dataset.manifest_digest != clean_dataset_sha:
             raise ValueError("TRAINING_DATASET_DIGEST_MISMATCH")
 
+        if bool(parent_model_version_id) != bool(parent_model_artifact_sha256):
+            raise ValueError("PARENT_MODEL_ARTIFACT_IDENTITY_INCOMPLETE")
         parent: AIModelVersionModel | None = None
         if parent_model_version_id is not None:
             parent = await self._session.get(
@@ -828,6 +831,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
                 raise LookupError("PARENT_MODEL_VERSION_NOT_FOUND")
             if parent.artifact_sha256 is None:
                 raise ValueError("PARENT_MODEL_ARTIFACT_IDENTITY_REQUIRED")
+            if parent.artifact_sha256 != parent_model_artifact_sha256:
+                raise ValueError("PARENT_MODEL_ARTIFACT_DIGEST_MISMATCH")
 
         model_result = await self._session.execute(
             select(AIModelModel).where(AIModelModel.model_key == clean_key)
