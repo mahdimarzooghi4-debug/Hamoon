@@ -248,14 +248,3 @@ class FactValidationRepo:
     ) -> None:
         assert self.items[previous.fact_id].version == previous.version
         self.items[current.fact_id] = current
-
-
-class AcceptedStateRepo:
-    def __init__(self) -> None:
-        self.items: dict[tuple[UUID, str], CurrentAcceptedFact] = {}
-
-    async def get(
-        self, *, household_id: UUID, fact_type: str
-    ) -> CurrentAcceptedFact | None:
-        return self.items.get((household_id, fact_type))
-
