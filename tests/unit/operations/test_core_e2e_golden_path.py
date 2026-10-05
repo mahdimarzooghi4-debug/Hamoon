@@ -498,3 +498,253 @@ class SnapshotRepo:
             e=result.e,
             bottleneck_variables=result.bottleneck_variables,
             e_band=result.e_band,
+            p_band=result.p_band,
+            r_band=result.r_band,
+            completeness_ratio=kwargs["completeness_ratio"],
+            data_quality_flags=kwargs["data_quality_flags"],
+            input_fingerprint=result.input_fingerprint,
+            calculated_at=kwargs["calculated_at"],
+            calculated_by=kwargs["calculated_by"],
+        )
+        self.items[snapshot_id] = snapshot
+        self.inputs[snapshot_id] = [
+            PGORSnapshotInput(
+                snapshot_id=snapshot_id,
+                observation_id=x.observation_id,
+                observation_version=x.observation_version,
+                indicator_definition_id=x.indicator_definition_id,
+                dimension_definition_id=x.dimension_definition_id,
+                variable_code=x.variable_code,
+                raw_score_0_100=x.raw_score_0_100,
+                normalized_score=x.normalized_score,
+            )
+            for x in result.normalized_inputs
+        ]
+        return snapshot
+
+    async def get(self, snapshot_id: UUID) -> PGORSnapshot | None:
+        return self.items.get(snapshot_id)
+
+    async def list_inputs(self, snapshot_id: UUID) -> list[PGORSnapshotInput]:
+        return self.inputs.get(snapshot_id, [])
+
+    async def get_official_by_assessment(
+        self, assessment_id: UUID
+    ) -> PGORSnapshot | None:
+        candidates = [
+            x for x in self.items.values() if x.assessment_id == assessment_id
+        ]
+        return candidates[-1] if candidates else None
+
+
+class FeatureRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, FeaturePackage] = {}
+
+    async def add(self, item: FeaturePackage) -> None:
+        self.items[item.id] = item
+
+    async def get(self, item_id: UUID) -> FeaturePackage | None:
+        return self.items.get(item_id)
+
+    async def get_by_snapshot(
+        self, *, snapshot_id: UUID, schema_version: str
+    ) -> FeaturePackage | None:
+        return next(
+            (
+                x
+                for x in self.items.values()
+                if x.pgor_snapshot_id == snapshot_id
+                and x.schema_version == schema_version
+            ),
+            None,
+        )
+
+
+class AIDecisionRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, AIDecision] = {}
+
+    async def add(self, item: AIDecision) -> None:
+        self.items[item.id] = item
+
+    async def get(self, item_id: UUID) -> AIDecision | None:
+        return self.items.get(item_id)
+
+
+class DiagnosisRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, Diagnosis] = {}
+
+    async def add(self, item: Diagnosis) -> None:
+        self.items[item.id] = item
+
+    async def get(self, item_id: UUID) -> Diagnosis | None:
+        return self.items.get(item_id)
+
+    async def update(self, item: Diagnosis, *, expected_version: int) -> None:
+        assert self.items[item.id].version == expected_version
+        self.items[item.id] = item
+
+
+class HumanRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, HumanDecision] = {}
+
+    async def add(self, item: HumanDecision) -> None:
+        self.items[item.id] = item
+
+    async def get(self, item_id: UUID) -> HumanDecision | None:
+        return self.items.get(item_id)
+
+
+class LearningRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, LearningSignal] = {}
+
+    async def add(self, item: LearningSignal) -> None:
+        self.items[item.id] = item
+
+    async def get(self, item_id: UUID) -> LearningSignal | None:
+        return self.items.get(item_id)
+
+
+class TraceRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, DecisionTrace] = {}
+
+    async def add(self, item: DecisionTrace) -> None:
+        self.items[item.ai_decision_id] = item
+
+    async def get_by_ai_decision(
+        self, ai_decision_id: UUID
+    ) -> DecisionTrace | None:
+        return self.items.get(ai_decision_id)
+
+    async def attach_human_decision(
+        self,
+        *,
+        ai_decision_id: UUID,
+        human_decision_id: UUID,
+        learning_signal_id: UUID | None = None,
+        closed_at: datetime | None = None,
+    ) -> None:
+        current = self.items[ai_decision_id]
+        self.items[ai_decision_id] = replace(
+            current,
+            human_decision_id=human_decision_id,
+            learning_signal_id=learning_signal_id,
+            closed_at=closed_at,
+        )
+
+    async def attach_intervention(
+        self, *, ai_decision_id: UUID, intervention_id: UUID
+    ) -> None:
+        current = self.items[ai_decision_id]
+        self.items[ai_decision_id] = replace(
+            current,
+            intervention_id=intervention_id,
+        )
+
+    async def attach_referral(
+        self, *, intervention_id: UUID, referral_id: UUID
+    ) -> None:
+        current = next(
+            x for x in self.items.values() if x.intervention_id == intervention_id
+        )
+        self.items[current.ai_decision_id] = replace(
+            current,
+            referral_id=referral_id,
+        )
+
+    async def attach_provider_result(
+        self, *, referral_id: UUID, provider_result_id: UUID
+    ) -> None:
+        current = next(x for x in self.items.values() if x.referral_id == referral_id)
+        self.items[current.ai_decision_id] = replace(
+            current,
+            provider_result_id=provider_result_id,
+        )
+
+    async def attach_outcome(
+        self, *, intervention_id: UUID, outcome_id: UUID
+    ) -> None:
+        current = next(
+            x
+            for x in self.items.values()
+            if x.intervention_id == intervention_id and x.prescription_id is not None
+        )
+        self.items[current.ai_decision_id] = replace(current, outcome_id=outcome_id)
+
+
+class DiagnosisAI:
+    async def generate_diagnosis(
+        self, *, feature_package: FeaturePackage, correlation_id: str
+    ) -> AIExecutionResult:
+        return AIExecutionResult(
+            provider_code="FAKE",
+            model_id="diagnosis-e2e",
+            model_alias="hamoon.diagnosis.v1",
+            routing_policy_id=ROUTING,
+            routing_policy_version="e2e",
+            prompt_policy_version="diagnosis-prompt-v1",
+            output_schema_version="diagnosis-v1",
+            output={
+                "schema_version": "diagnosis-v1",
+                "summary": "Opportunity is the current bottleneck.",
+                "items": [
+                    {
+                        "code": "PGOR_BOTTLENECK_O",
+                        "category": "NEED",
+                        "title": "Opportunity constraint",
+                        "rationale": "O is the minimum PGOR variable.",
+                        "supporting_feature_refs": ["pgor.bottleneck_variables"],
+                        "uncertainty": "LOW",
+                    }
+                ],
+                "review_flags": ["HUMAN_REVIEW_REQUIRED"],
+            },
+        )
+
+
+class PrescriptionAI:
+    async def generate_prescription(
+        self, *, feature_package: FeaturePackage, correlation_id: str
+    ) -> AIExecutionResult:
+        payload = feature_package.provider_payload()
+        diagnosis_id = str(payload["diagnosis.id"])
+        return AIExecutionResult(
+            provider_code="FAKE",
+            model_id="prescription-e2e",
+            model_alias="hamoon.prescription.v1",
+            routing_policy_id=ROUTING,
+            routing_policy_version="e2e",
+            prompt_policy_version="prescription-prompt-v1",
+            output_schema_version="prescription-v1",
+            output={
+                "schema_version": "prescription-v1",
+                "summary": "Opportunity-targeted intervention.",
+                "intensity_score": payload["prescription.intensity_score"],
+                "items": [
+                    {
+                        "code": "O_MARKET_LINKAGE",
+                        "target_variable": "O",
+                        "intervention_type": "MARKET_LINKAGE",
+                        "priority_rank": 1,
+                        "title": "Connect to market",
+                        "rationale": "O is the current bottleneck.",
+                        "success_criteria": ["Opportunity is reassessed."],
+                        "review_schedule": {
+                            "review_after_days": 30,
+                            "rationale": "Measure observed change.",
+                        },
+                        "diagnosis_refs": [f"diagnosis:{diagnosis_id}"],
+                        "supporting_feature_refs": [
+                            "pgor.bottleneck_variables",
+                            "prescription.intensity_score",
+                            "diagnosis.accepted_payload",
+                        ],
+                    }
+                ],
+                "review_flags": ["HUMAN_REVIEW_REQUIRED"],
+            },
