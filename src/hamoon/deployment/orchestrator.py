@@ -53,11 +53,12 @@ def build_deployment_request(
         admission.get("source_ci_run_id"),
         field="source_ci_run_id",
     )
-    backend = cast(dict[str, object], manifest.get("backend"))
-    frontend = cast(dict[str, object], manifest.get("frontend"))
-
-    if not isinstance(backend, dict) or not isinstance(frontend, dict):
+    backend_value = manifest.get("backend")
+    frontend_value = manifest.get("frontend")
+    if not isinstance(backend_value, dict) or not isinstance(frontend_value, dict):
         raise DeploymentOrchestratorError("Release manifest image metadata is missing.")
+    backend = cast(dict[str, object], backend_value)
+    frontend = cast(dict[str, object], frontend_value)
 
     manifest_commit = _require_string(
         manifest.get("commit_sha"),
@@ -96,9 +97,11 @@ def build_deployment_request(
             admission.get("production_target"),
             field="production_target",
         ),
-        "production_endpoint": _require_string(
-            admission.get("production_endpoint"),
-            field="production_endpoint",
+        "production_endpoint": _remote_https_endpoint(
+            _require_string(
+                admission.get("production_endpoint"),
+                field="production_endpoint",
+            )
         ),
         "deployment_id": _require_string(
             admission.get("expected_deployment_id"),
