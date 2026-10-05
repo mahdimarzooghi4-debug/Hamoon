@@ -1,0 +1,301 @@
+name: Production Rollback Admission
+
+on:
+  workflow_dispatch:
+    inputs:
+      current_commit_sha:
+        description: Exact currently verified Production 40-character commit SHA
+        required: true
+        type: string
+      target_commit_sha:
+        description: Exact older approved 40-character commit SHA to restore
+        required: true
+        type: string
+      confirmation:
+        description: Type ROLLBACK
+        required: true
+        type: string
+      expected_rollback_deployment_id:
+        description: New deployment identity expected after rollback
+        required: true
+        type: string
+      change_reference:
+        description: Incident/change governance reference
+        required: true
+        type: string
+      rollback_reason:
+        description: Human rationale for rollback
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  admit-production-rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CURRENT_SHA: ${{ inputs.current_commit_sha }}
+      TARGET_SHA: ${{ inputs.target_commit_sha }}
+      EXPECTED_ROLLBACK_DEPLOYMENT_ID: ${{ inputs.expected_rollback_deployment_id }}
+
+    steps:
+      - name: Validate explicit human rollback authorization
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          OPERATOR: ${{ github.actor }}
+          CHANGE_REFERENCE: ${{ inputs.change_reference }}
+          ROLLBACK_REASON: ${{ inputs.rollback_reason }}
+        run: |
+          test "$CONFIRMATION" = "ROLLBACK"
+          printf '%s' "$CURRENT_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$TARGET_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test "$CURRENT_SHA" != "$TARGET_SHA"
+          test -n "$EXPECTED_ROLLBACK_DEPLOYMENT_ID"
+          printf '%s' "$EXPECTED_ROLLBACK_DEPLOYMENT_ID" | grep -Eq '^[A-Za-z0-9._:-]{1,128}$'
+          test -n "$CHANGE_REFERENCE"
+          test -n "$ROLLBACK_REASON"
+          test -n "$OPERATOR"
+          case "$OPERATOR" in
+            *"[bot]") echo "bot identities cannot authorize Production rollback"; exit 1 ;;
+          esac
+
+      - name: Checkout current main governance code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Require current and target commits to belong to main history
+        run: |
+          git fetch origin main
+          git cat-file -e "$CURRENT_SHA^{commit}"
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$CURRENT_SHA" origin/main
+          git merge-base --is-ancestor "$TARGET_SHA" "$CURRENT_SHA"
+
+      - name: Resolve verified current Production runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          artifact_name="hamoon-production-verification-$CURRENT_SHA"
+          artifact_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$artifact_name&per_page=100" \
+              --jq '[.artifacts[] | select(.expired == false)][0].id'
+          )"
+          test -n "$artifact_id"
+          run_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id" \
+              --jq '.workflow_run.id'
+          )"
+          test -n "$run_id"
+          test "$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq '.conclusion'
+          )" = "success"
+          echo "CURRENT_PRODUCTION_VERIFICATION_RUN_ID=$run_id" >> "$GITHUB_ENV"
+
+      - name: Download current Production verification evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p rollback-input/current
+          gh run download "$CURRENT_PRODUCTION_VERIFICATION_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-production-verification-$CURRENT_SHA" \
+            --dir rollback-input/current
+
+      - name: Resolve approved immutable rollback target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          approval_artifact="hamoon-release-approval-$TARGET_SHA"
+          approval_artifact_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$approval_artifact&per_page=100" \
+              --jq '[.artifacts[] | select(.expired == false)][0].id'
+          )"
+          test -n "$approval_artifact_id"
+          approval_run_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$approval_artifact_id" \
+              --jq '.workflow_run.id'
+          )"
+          test -n "$approval_run_id"
+          test "$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$approval_run_id" --jq '.conclusion'
+          )" = "success"
+          echo "TARGET_RELEASE_APPROVAL_RUN_ID=$approval_run_id" >> "$GITHUB_ENV"
+
+          mkdir -p rollback-input/target-approval
+          gh run download "$approval_run_id" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$approval_artifact" \
+            --dir rollback-input/target-approval
+
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          from pathlib import Path
+
+          approval = json.loads(
+              Path("rollback-input/target-approval/release-approval.json").read_text()
+          )
+          print(f'TARGET_SOURCE_CI_RUN_ID={approval["source_ci_run_id"]}')
+          print(f'TARGET_STAGE_ADMISSION_RUN_ID={approval["stage_admission_run_id"]}')
+          PY
+
+      - name: Download target release and Stage evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p rollback-input/target-release rollback-input/target-stage
+          gh run download "$TARGET_SOURCE_CI_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-release-$TARGET_SHA" \
+            --dir rollback-input/target-release
+          gh run download "$TARGET_STAGE_ADMISSION_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-stage-admission-$TARGET_SHA" \
+            --dir rollback-input/target-stage
+
+      - name: Re-verify target immutable release approval
+        run: |
+          python3 scripts/verify_release_bundle.py rollback-input/target-release
+          python3 scripts/verify_stage_attestation.py \
+            rollback-input/target-release \
+            rollback-input/target-stage/stage-attestation.json
+          python3 scripts/verify_release_approval.py \
+            rollback-input/target-release \
+            rollback-input/target-stage/stage-attestation.json \
+            rollback-input/target-approval/release-approval.json
+
+      - name: Bind rollback to current Production identity
+        run: |
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          import os
+          from pathlib import Path
+
+          current = json.loads(
+              Path(
+                  "rollback-input/current/production-verification.json"
+              ).read_text()
+          )
+          assert current["status"] == "VERIFIED"
+          assert current["production_deployed"] is True
+          assert current["runtime_identity_verified"] is True
+          assert current["commit_sha"] == os.environ["CURRENT_SHA"]
+          assert (
+              current["production_verification_run_id"]
+              == os.environ["CURRENT_PRODUCTION_VERIFICATION_RUN_ID"]
+          )
+          assert current["database_migration_versions"]
+          assert current["deployment_id"] != os.environ[
+              "EXPECTED_ROLLBACK_DEPLOYMENT_ID"
+          ]
+          print(f'PRODUCTION_TARGET={current["production_target"]}')
+          print(f'PRODUCTION_ENDPOINT={current["production_endpoint"]}')
+          print(f'CURRENT_DEPLOYMENT_ID={current["deployment_id"]}')
+          PY
+
+      - name: Create Production rollback admission
+        env:
+          OPERATOR: ${{ github.actor }}
+          ADMISSION_RUN_ID: ${{ github.run_id }}
+          CHANGE_REFERENCE: ${{ inputs.change_reference }}
+          ROLLBACK_REASON: ${{ inputs.rollback_reason }}
+        run: |
+          mkdir -p rollback-admission
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          manifest_path = Path("rollback-input/target-release/manifest.json")
+          stage_path = Path("rollback-input/target-stage/stage-attestation.json")
+          approval_path = Path(
+              "rollback-input/target-approval/release-approval.json"
+          )
+          current_path = Path(
+              "rollback-input/current/production-verification.json"
+          )
+          manifest = json.loads(manifest_path.read_text())
+          current = json.loads(current_path.read_text())
+
+          admission = {
+              "schema_version": 1,
+              "status": "ADMITTED",
+              "admission_scope": "HOSTED_PRODUCTION_ROLLBACK",
+              "authorization_only": True,
+              "rollback_deployed": False,
+              "database_strategy": "KEEP_FORWARD_SCHEMA",
+              "database_downgrade_authorized": False,
+              "target_is_ancestor_of_current": True,
+              "current_commit_sha": os.environ["CURRENT_SHA"],
+              "target_commit_sha": os.environ["TARGET_SHA"],
+              "target_source_ci_run_id": os.environ["TARGET_SOURCE_CI_RUN_ID"],
+              "target_stage_admission_run_id": os.environ[
+                  "TARGET_STAGE_ADMISSION_RUN_ID"
+              ],
+              "target_release_approval_run_id": os.environ[
+                  "TARGET_RELEASE_APPROVAL_RUN_ID"
+              ],
+              "current_production_verification_run_id": os.environ[
+                  "CURRENT_PRODUCTION_VERIFICATION_RUN_ID"
+              ],
+              "production_rollback_admission_run_id": os.environ[
+                  "ADMISSION_RUN_ID"
+              ],
+              "target_backend_image_id": manifest["backend"]["image_id"],
+              "target_frontend_image_id": manifest["frontend"]["image_id"],
+              "current_deployment_id": os.environ["CURRENT_DEPLOYMENT_ID"],
+              "expected_rollback_deployment_id": os.environ[
+                  "EXPECTED_ROLLBACK_DEPLOYMENT_ID"
+              ],
+              "production_target": os.environ["PRODUCTION_TARGET"],
+              "production_endpoint": os.environ["PRODUCTION_ENDPOINT"],
+              "pre_rollback_database_migration_versions": current[
+                  "database_migration_versions"
+              ],
+              "target_release_manifest_sha256": hashlib.sha256(
+                  manifest_path.read_bytes()
+              ).hexdigest(),
+              "target_stage_attestation_sha256": hashlib.sha256(
+                  stage_path.read_bytes()
+              ).hexdigest(),
+              "target_release_approval_sha256": hashlib.sha256(
+                  approval_path.read_bytes()
+              ).hexdigest(),
+              "current_production_verification_sha256": hashlib.sha256(
+                  current_path.read_bytes()
+              ).hexdigest(),
+              "rollback_operator": os.environ["OPERATOR"],
+              "change_reference": os.environ["CHANGE_REFERENCE"].strip(),
+              "rollback_reason": os.environ["ROLLBACK_REASON"].strip(),
+              "admitted_at": datetime.now(UTC).isoformat(),
+          }
+          Path(
+              "rollback-admission/production-rollback-admission.json"
+          ).write_text(
+              json.dumps(admission, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Verify Production rollback admission
+        run: |
+          python3 scripts/verify_production_rollback_admission.py \
+            rollback-input/target-release \
+            rollback-input/target-stage/stage-attestation.json \
+            rollback-input/target-approval/release-approval.json \
+            rollback-input/current/production-verification.json \
+            rollback-admission/production-rollback-admission.json
+
+      - name: Upload immutable Production rollback admission
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamoon-production-rollback-admission-${{ inputs.current_commit_sha }}-to-${{ inputs.target_commit_sha }}
+          path: rollback-admission/
+          if-no-files-found: error
+          retention-days: 90

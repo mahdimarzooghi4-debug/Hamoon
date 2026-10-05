@@ -1,0 +1,275 @@
+name: Production Rollback Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      current_commit_sha:
+        description: Exact commit SHA being rolled back from
+        required: true
+        type: string
+      target_commit_sha:
+        description: Exact rollback target commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: Type VERIFY_ROLLBACK
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-production-rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CURRENT_SHA: \${{ inputs.current_commit_sha }}
+      TARGET_SHA: \${{ inputs.target_commit_sha }}
+
+    steps:
+      - name: Validate explicit rollback verification input
+        env:
+          CONFIRMATION: \${{ inputs.confirmation }}
+          VERIFIER: \${{ github.actor }}
+        run: |
+          test "$CONFIRMATION" = "VERIFY_ROLLBACK"
+          printf '%s' "$CURRENT_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$TARGET_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test "$CURRENT_SHA" != "$TARGET_SHA"
+          test -n "$VERIFIER"
+          case "$VERIFIER" in
+            *"[bot]") echo "bot identities cannot verify Production rollback"; exit 1 ;;
+          esac
+
+      - name: Checkout current governance code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Resolve successful rollback admission
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          artifact_name="hamoon-production-rollback-admission-$CURRENT_SHA-to-$TARGET_SHA"
+          artifact_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$artifact_name&per_page=100" \
+              --jq '[.artifacts[] | select(.expired == false)][0].id'
+          )"
+          test -n "$artifact_id"
+          run_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id" \
+              --jq '.workflow_run.id'
+          )"
+          test -n "$run_id"
+          test "$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq '.conclusion'
+          )" = "success"
+          echo "ROLLBACK_ADMISSION_RUN_ID=$run_id" >> "$GITHUB_ENV"
+
+      - name: Download immutable rollback admission
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          mkdir -p rollback-verification-input
+          gh run download "$ROLLBACK_ADMISSION_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-production-rollback-admission-$CURRENT_SHA-to-$TARGET_SHA" \
+            --dir rollback-verification-input
+
+      - name: Bind verification to admitted rollback
+        run: |
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          import os
+          from pathlib import Path
+
+          admission = json.loads(
+              Path(
+                  "rollback-verification-input/"
+                  "production-rollback-admission.json"
+              ).read_text()
+          )
+          assert admission["status"] == "ADMITTED"
+          assert admission["authorization_only"] is True
+          assert admission["rollback_deployed"] is False
+          assert admission["database_strategy"] == "KEEP_FORWARD_SCHEMA"
+          assert admission["database_downgrade_authorized"] is False
+          assert admission["current_commit_sha"] == os.environ["CURRENT_SHA"]
+          assert admission["target_commit_sha"] == os.environ["TARGET_SHA"]
+          assert (
+              admission["production_rollback_admission_run_id"]
+              == os.environ["ROLLBACK_ADMISSION_RUN_ID"]
+          )
+          print(f'PRODUCTION_ENDPOINT={admission["production_endpoint"]}')
+          print(
+              "EXPECTED_ROLLBACK_DEPLOYMENT_ID="
+              f'{admission["expected_rollback_deployment_id"]}'
+          )
+          print(
+              f'EXPECTED_API_IMAGE_ID={admission["target_backend_image_id"]}'
+          )
+          print(
+              f'EXPECTED_WEB_IMAGE_ID={admission["target_frontend_image_id"]}'
+          )
+          PY
+
+      - name: Probe rolled-back Production runtime identity
+        run: |
+          mkdir -p rollback-observed
+          base="\${PRODUCTION_ENDPOINT%/}"
+
+          curl --fail --silent --show-error \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 5 --retry-all-errors \
+            "$base/health/live" > rollback-observed/live.json
+          curl --fail --silent --show-error \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 5 --retry-all-errors \
+            "$base/health/ready" > rollback-observed/ready.json
+          curl --fail --silent --show-error \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 5 --retry-all-errors \
+            "$base/health/release" > rollback-observed/backend-release.json
+          curl --fail --silent --show-error \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 5 --retry-all-errors \
+            "$base/release.json" > rollback-observed/frontend-release.json
+          curl --fail --silent --show-error \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --max-time 20 --retry 5 --retry-all-errors \
+            "$base/" | grep 'id="root"'
+
+          metrics_status="$(
+            curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code}' \
+              --proto '=https' --proto-redir '=https' --tlsv1.2 \
+              --max-time 20 --retry 5 --retry-all-errors \
+              "$base/metrics"
+          )"
+          test "$metrics_status" = "401"
+
+      - name: Verify target runtime and preserved database schema
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+
+          admission = json.load(
+              open(
+                  "rollback-verification-input/"
+                  "production-rollback-admission.json"
+              )
+          )
+          ready = json.load(open("rollback-observed/ready.json"))
+          backend = json.load(open("rollback-observed/backend-release.json"))
+          frontend = json.load(open("rollback-observed/frontend-release.json"))
+
+          assert ready["status"] == "ready"
+          assert backend["status"] == "ready"
+          assert backend["environment"].lower() in {"prod", "production"}
+          assert backend["git_commit"] == os.environ["TARGET_SHA"]
+          assert backend["image_id"] == os.environ["EXPECTED_API_IMAGE_ID"]
+          assert (
+              backend["deployment_id"]
+              == os.environ["EXPECTED_ROLLBACK_DEPLOYMENT_ID"]
+          )
+          assert (
+              backend["database_migration_versions"]
+              == admission["pre_rollback_database_migration_versions"]
+          )
+          assert frontend["git_commit"] == os.environ["TARGET_SHA"]
+          assert frontend["image_id"] == os.environ["EXPECTED_WEB_IMAGE_ID"]
+          assert (
+              frontend["deployment_id"]
+              == os.environ["EXPECTED_ROLLBACK_DEPLOYMENT_ID"]
+          )
+          assert frontend["application_version"] == backend["application_version"]
+          PY
+
+      - name: Create Production rollback verification attestation
+        env:
+          VERIFIER: \${{ github.actor }}
+          VERIFICATION_RUN_ID: \${{ github.run_id }}
+        run: |
+          mkdir -p rollback-verification
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          admission_path = Path(
+              "rollback-verification-input/"
+              "production-rollback-admission.json"
+          )
+          backend_path = Path("rollback-observed/backend-release.json")
+          frontend_path = Path("rollback-observed/frontend-release.json")
+          admission = json.loads(admission_path.read_text())
+          backend = json.loads(backend_path.read_text())
+          frontend = json.loads(frontend_path.read_text())
+
+          verification = {
+              "schema_version": 1,
+              "status": "VERIFIED",
+              "verification_scope": "HOSTED_PRODUCTION_ROLLBACK",
+              "rollback_deployed": True,
+              "runtime_identity_verified": True,
+              "database_schema_preserved": True,
+              "database_downgrade_performed": False,
+              "rolled_back_from_commit_sha": admission["current_commit_sha"],
+              "commit_sha": admission["target_commit_sha"],
+              "production_target": admission["production_target"],
+              "production_endpoint": admission["production_endpoint"],
+              "deployment_id": backend["deployment_id"],
+              "backend_image_id": backend["image_id"],
+              "frontend_image_id": frontend["image_id"],
+              "application_version": backend["application_version"],
+              "database_migration_versions": backend[
+                  "database_migration_versions"
+              ],
+              "production_rollback_admission_run_id": admission[
+                  "production_rollback_admission_run_id"
+              ],
+              "production_rollback_verification_run_id": os.environ[
+                  "VERIFICATION_RUN_ID"
+              ],
+              "rollback_admission_sha256": hashlib.sha256(
+                  admission_path.read_bytes()
+              ).hexdigest(),
+              "backend_release_observation_sha256": hashlib.sha256(
+                  backend_path.read_bytes()
+              ).hexdigest(),
+              "frontend_release_observation_sha256": hashlib.sha256(
+                  frontend_path.read_bytes()
+              ).hexdigest(),
+              "verifier": os.environ["VERIFIER"],
+              "verified_at": datetime.now(UTC).isoformat(),
+          }
+          Path(
+              "rollback-verification/"
+              "production-rollback-verification.json"
+          ).write_text(
+              json.dumps(verification, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Verify Production rollback attestation
+        run: |
+          python3 scripts/verify_production_rollback_verification.py \
+            rollback-verification-input/production-rollback-admission.json \
+            rollback-observed/backend-release.json \
+            rollback-observed/frontend-release.json \
+            rollback-verification/production-rollback-verification.json
+
+      - name: Upload immutable Production rollback verification
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamoon-production-rollback-verification-\${{ inputs.current_commit_sha }}-to-\${{ inputs.target_commit_sha }}
+          path: rollback-verification/
+          if-no-files-found: error
+          retention-days: 90
