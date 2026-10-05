@@ -1,6 +1,6 @@
 # Hamoon — Provider Referral Workflow
 
-Status: provider-neutral outbound referral runtime and durable Temporal orchestration are implemented. Real provider sandbox/Production endpoints and credentials remain environment-specific external evidence and are not claimed by repository tests.
+Status: provider-neutral outbound referral runtime, durable Temporal orchestration and an executable external Provider integration verification gate are implemented. Real Provider verification/referral endpoints and credentials remain environment-specific external dependencies.
 
 ## Runtime chain
 
@@ -79,4 +79,4 @@ Caseworker cancellation signals the workflow and stops the waiting path.
 
 `provider-worker` is a separately runnable process and has its own exact-release heartbeat. Stage Admission requires it to run from the exact promoted backend image and requires a healthy heartbeat.
 
-Repository and Stage tests prove the adapter/orchestration contract. They do not prove that any external provider is reachable or has accepted a real referral. That claim requires environment-specific provider sandbox or Production evidence.
+Repository and Stage tests prove the adapter/orchestration contract. The separate External Provider Integration Verification gate can now prove a configured Provider credential/origin is reachable and supports the required synthetic dispatch/idempotency contract without creating a real referral. Actual referral acceptance still requires real operational Provider evidence.
