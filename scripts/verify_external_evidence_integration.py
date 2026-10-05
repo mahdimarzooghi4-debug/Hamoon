@@ -10,6 +10,8 @@ from pathlib import Path
 
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+SYNTHETIC_CONTENT = b"HAMOON_EVIDENCE_INTEGRATION_VERIFICATION_V1\n"
+SYNTHETIC_SHA256 = hashlib.sha256(SYNTHETIC_CONTENT).hexdigest()
 FORBIDDEN_KEYS = {
     "authorization",
     "bearer_token",
@@ -131,10 +133,14 @@ def main() -> None:
         and SHA256_RE.fullmatch(object_sha256) is not None,
         "object_sha256 invalid",
     )
+    require(
+        object_sha256 == SYNTHETIC_SHA256,
+        "object_sha256 does not match fixed synthetic payload",
+    )
     object_size = observation.get("object_size_bytes")
     require(
-        isinstance(object_size, int) and 0 < object_size <= 1024,
-        "object_size_bytes invalid",
+        isinstance(object_size, int) and object_size == len(SYNTHETIC_CONTENT),
+        "object_size_bytes does not match fixed synthetic payload",
     )
     checks = observation.get("checks")
     require(isinstance(checks, dict), "checks missing")
@@ -143,7 +149,9 @@ def main() -> None:
         require(checks.get(check) is True, f"required check failed: {check}")
     observed_at = parse_timestamp(observation.get("verified_at"), "observation verified_at")
 
-    leaked = FORBIDDEN_KEYS & recursive_keys(observation)
+    leaked = FORBIDDEN_KEYS & (
+        recursive_keys(observation) | recursive_keys(attestation)
+    )
     require(not leaked, f"forbidden evidence fields present {sorted(leaked)}")
 
     require(attestation.get("schema_version") == 1, "attestation schema unsupported")
