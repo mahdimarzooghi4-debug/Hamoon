@@ -186,7 +186,7 @@ def _required_preflight_checks(
         )
 
     checks: list[str] = []
-    for value in raw_checks:
+    for value in cast(list[object], raw_checks):
         if not isinstance(value, str) or not value.strip():
             raise DeploymentOrchestratorError(
                 "Production runtime preflight check name is invalid."
