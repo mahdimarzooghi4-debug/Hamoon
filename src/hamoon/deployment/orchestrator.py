@@ -12,7 +12,12 @@ class DeploymentOrchestratorError(RuntimeError):
     """Raised when a production deployment orchestrator cannot be trusted."""
 
 
-def _remote_https_endpoint(value: str, *, expected_host: str | None = None) -> str:
+def _remote_https_endpoint(
+    value: str,
+    *,
+    expected_host: str | None = None,
+    expected_port: int | None = None,
+) -> str:
     endpoint = value.strip()
     parsed = urlsplit(endpoint)
     host = parsed.hostname.lower() if parsed.hostname is not None else None
@@ -21,13 +26,25 @@ def _remote_https_endpoint(value: str, *, expected_host: str | None = None) -> s
         or host is None
         or host in {"localhost", "127.0.0.1", "0.0.0.0", "::1", "::"}
         or host.endswith(".localhost")
+        or parsed.username is not None
+        or parsed.password is not None
     ):
         raise DeploymentOrchestratorError(
             "Deployment orchestrator endpoint must be remote HTTPS."
         )
-    if expected_host is not None and host != expected_host:
+    effective_port = parsed.port or 443
+    if (
+        expected_host is not None
+        and (
+            host != expected_host
+            or (
+                expected_port is not None
+                and effective_port != expected_port
+            )
+        )
+    ):
         raise DeploymentOrchestratorError(
-            "Deployment status URL must remain on the orchestrator host."
+            "Deployment status URL must remain on the orchestrator HTTPS origin."
         )
     return endpoint
 
@@ -218,8 +235,10 @@ def execute_production_deployment(
     transport: httpx.BaseTransport | None = None,
 ) -> tuple[dict[str, object], dict[str, object]]:
     endpoint = _remote_https_endpoint(orchestrator_endpoint)
-    orchestrator_host = urlsplit(endpoint).hostname
+    orchestrator_parsed = urlsplit(endpoint)
+    orchestrator_host = orchestrator_parsed.hostname
     assert orchestrator_host is not None
+    orchestrator_port = orchestrator_parsed.port or 443
 
     secret = token.strip()
     if len(secret) < 32:
@@ -264,6 +283,7 @@ def execute_production_deployment(
         status_url = _remote_https_endpoint(
             _require_string(current.get("status_url"), field="status_url"),
             expected_host=orchestrator_host.lower(),
+            expected_port=orchestrator_port,
         )
         deadline = time.monotonic() + max_wait_seconds
 
