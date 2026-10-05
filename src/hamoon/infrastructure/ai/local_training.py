@@ -10,6 +10,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
+from hamoon.infrastructure.ai.providers.local_artifact import (
+    LocalModelRuntimeError,
+    load_local_model_artifact,
+)
+
 
 class LocalTrainingError(RuntimeError):
     """Local Hamoon model training contract failed safely."""
@@ -113,7 +118,60 @@ def train_local_model_candidate(
     if root not in output_dir.parents:
         raise LocalTrainingError("MODEL_ARTIFACT_REF_INVALID")
     if output_dir.exists():
-        raise LocalTrainingError("MODEL_ARTIFACT_ALREADY_EXISTS")
+        manifest_path = output_dir / "manifest.json"
+        if not manifest_path.is_file():
+            raise LocalTrainingError("MODEL_ARTIFACT_ALREADY_EXISTS")
+        manifest_sha256 = _sha256_file(manifest_path)
+        try:
+            existing = load_local_model_artifact(
+                model_root=root,
+                artifact_ref=clean_ref,
+                expected_manifest_sha256=manifest_sha256,
+                expected_model_id=model_id,
+            )
+        except LocalModelRuntimeError as exc:
+            raise LocalTrainingError("MODEL_ARTIFACT_ALREADY_EXISTS") from exc
+        if (
+            existing.training_dataset_manifest_digest
+            != dataset["manifest_digest"]
+            or existing.training_recipe_version != recipe_version
+            or existing.parent_model_artifact_sha256
+            != parent_artifact_sha256
+        ):
+            raise LocalTrainingError("MODEL_ARTIFACT_LINEAGE_CONFLICT")
+        try:
+            manifest_raw = cast(
+                object,
+                json.loads(manifest_path.read_text(encoding="utf-8")),
+            )
+        except (OSError, json.JSONDecodeError) as exc:
+            raise LocalTrainingError("MODEL_ARTIFACT_ALREADY_EXISTS") from exc
+        if not isinstance(manifest_raw, dict):
+            raise LocalTrainingError("MODEL_ARTIFACT_ALREADY_EXISTS")
+        training_raw = cast(dict[str, object], manifest_raw).get("training")
+        if not isinstance(training_raw, dict):
+            raise LocalTrainingError("MODEL_ARTIFACT_ALREADY_EXISTS")
+        trained_at_raw = training_raw.get("trained_at")
+        if not isinstance(trained_at_raw, str):
+            raise LocalTrainingError("MODEL_ARTIFACT_ALREADY_EXISTS")
+        try:
+            trained_at = datetime.fromisoformat(trained_at_raw)
+        except ValueError as exc:
+            raise LocalTrainingError("MODEL_ARTIFACT_ALREADY_EXISTS") from exc
+        if trained_at.tzinfo is None:
+            raise LocalTrainingError("MODEL_ARTIFACT_ALREADY_EXISTS")
+        return LocalTrainingResult(
+            artifact_ref=clean_ref,
+            artifact_sha256=manifest_sha256,
+            model_id=model_id,
+            training_dataset_manifest_digest=cast(
+                str,
+                dataset["manifest_digest"],
+            ),
+            training_recipe_version=recipe_version,
+            parent_model_artifact_sha256=parent_artifact_sha256,
+            trained_at=trained_at,
+        )
     output_dir.mkdir(parents=True)
 
     request = {
