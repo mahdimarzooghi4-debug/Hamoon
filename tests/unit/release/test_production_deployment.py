@@ -36,6 +36,14 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
                 "archive": "hamoon-web.tar",
                 "archive_sha256": "e" * 64,
             },
+            "governance": {
+                "release_approval_run_id": "303",
+                "deployment_admission_run_id": "404",
+                "release_manifest_sha256": hashlib.sha256(
+                    manifest.read_bytes()
+                ).hexdigest(),
+                "release_approval_sha256": "f" * 64,
+            },
         },
     )
 
@@ -56,6 +64,10 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
             "expected_deployment_id": DEPLOYMENT_ID,
             "backend_image_id": API_IMAGE_ID,
             "frontend_image_id": WEB_IMAGE_ID,
+            "release_manifest_sha256": hashlib.sha256(
+                manifest.read_bytes()
+            ).hexdigest(),
+            "release_approval_sha256": "f" * 64,
         },
     )
 
