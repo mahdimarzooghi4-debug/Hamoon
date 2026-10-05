@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from types import SimpleNamespace
 from uuid import UUID
 
 import pytest
@@ -11,7 +10,7 @@ from hamoon.domains.referral.domain.entities import (
     ReferralDispatch,
     ReferralStatus,
 )
-from hamoon.infrastructure.temporal.contracts import ReferralWorkflowInput
+from hamoon.infrastructure.temporal.contracts import ReferralStatusSignal, ReferralWorkflowInput
 from hamoon.infrastructure.temporal.referral_starter import (
     TemporalReferralStarter,
     referral_workflow_id,
@@ -137,7 +136,9 @@ async def test_referral_starter_signals_provider_status_and_cancellation() -> No
         dispatch_id=DISPATCH_ID,
     )
     assert client.handle.signals[0][0] == "ProviderStatusReceived"
-    assert getattr(client.handle.signals[0][1], "status") == "ACCEPTED"
+    status_signal = client.handle.signals[0][1]
+    assert isinstance(status_signal, ReferralStatusSignal)
+    assert status_signal.status == "ACCEPTED"
     assert client.handle.signals[1] == ("ReferralCancelled", None)
 
 
