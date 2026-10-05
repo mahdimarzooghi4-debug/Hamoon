@@ -11,7 +11,10 @@ from hamoon.infrastructure.ai.outcome_runtime import (
     local_fake_outcome_policy,
 )
 from hamoon.infrastructure.ai.providers.fake import FakeAIProvider
-from hamoon.infrastructure.ai.providers.openai import OpenAIProvider
+from hamoon.infrastructure.ai.production_factory import (
+    NativeAIRuntimeConfigurationError,
+    build_native_gateway,
+)
 
 
 class OutcomeAIRuntimeConfigurationError(RuntimeError):
@@ -34,18 +37,13 @@ async def build_outcome_ai_client(
     )
     if route is None:
         raise OutcomeAIRuntimeConfigurationError("AI_ROUTING_POLICY_NOT_FOUND")
-    if route.routing_policy.provider_code != "OPENAI":
-        raise OutcomeAIRuntimeConfigurationError("AI_PROVIDER_UNSUPPORTED")
-    if not settings.openai_api_key:
-        raise OutcomeAIRuntimeConfigurationError("AI_PROVIDER_UNAVAILABLE")
+    try:
+        gateway = build_native_gateway(settings=settings, route=route)
+    except NativeAIRuntimeConfigurationError as exc:
+        raise OutcomeAIRuntimeConfigurationError(str(exc)) from exc
 
-    provider = OpenAIProvider(
-        api_key=settings.openai_api_key,
-        base_url=settings.openai_base_url,
-        timeout_seconds=settings.openai_timeout_seconds,
-    )
     return GatewayOutcomeAIClient(
-        gateway=ProviderAIGateway(providers={"OPENAI": provider}),
+        gateway=gateway,
         routing_policy=route.routing_policy,
         instructions=route.instructions,
     )
