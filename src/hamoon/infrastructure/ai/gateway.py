@@ -5,6 +5,10 @@ from opentelemetry import trace
 from pydantic import JsonValue
 
 from hamoon.app.observability.metrics import AI_EXECUTIONS
+from hamoon.app.observability.operational_events import (
+    OperationalRuntimeEventType,
+    record_operational_runtime_event_safe,
+)
 from hamoon.infrastructure.ai.contracts import (
     AIRoutingPolicy,
     ProviderStructuredRequest,
@@ -66,11 +70,31 @@ class ProviderAIGateway:
             span.set_attribute("hamoon.ai.status", "routing_error")
             span.end()
             AI_EXECUTIONS.labels(**labels, status="routing_error").inc()
+            await record_operational_runtime_event_safe(
+                event_type=OperationalRuntimeEventType.AI_ROUTING_FAILURE,
+                source="ai.gateway",
+                detail_code="TASK_CLASS_MISMATCH",
+                correlation_id=request.correlation_id,
+                dimensions={
+                    "task_class": request.task_class.value,
+                    "provider": routing_policy.provider_code,
+                },
+            )
             raise AIRoutingError("Routing policy task does not match request task.")
         if not routing_policy.structured_output_required:
             span.set_attribute("hamoon.ai.status", "routing_error")
             span.end()
             AI_EXECUTIONS.labels(**labels, status="routing_error").inc()
+            await record_operational_runtime_event_safe(
+                event_type=OperationalRuntimeEventType.AI_ROUTING_FAILURE,
+                source="ai.gateway",
+                detail_code="STRUCTURED_OUTPUT_REQUIRED",
+                correlation_id=request.correlation_id,
+                dimensions={
+                    "task_class": request.task_class.value,
+                    "provider": routing_policy.provider_code,
+                },
+            )
             raise AIRoutingError("Decision-producing task requires structured output.")
 
         provider = self._providers.get(routing_policy.provider_code)
@@ -78,6 +102,16 @@ class ProviderAIGateway:
             span.set_attribute("hamoon.ai.status", "routing_error")
             span.end()
             AI_EXECUTIONS.labels(**labels, status="routing_error").inc()
+            await record_operational_runtime_event_safe(
+                event_type=OperationalRuntimeEventType.AI_ROUTING_FAILURE,
+                source="ai.gateway",
+                detail_code="PROVIDER_ADAPTER_UNAVAILABLE",
+                correlation_id=request.correlation_id,
+                dimensions={
+                    "task_class": request.task_class.value,
+                    "provider": routing_policy.provider_code,
+                },
+            )
             raise AIRoutingError("Configured provider adapter is unavailable.")
 
         try:
@@ -100,6 +134,16 @@ class ProviderAIGateway:
             span.set_attribute("hamoon.ai.status", "provider_error")
             span.end()
             AI_EXECUTIONS.labels(**labels, status="provider_error").inc()
+            await record_operational_runtime_event_safe(
+                event_type=OperationalRuntimeEventType.AI_INFERENCE_FAILURE,
+                source="ai.gateway",
+                detail_code="AI_PROVIDER_EXECUTION_FAILED",
+                correlation_id=request.correlation_id,
+                dimensions={
+                    "task_class": request.task_class.value,
+                    "provider": routing_policy.provider_code,
+                },
+            )
             raise AIProviderExecutionError("AI_PROVIDER_EXECUTION_FAILED") from exc
 
         try:
@@ -109,6 +153,16 @@ class ProviderAIGateway:
             span.set_attribute("hamoon.ai.status", "schema_error")
             span.end()
             AI_EXECUTIONS.labels(**labels, status="schema_error").inc()
+            await record_operational_runtime_event_safe(
+                event_type=OperationalRuntimeEventType.AI_SCHEMA_FAILURE,
+                source="ai.gateway",
+                detail_code="AI_OUTPUT_SCHEMA_INVALID",
+                correlation_id=request.correlation_id,
+                dimensions={
+                    "task_class": request.task_class.value,
+                    "provider": routing_policy.provider_code,
+                },
+            )
             raise AIOutputSchemaError("AI_OUTPUT_SCHEMA_INVALID") from exc
 
         AI_EXECUTIONS.labels(**labels, status="success").inc()
