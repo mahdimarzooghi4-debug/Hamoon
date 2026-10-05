@@ -230,6 +230,7 @@ export async function registerLocalModelCandidate(input: {
   artifactRef: string;
   artifactSha256: string;
   parentModelVersionId?: string;
+  parentModelArtifactSha256?: string;
   trainingDataset: LearningDataset;
   trainingRecipeVersion: string;
   trainedAt: string;
@@ -247,6 +248,8 @@ export async function registerLocalModelCandidate(input: {
         artifact_ref: input.artifactRef,
         artifact_sha256: input.artifactSha256,
         parent_model_version_id: input.parentModelVersionId || null,
+        parent_model_artifact_sha256:
+          input.parentModelArtifactSha256 || null,
         training_dataset_version_id: input.trainingDataset.id,
         training_dataset_manifest_digest: input.trainingDataset.manifest_digest,
         training_recipe_version: input.trainingRecipeVersion,
