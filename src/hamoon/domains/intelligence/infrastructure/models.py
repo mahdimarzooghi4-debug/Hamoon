@@ -128,6 +128,10 @@ class AIDecisionModel(Base):
     )
     provider_code: Mapped[str] = mapped_column(String(100), nullable=False)
     model_id: Mapped[str] = mapped_column(String(250), nullable=False)
+    model_artifact_sha256: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
     model_alias: Mapped[str] = mapped_column(String(150), nullable=False)
     routing_policy_id: Mapped[UUID] = mapped_column(nullable=False)
     routing_policy_version: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -396,6 +400,28 @@ class AIModelVersionModel(Base):
     )
     version: Mapped[str] = mapped_column(String(100), nullable=False)
     concrete_model_id: Mapped[str] = mapped_column(String(250), nullable=False)
+    artifact_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    artifact_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    parent_model_version_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("ai_model_version.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    training_dataset_version_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("learning_dataset_version.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    training_dataset_manifest_digest: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+    training_recipe_version: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+    trained_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     status: Mapped[AIModelVersionStatus] = mapped_column(
         Enum(AIModelVersionStatus, name="ai_model_version_status"),
         nullable=False,
