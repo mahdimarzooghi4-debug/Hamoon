@@ -785,6 +785,10 @@ Acceptance Criteria:
 
 ## PB-100 — Household Timeline
 Priority: P1
+Implementation: COMPLETE. The caseworker-scoped household read model returns a deterministic,
+PII-minimal ordered timeline across facts, assessments, PGOR, diagnosis, prescription,
+referral, provider result and Outcome. Provider free text is excluded from the projection,
+and the live React household workspace renders the backend timeline.
 
 Acceptance Criteria:
 - facts
