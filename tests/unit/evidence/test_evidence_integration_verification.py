@@ -61,7 +61,6 @@ def _storage_transport(
 
     return httpx.MockTransport(handler)
 
-
 @pytest.mark.asyncio
 async def test_evidence_integration_verifies_private_storage_scanner_and_cleanup() -> None:
     storage_methods: list[str] = []
@@ -115,7 +114,6 @@ async def test_evidence_integration_verifies_private_storage_scanner_and_cleanup
     assert all(checks.values())
     assert storage_methods == ["PUT", "PUT", "HEAD", "GET", "DELETE", "HEAD"]
 
-
 @pytest.mark.asyncio
 async def test_evidence_integration_rejects_public_object_and_still_cleans_up() -> None:
     storage_methods: list[str] = []
@@ -161,7 +159,6 @@ async def test_evidence_integration_rejects_public_object_and_still_cleans_up() 
     assert "DELETE" in storage_methods
     assert storage_methods[-1] == "HEAD"
 
-
 @pytest.mark.asyncio
 async def test_evidence_integration_rejects_infected_scanner_result() -> None:
     storage_methods: list[str] = []
@@ -206,7 +203,6 @@ async def test_evidence_integration_rejects_infected_scanner_result() -> None:
 
     assert "DELETE" in storage_methods
 
-
 @pytest.mark.asyncio
 async def test_evidence_integration_rejects_non_https_external_endpoints() -> None:
     with pytest.raises(
@@ -223,7 +219,6 @@ async def test_evidence_integration_rejects_non_https_external_endpoints() -> No
             scanner_endpoint="https://scanner.example.com/v1/scan",
             scanner_token="s" * 32,
         )
-
 
 
 @pytest.mark.asyncio
