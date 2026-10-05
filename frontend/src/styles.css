@@ -3087,3 +3087,128 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+
+.empowerment-overview-page {
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.empowerment-distribution-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--hamoon-space-12);
+}
+
+.empowerment-distribution-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--hamoon-border);
+  border-radius: var(--hamoon-radius-14);
+  background: var(--hamoon-page);
+}
+
+.empowerment-distribution-card > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.empowerment-distribution-card > div > span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--hamoon-navy);
+  color: var(--hamoon-white);
+  font-weight: 900;
+}
+
+.empowerment-distribution-card > div > strong {
+  color: var(--hamoon-blue);
+  font-size: 12px;
+}
+
+.empowerment-distribution-card > b {
+  color: var(--hamoon-ink);
+  font-size: 26px;
+}
+
+.empowerment-distribution-card > small,
+.empowerment-note {
+  color: var(--hamoon-muted);
+  font-size: 10px;
+  line-height: 1.8;
+}
+
+.empowerment-two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--hamoon-space-20);
+}
+
+.empowerment-count-list,
+.empowerment-outcome-grid {
+  display: grid;
+  gap: var(--hamoon-space-12);
+}
+
+.empowerment-outcome-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.empowerment-count-row {
+  display: grid;
+  gap: 7px;
+}
+
+.empowerment-count-row > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hamoon-space-12);
+}
+
+.empowerment-count-row span {
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}
+
+.empowerment-count-row strong {
+  color: var(--hamoon-blue);
+  font-size: 15px;
+}
+
+.empowerment-count-track {
+  overflow: hidden;
+  height: 8px;
+  border-radius: var(--hamoon-radius-pill);
+  background: var(--hamoon-page);
+}
+
+.empowerment-count-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--hamoon-cyan);
+}
+
+.empowerment-note {
+  margin: 0;
+}
+
+@media (max-width: 1100px) {
+  .empowerment-distribution-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .empowerment-distribution-grid,
+  .empowerment-two-column,
+  .empowerment-outcome-grid {
+    grid-template-columns: 1fr;
+  }
+}
