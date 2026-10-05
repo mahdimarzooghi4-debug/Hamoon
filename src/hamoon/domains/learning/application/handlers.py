@@ -233,38 +233,34 @@ class CreateOutcomeDatasetHandler:
                 provider_result_status = provider_result.result_status
 
             input_payload: dict[str, JsonValue] = {
-                "schema_version": "outcome-learning-input-v1",
-                "pre_pgor": {
-                    "p": str(pre.p),
-                    "g": str(pre.g),
-                    "o": str(pre.o),
-                    "r": str(pre.r),
-                    "e": str(pre.e),
-                },
-                "post_pgor": {
-                    "p": str(post.p),
-                    "g": str(post.g),
-                    "o": str(post.o),
-                    "r": str(post.r),
-                    "e": str(post.e),
-                },
-                "delta": {
-                    "p": str(outcome.p_delta),
-                    "g": str(outcome.g_delta),
-                    "o": str(outcome.o_delta),
-                    "r": str(outcome.r_delta),
-                    "e": str(outcome.e_delta),
-                },
-                "intervention_type": intervention.intervention_type.value,
-                "target_pgor_variable": intervention.target_pgor_variable.value,
-                "provider_result_type": provider_result_type,
-                "provider_result_status": provider_result_status,
-                "methodology_version": outcome.methodology_version,
-                "causal_claim_allowed": False,
+                "pgor.pre.P": str(pre.p),
+                "pgor.pre.G": str(pre.g),
+                "pgor.pre.O": str(pre.o),
+                "pgor.pre.R": str(pre.r),
+                "pgor.pre.E": str(pre.e),
+                "pgor.post.P": str(post.p),
+                "pgor.post.G": str(post.g),
+                "pgor.post.O": str(post.o),
+                "pgor.post.R": str(post.r),
+                "pgor.post.E": str(post.e),
+                "pgor.delta.P": str(outcome.p_delta),
+                "pgor.delta.G": str(outcome.g_delta),
+                "pgor.delta.O": str(outcome.o_delta),
+                "pgor.delta.R": str(outcome.r_delta),
+                "pgor.delta.E": str(outcome.e_delta),
+                "intervention.type": intervention.intervention_type.value,
+                "intervention.target_variable": (
+                    intervention.target_pgor_variable.value
+                ),
+                "provider_result.type": provider_result_type,
+                "provider_result.status": provider_result_status,
+                "outcome.methodology_version": outcome.methodology_version,
+                "policy.causal_claim_allowed": False,
             }
             target_payload: dict[str, JsonValue] = {
                 "classification": outcome.classification.value,
-                "human_review_required": True,
+                "observed_change_summary": outcome.observed_change_summary,
+                "causal_claim": False,
             }
             source_refs_list = [
                 f"learning_signal:{signal.id}",
