@@ -45,7 +45,9 @@ exist for the exact commit. It:
 1. downloads the immutable Production admission;
 2. downloads the immutable hosted deployment request/receipt/attestation;
 3. follows the chain back through Release Approval, Stage Admission and source CI evidence;
-4. re-verifies both release governance and hosted deployment evidence;
+4. re-verifies both release governance and hosted deployment evidence, including the
+   versioned runtime preflight contract, READY receipt, preflight ID and the deploy
+   request/receipt binding to that preflight;
 5. probes only the deployed HTTPS Production endpoint;
 6. verifies liveness and readiness;
 7. verifies backend commit/image/deployment/schema identity;
