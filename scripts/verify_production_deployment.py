@@ -165,8 +165,10 @@ def main() -> None:
     )
     request_backend = request.get("backend")
     request_frontend = request.get("frontend")
+    request_governance = request.get("governance")
     require(isinstance(request_backend, dict), "request backend metadata missing")
     require(isinstance(request_frontend, dict), "request frontend metadata missing")
+    require(isinstance(request_governance, dict), "request governance metadata missing")
     require(
         request_backend.get("image_id") == deployment.get("backend_image_id"),
         "request backend image mismatch",
@@ -174,6 +176,30 @@ def main() -> None:
     require(
         request_frontend.get("image_id") == deployment.get("frontend_image_id"),
         "request frontend image mismatch",
+    )
+    require(
+        request.get("release_artifact_name") == f"hamoon-release-{commit_sha}",
+        "request release artifact mismatch",
+    )
+    require(
+        request_governance.get("release_approval_run_id")
+        == admission.get("release_approval_run_id"),
+        "request release approval run mismatch",
+    )
+    require(
+        request_governance.get("deployment_admission_run_id")
+        == admission.get("deployment_admission_run_id"),
+        "request deployment admission run mismatch",
+    )
+    require(
+        request_governance.get("release_manifest_sha256")
+        == admission.get("release_manifest_sha256"),
+        "request release manifest hash mismatch",
+    )
+    require(
+        request_governance.get("release_approval_sha256")
+        == admission.get("release_approval_sha256"),
+        "request release approval hash mismatch",
     )
 
     require(receipt.get("status") == "DEPLOYED", "receipt status must be DEPLOYED")
