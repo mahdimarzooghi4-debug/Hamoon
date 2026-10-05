@@ -392,6 +392,7 @@ async def export_learning_dataset(
         data=LearningDatasetExportData(
             dataset_id=dataset.id,
             dataset_version=dataset.version,
+            status=dataset.status,
             manifest_digest=dataset.manifest_digest,
             selection_policy_version=dataset.selection_policy_version,
             cases=cases,
