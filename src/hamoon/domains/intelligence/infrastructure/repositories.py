@@ -1,4 +1,5 @@
 from datetime import datetime
+import re
 from uuid import UUID, uuid4
 
 from sqlalchemy import select, update
@@ -31,6 +32,7 @@ from hamoon.domains.intelligence.domain.registry import (
     RoutingPolicyDraft,
     RoutingPolicyStatus,
     RoutingPromotionResult,
+    HAMOON_LOCAL_PROVIDER_CODE,
 )
 from hamoon.domains.intelligence.infrastructure.models import (
     AIDecisionModel,
@@ -49,6 +51,8 @@ from hamoon.domains.intelligence.infrastructure.models import (
     PromptPolicyModel,
     PromptPolicyVersionModel,
 )
+from hamoon.domains.learning.domain.entities import DatasetVersionStatus
+from hamoon.domains.learning.infrastructure.models import LearningDatasetVersionModel
 from hamoon.infrastructure.ai.contracts import AIRoutingPolicy, AITaskClass
 
 class SqlAlchemyFeaturePackageRepository:
@@ -142,6 +146,7 @@ def _ai_decision(model: AIDecisionModel) -> AIDecision:
         status=model.status,
         provider_code=model.provider_code,
         model_id=model.model_id,
+        model_artifact_sha256=model.model_artifact_sha256,
         model_alias=model.model_alias,
         routing_policy_id=model.routing_policy_id,
         routing_policy_version=model.routing_policy_version,
@@ -222,6 +227,7 @@ class SqlAlchemyAIDecisionRepository:
                 status=decision.status,
                 provider_code=decision.provider_code,
                 model_id=decision.model_id,
+                model_artifact_sha256=decision.model_artifact_sha256,
                 model_alias=decision.model_alias,
                 routing_policy_id=decision.routing_policy_id,
                 routing_policy_version=decision.routing_policy_version,
@@ -661,6 +667,9 @@ class SqlAlchemyAIRuntimeRegistryRepository:
                 ModelRoutingPolicyModel.status == RoutingPolicyStatus.ACTIVE,
                 AIModelVersionModel.status == AIModelVersionStatus.PRODUCTION,
                 AIProviderModel.status == AIProviderStatus.ACTIVE,
+                AIProviderModel.code == HAMOON_LOCAL_PROVIDER_CODE,
+                AIModelVersionModel.artifact_ref.is_not(None),
+                AIModelVersionModel.artifact_sha256.is_not(None),
                 PromptPolicyVersionModel.status == PromptPolicyVersionStatus.ACTIVE,
                 EvaluationRunModel.status == EvaluationStatus.PASSED,
                 EvaluationRunModel.passed.is_(True),
@@ -687,6 +696,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
                 provider_code=provider.code,
                 model_alias=routing.model_alias,
                 concrete_model_id=model_version.concrete_model_id,
+                model_artifact_ref=model_version.artifact_ref,
+                model_artifact_sha256=model_version.artifact_sha256,
                 prompt_policy_version=prompt.version,
                 output_schema_version=prompt.output_schema_version,
                 structured_output_required=routing.structured_output_required,
@@ -729,6 +740,15 @@ class SqlAlchemyAIRuntimeRegistryRepository:
                 provider_status=provider.status,
                 version=version.version,
                 concrete_model_id=version.concrete_model_id,
+                artifact_ref=version.artifact_ref,
+                artifact_sha256=version.artifact_sha256,
+                parent_model_version_id=version.parent_model_version_id,
+                training_dataset_version_id=version.training_dataset_version_id,
+                training_dataset_manifest_digest=(
+                    version.training_dataset_manifest_digest
+                ),
+                training_recipe_version=version.training_recipe_version,
+                trained_at=version.trained_at,
                 status=version.status,
                 limitations=version.limitations,
                 approved_at=version.approved_at,
@@ -736,6 +756,146 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             )
             for version, model, provider in result.all()
         ]
+
+    async def register_local_model_candidate(
+        self,
+        *,
+        task_class: AITaskClass,
+        model_key: str,
+        version: str,
+        concrete_model_id: str,
+        artifact_ref: str,
+        artifact_sha256: str,
+        parent_model_version_id: UUID | None,
+        training_dataset_version_id: UUID,
+        training_dataset_manifest_digest: str,
+        training_recipe_version: str,
+        trained_at: datetime,
+        limitations: str | None,
+    ) -> AIModelVersionCatalogItem:
+        clean_key = model_key.strip()
+        clean_version = version.strip()
+        clean_model_id = concrete_model_id.strip()
+        clean_artifact_ref = artifact_ref.strip()
+        clean_artifact_sha = artifact_sha256.strip().lower()
+        clean_dataset_sha = training_dataset_manifest_digest.strip().lower()
+        clean_recipe = training_recipe_version.strip()
+        if (
+            not clean_key
+            or not clean_version
+            or not clean_model_id
+            or not clean_artifact_ref
+            or not clean_recipe
+        ):
+            raise ValueError("LOCAL_MODEL_CANDIDATE_METADATA_REQUIRED")
+        if clean_artifact_ref.startswith("/") or ".." in clean_artifact_ref.split("/"):
+            raise ValueError("LOCAL_MODEL_ARTIFACT_REF_INVALID")
+        if re.fullmatch(r"[0-9a-f]{64}", clean_artifact_sha) is None:
+            raise ValueError("LOCAL_MODEL_ARTIFACT_DIGEST_INVALID")
+        if re.fullmatch(r"[0-9a-f]{64}", clean_dataset_sha) is None:
+            raise ValueError("TRAINING_DATASET_DIGEST_INVALID")
+
+        provider_result = await self._session.execute(
+            select(AIProviderModel).where(
+                AIProviderModel.code == HAMOON_LOCAL_PROVIDER_CODE,
+                AIProviderModel.status == AIProviderStatus.ACTIVE,
+            )
+        )
+        provider = provider_result.scalar_one_or_none()
+        if provider is None:
+            raise ValueError("HAMOON_LOCAL_AI_PROVIDER_NOT_ACTIVE")
+
+        dataset = await self._session.get(
+            LearningDatasetVersionModel,
+            training_dataset_version_id,
+        )
+        if dataset is None:
+            raise LookupError("LEARNING_DATASET_NOT_FOUND")
+        if dataset.status != DatasetVersionStatus.APPROVED:
+            raise ValueError("TRAINING_DATASET_NOT_APPROVED")
+        if dataset.manifest_digest != clean_dataset_sha:
+            raise ValueError("TRAINING_DATASET_DIGEST_MISMATCH")
+
+        if parent_model_version_id is not None:
+            parent = await self._session.get(
+                AIModelVersionModel,
+                parent_model_version_id,
+            )
+            if parent is None:
+                raise LookupError("PARENT_MODEL_VERSION_NOT_FOUND")
+            if parent.artifact_sha256 is None:
+                raise ValueError("PARENT_MODEL_ARTIFACT_IDENTITY_REQUIRED")
+
+        model_result = await self._session.execute(
+            select(AIModelModel).where(AIModelModel.model_key == clean_key)
+        )
+        model = model_result.scalar_one_or_none()
+        if model is None:
+            model = AIModelModel(
+                id=uuid4(),
+                model_key=clean_key,
+                provider_id=provider.id,
+                purpose=task_class.value,
+            )
+            self._session.add(model)
+        else:
+            if model.provider_id != provider.id:
+                raise ValueError("MODEL_KEY_PROVIDER_MISMATCH")
+            if model.purpose != task_class.value:
+                raise ValueError("MODEL_KEY_PURPOSE_MISMATCH")
+
+        duplicate = await self._session.execute(
+            select(AIModelVersionModel.id).where(
+                AIModelVersionModel.ai_model_id == model.id,
+                AIModelVersionModel.version == clean_version,
+            )
+        )
+        if duplicate.scalar_one_or_none() is not None:
+            raise ValueError("MODEL_VERSION_EXISTS")
+
+        candidate = AIModelVersionModel(
+            id=uuid4(),
+            ai_model_id=model.id,
+            version=clean_version,
+            concrete_model_id=clean_model_id,
+            artifact_ref=clean_artifact_ref,
+            artifact_sha256=clean_artifact_sha,
+            parent_model_version_id=parent_model_version_id,
+            training_dataset_version_id=training_dataset_version_id,
+            training_dataset_manifest_digest=clean_dataset_sha,
+            training_recipe_version=clean_recipe,
+            trained_at=trained_at,
+            status=AIModelVersionStatus.CANDIDATE,
+            limitations=limitations.strip() if limitations else None,
+            approved_at=None,
+            deployed_at=None,
+        )
+        self._session.add(candidate)
+
+        return AIModelVersionCatalogItem(
+            id=candidate.id,
+            ai_model_id=model.id,
+            model_key=model.model_key,
+            purpose=model.purpose,
+            provider_id=provider.id,
+            provider_code=provider.code,
+            provider_status=provider.status,
+            version=candidate.version,
+            concrete_model_id=candidate.concrete_model_id,
+            artifact_ref=candidate.artifact_ref,
+            artifact_sha256=candidate.artifact_sha256,
+            parent_model_version_id=candidate.parent_model_version_id,
+            training_dataset_version_id=candidate.training_dataset_version_id,
+            training_dataset_manifest_digest=(
+                candidate.training_dataset_manifest_digest
+            ),
+            training_recipe_version=candidate.training_recipe_version,
+            trained_at=candidate.trained_at,
+            status=candidate.status,
+            limitations=candidate.limitations,
+            approved_at=candidate.approved_at,
+            deployed_at=candidate.deployed_at,
+        )
 
     async def list_prompt_policy_versions(
         self,
@@ -1053,6 +1213,21 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         routing, model_version, provider, prompt, evaluation = row
         if provider.status != AIProviderStatus.ACTIVE:
             raise ValueError("AI_PROVIDER_NOT_ACTIVE")
+        if provider.code != HAMOON_LOCAL_PROVIDER_CODE:
+            raise ValueError("EXTERNAL_OR_REMOTE_AI_PROVIDER_PRODUCTION_FORBIDDEN")
+        if (
+            model_version.artifact_ref is None
+            or model_version.artifact_sha256 is None
+            or re.fullmatch(r"[0-9a-f]{64}", model_version.artifact_sha256) is None
+        ):
+            raise ValueError("LOCAL_MODEL_ARTIFACT_IDENTITY_REQUIRED")
+        if (
+            model_version.training_dataset_version_id is None
+            or model_version.training_dataset_manifest_digest is None
+            or model_version.training_recipe_version is None
+            or model_version.trained_at is None
+        ):
+            raise ValueError("LOCAL_MODEL_TRAINING_LINEAGE_REQUIRED")
         if prompt.status != PromptPolicyVersionStatus.ACTIVE:
             raise ValueError("PROMPT_POLICY_NOT_ACTIVE")
         if evaluation.status != EvaluationStatus.PASSED or not evaluation.passed:
