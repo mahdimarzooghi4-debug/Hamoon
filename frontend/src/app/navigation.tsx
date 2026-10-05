@@ -6,6 +6,7 @@ export type AppPath =
   | "/households"
   | "/admin/learning"
   | "/admin/health"
+  | "/admin/empowerment"
   | "/auth/callback"
   | `/households/${string}`;
 
@@ -15,6 +16,7 @@ function currentPath(): AppPath {
   if (path === "/households") return "/households";
   if (path === "/admin/learning") return "/admin/learning";
   if (path === "/admin/health") return "/admin/health";
+  if (path === "/admin/empowerment") return "/admin/empowerment";
   if (path === "/auth/callback") return "/auth/callback";
   if (path.startsWith("/households/") && path.length > "/households/".length) {
     return path as AppPath;
