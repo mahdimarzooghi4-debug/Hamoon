@@ -7,6 +7,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
+from uuid import UUID
 
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -112,6 +113,12 @@ def main() -> None:
         isinstance(provider_id, str) and bool(provider_id),
         "request provider_id missing",
     )
+    try:
+        UUID(provider_id)
+    except ValueError as exc:
+        raise SystemExit(
+            "provider integration verification invalid: request provider_id invalid"
+        ) from exc
     verification_id = request.get("verification_id")
     require(
         isinstance(verification_id, str) and verification_id.startswith(
