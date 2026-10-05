@@ -890,6 +890,19 @@ Integration tests can use isolated test bucket.
 
 ---
 
+# 45.1 Production Integration Verification
+
+A separate `External Evidence Integration Verification` gate may use a fixed synthetic
+PII-free object under the reserved `_hamoon-verification/` prefix to prove the concrete
+Production S3-compatible credentials, bucket privacy, integrity path and external scanner.
+
+This verification cleanup capability is infrastructure-only and must not be exposed
+through the normal `EvidenceStorage` domain protocol or used to delete real Evidence
+objects.
+
+The gate must prove anonymous access is denied and must remove the synthetic object even
+when a later verification step fails.
+
 # 46. Test Requirements
 
 ## Upload

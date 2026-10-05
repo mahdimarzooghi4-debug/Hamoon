@@ -9,7 +9,6 @@ from hamoon.domains.evidence.infrastructure.s3_storage import (
     S3CompatibleEvidenceStorage,
 )
 
-
 @pytest.mark.asyncio
 async def test_s3_storage_put_metadata_and_read_are_private_and_signed() -> None:
     content = b"private evidence"
@@ -69,7 +68,6 @@ async def test_s3_storage_put_metadata_and_read_are_private_and_signed() -> None
         for request in seen
     )
 
-
 @pytest.mark.asyncio
 async def test_s3_storage_rejects_overwrite() -> None:
     def handler(_request: httpx.Request) -> httpx.Response:
@@ -85,3 +83,47 @@ async def test_s3_storage_rejects_overwrite() -> None:
 
     with pytest.raises(ValueError, match="EVIDENCE_OBJECT_ALREADY_EXISTS"):
         await storage.put(storage_key="evidence/object", content=b"immutable")
+
+
+@pytest.mark.asyncio
+async def test_s3_storage_allows_only_scoped_verification_cleanup() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.method == "DELETE":
+            return httpx.Response(204, request=request)
+        raise AssertionError(request.method)
+
+    storage = S3CompatibleEvidenceStorage(
+        endpoint="https://objects.example.internal",
+        access_key="access",
+        secret_key="secret-secret-secret",
+        bucket="hamoon-evidence",
+        transport=httpx.MockTransport(handler),
+    )
+
+    await storage.delete_verification_object(
+        storage_key="_hamoon-verification/test/object"
+    )
+
+    assert [request.method for request in seen] == ["DELETE"]
+    assert seen[0].url.path.endswith(
+        "/hamoon-evidence/_hamoon-verification/test/object"
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="EVIDENCE_VERIFICATION_DELETE_KEY_INVALID",
+    ):
+        await storage.delete_verification_object(
+            storage_key="evidence/real-object"
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="EVIDENCE_VERIFICATION_DELETE_KEY_INVALID",
+    ):
+        await storage.delete_verification_object(
+            storage_key="_hamoon-verification/../evidence/real-object"
+        )

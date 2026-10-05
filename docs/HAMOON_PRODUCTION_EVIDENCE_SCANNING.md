@@ -1,6 +1,6 @@
 # Hamoon — Production Evidence Scanning
 
-Status: production evidence scanning is fail-closed and provider-neutral. Repository tests prove the adapter and configuration contract; they do not claim that a real Production scanner endpoint has processed evidence.
+Status: production evidence scanning is fail-closed and provider-neutral. Repository/Stage tests prove the adapter contract, and a separate External Evidence Integration Verification gate can now prove the configured Production scanner and S3-compatible storage with a synthetic PII-free live probe.
 
 ## Runtime modes
 
@@ -46,4 +46,4 @@ Transport errors, HTTP 5xx, non-2xx responses, malformed JSON, or unknown status
 
 A `CLEAN` response allows the existing evidence finalization logic to publish `EvidenceAvailable`. An `INFECTED` response produces quarantine semantics.
 
-Repository and Stage tests do not establish that a specific external scanner vendor, engine version, signature database, retention policy, or Production endpoint is operational. Those remain deployment-specific evidence.
+Repository and Stage tests alone do not establish that a specific external scanner or storage endpoint is operational. The External Evidence Integration Verification workflow supplies that deployment-specific proof for connectivity, credential acceptance, private-object access, integrity, CLEAN scanning and synthetic cleanup. Scanner engine/signature lifecycle and long-term storage retention remain separate operational evidence.
