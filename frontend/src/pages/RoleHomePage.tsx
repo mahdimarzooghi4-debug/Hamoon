@@ -1,6 +1,7 @@
 import type { BrowserPrincipal } from "../auth/oidc";
 import {
   canUseAdminHealth,
+  canUseEmpowermentOverview,
   canUseLearningGovernance,
 } from "../auth/access";
 import { AppLink } from "../app/navigation";
@@ -13,6 +14,7 @@ export function RoleHomePage({
 }) {
   const canUseGovernance = canUseLearningGovernance(principal);
   const canUseHealth = canUseAdminHealth(principal);
+  const canUseEmpowerment = canUseEmpowermentOverview(principal);
 
   return (
     <div className="page-stack">
@@ -31,6 +33,23 @@ export function RoleHomePage({
             : "بدون نقش محصول"}
         </Badge>
       </header>
+
+      {canUseEmpowerment ? (
+        <Panel>
+          <EmptyState
+            title="نمای تجمیعی توانمندسازی آماده است"
+            description="PGOR، E-band، bottleneck و Outcome فقط در scope واحد سازمانی مجاز و بدون drill-down پرونده‌ای نمایش داده می‌شوند."
+            action={
+              <AppLink
+                className="hm-button hm-button--primary"
+                to="/admin/empowerment"
+              >
+                ورود به نمای توانمندسازی
+              </AppLink>
+            }
+          />
+        </Panel>
+      ) : null}
 
       {canUseHealth ? (
         <Panel>
@@ -66,7 +85,7 @@ export function RoleHomePage({
         </Panel>
       ) : null}
 
-      {!canUseHealth && !canUseGovernance ? (
+      {!canUseEmpowerment && !canUseHealth && !canUseGovernance ? (
         <Panel>
           <EmptyState
             title="برای این نقش workspace مستقلی در این نسخه تعریف نشده است"
