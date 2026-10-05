@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -35,7 +36,7 @@ class ProviderStatusCallbackRequest(BaseModel):
     status: ReferralStatus
     occurred_at: datetime
     reason_code: str | None = Field(default=None, max_length=150)
-    schema_version: str = Field(default="1", min_length=1, max_length=50)
+    schema_version: Literal["1"] = "1"
 
 
 class ReferralDataItemData(BaseModel):

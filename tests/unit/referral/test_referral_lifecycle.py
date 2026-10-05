@@ -23,7 +23,10 @@ from hamoon.domains.referral.domain.entities import (
     ReferralEvent,
     ReferralStatus,
 )
-from hamoon.domains.referral.domain.errors import ReferralIdempotencyConflictError
+from hamoon.domains.referral.domain.errors import (
+    ReferralIdempotencyConflictError,
+    ReferralTransitionError,
+)
 
 ACTOR=UUID("11111111-1111-1111-1111-111111111111")
 PROVIDER=UUID("22222222-2222-2222-2222-222222222222")
@@ -240,4 +243,51 @@ def test_referral_state_machine_rejects_invalid_transition() -> None:
         referral.transition(
             to_status=ReferralStatus.COMPLETED,
             occurred_at=datetime.now(UTC),
+        )
+
+
+@pytest.mark.asyncio
+async def test_provider_callback_rejects_unsupported_schema_version() -> None:
+    referrals = ReferralRepo()
+    dispatch = DispatchRepo()
+    await SendReferralHandler(
+        referrals=referrals,
+        dispatches=dispatch,
+        registry=Registry(),
+        events=Recorder(),
+        audits=Recorder(),
+    ).handle(
+        SendReferralCommand(
+            referral_id=REFERRAL,
+            expected_version=1,
+            idempotency_key="send-schema-version",
+            actor_id=ACTOR,
+            request_id="req",
+            correlation_id="corr",
+        )
+    )
+    external_referral_id = referrals.item.external_referral_id
+    assert external_referral_id is not None
+
+    with pytest.raises(
+        ReferralTransitionError,
+        match="PROVIDER_CALLBACK_SCHEMA_UNSUPPORTED",
+    ):
+        await ProviderStatusCallbackHandler(
+            referrals=referrals,
+            inbox=Inbox(),
+            events=Recorder(),
+            audits=Recorder(),
+        ).handle(
+            ProviderStatusCallbackCommand(
+                provider_id=PROVIDER,
+                actor_id=ACTOR,
+                external_referral_id=external_referral_id,
+                external_event_id="evt-unsupported-schema",
+                to_status=ReferralStatus.ACCEPTED,
+                occurred_at=datetime.now(UTC),
+                reason_code=None,
+                schema_version="2",
+                correlation_id="corr",
+            )
         )

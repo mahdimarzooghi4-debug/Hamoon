@@ -428,6 +428,8 @@ class ProviderStatusCallbackHandler:
         self,
         command: ProviderStatusCallbackCommand,
     ) -> ProviderCallbackResult:
+        if command.schema_version != "1":
+            raise ReferralTransitionError("PROVIDER_CALLBACK_SCHEMA_UNSUPPORTED")
         if command.to_status not in _PROVIDER_CALLBACK_STATUSES:
             raise ReferralTransitionError("PROVIDER_STATUS_NOT_ALLOWED")
 

@@ -5,6 +5,7 @@ from uuid import UUID
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.app.security.context import AuthorizationContext, Role
@@ -211,3 +212,15 @@ async def test_latest_referral_returns_not_found_when_missing(
 
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == {"code": "REFERRAL_NOT_FOUND"}
+
+
+def test_provider_callback_request_rejects_unsupported_schema_version() -> None:
+    from hamoon.domains.referral.api.schemas import ProviderStatusCallbackRequest
+
+    with pytest.raises(ValidationError):
+        ProviderStatusCallbackRequest(
+            external_event_id="evt-schema-2",
+            status=ReferralStatus.ACCEPTED,
+            occurred_at=datetime.now(UTC),
+            schema_version="2",
+        )

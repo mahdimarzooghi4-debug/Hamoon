@@ -622,6 +622,7 @@ Acceptance Criteria:
 
 ## PB-070 — Provider Callback Inbox
 Priority: P0
+Implementation: COMPLETE. Provider OIDC identity is scoped to the mapped Provider, `external_event_id` is idempotent per Provider, callback schema version `1` is enforced at both API and application boundaries, and the integration endpoint maps the callback into a Domain Command before persistence.
 
 Acceptance Criteria:
 - provider identity verified.
