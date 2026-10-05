@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import copy
 from datetime import UTC, datetime
 from pathlib import Path
+import re
 
 from hamoon.domains.learning.domain.entities import (
     LearningDatasetItem,
@@ -15,8 +17,37 @@ from hamoon.infrastructure.ai.native_model import (
 )
 
 
+_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+
+
 class NativeModelTrainingError(RuntimeError):
     """A curated dataset cannot safely produce a native model artifact."""
+
+
+def _sanitized_example(
+    *,
+    task_class: AITaskClass,
+    item: LearningDatasetItem,
+) -> NativeModelExample:
+    input_payload = {
+        key: value
+        for key, value in item.input_payload.items()
+        if not (isinstance(value, str) and _UUID_RE.fullmatch(value))
+    }
+    target_payload = copy.deepcopy(item.target_payload)
+    if task_class is AITaskClass.PRESCRIPTION:
+        raw_items = target_payload.get("items")
+        if isinstance(raw_items, list):
+            for raw_item in raw_items:
+                if isinstance(raw_item, dict):
+                    raw_item["diagnosis_refs"] = ["diagnosis:CURRENT"]
+    return NativeModelExample(
+        input=input_payload,
+        target=target_payload,
+    )
 
 
 _TASK_CONTRACTS: dict[AITaskClass, tuple[str, str]] = {
@@ -51,10 +82,7 @@ def train_native_model(
 
     feature_schema_version, output_schema_version = contract
     examples = [
-        NativeModelExample(
-            input=dict(item.input_payload),
-            target=dict(item.target_payload),
-        )
+        _sanitized_example(task_class=task_class, item=item)
         for item in items
     ]
     artifact = NativeModelArtifact(
