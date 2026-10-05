@@ -243,9 +243,11 @@ def main() -> None:
     request_backend = request.get("backend")
     request_frontend = request.get("frontend")
     request_governance = request.get("governance")
+    request_preflight = request.get("runtime_preflight")
     require(isinstance(request_backend, dict), "request backend metadata missing")
     require(isinstance(request_frontend, dict), "request frontend metadata missing")
     require(isinstance(request_governance, dict), "request governance metadata missing")
+    require(isinstance(request_preflight, dict), "request runtime preflight binding missing")
     require(
         request_backend.get("image_id") == deployment.get("backend_image_id"),
         "request backend image mismatch",
@@ -278,6 +280,14 @@ def main() -> None:
         == admission.get("release_approval_sha256"),
         "request release approval hash mismatch",
     )
+    require(
+        request_preflight.get("preflight_id") == preflight_id,
+        "request preflight_id mismatch",
+    )
+    require(
+        request_preflight.get("contract_sha256") == file_sha256(requirements_path),
+        "request preflight contract hash mismatch",
+    )
 
     require(receipt.get("status") == "DEPLOYED", "receipt status must be DEPLOYED")
     for field in (
@@ -293,6 +303,10 @@ def main() -> None:
             f"receipt {field} mismatch",
         )
 
+    require(
+        receipt.get("preflight_id") == preflight_id,
+        "receipt preflight_id mismatch",
+    )
     receipt_id = deployment.get("receipt_id")
     require(isinstance(receipt_id, str) and receipt_id, "receipt_id missing")
     require(receipt_id == receipt.get("receipt_id"), "receipt_id mismatch")
