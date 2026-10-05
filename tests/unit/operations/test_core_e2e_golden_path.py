@@ -998,3 +998,253 @@ class ReferralRepo:
                 )
                 for item in current.data_items
             ),
+        )
+
+
+class DispatchRepo:
+    def __init__(self) -> None:
+        self.items: dict[str, ReferralDispatch] = {}
+
+    async def add(self, item: ReferralDispatch) -> None:
+        self.items[item.idempotency_key] = item
+
+    async def get_by_idempotency_key(
+        self, key: str
+    ) -> ReferralDispatch | None:
+        return self.items.get(key)
+
+    async def get(self, dispatch_id: UUID) -> ReferralDispatch | None:
+        return next((x for x in self.items.values() if x.id == dispatch_id), None)
+
+    async def get_latest_for_referral(
+        self, referral_id: UUID
+    ) -> ReferralDispatch | None:
+        return next(
+            (x for x in self.items.values() if x.referral_id == referral_id),
+            None,
+        )
+
+
+class ResultRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, ProviderResult] = {}
+
+    async def add(self, item: ProviderResult) -> None:
+        self.items[item.id] = item
+
+    async def get(self, item_id: UUID) -> ProviderResult | None:
+        return self.items.get(item_id)
+
+    async def get_by_external_result(
+        self, *, provider_id: UUID, external_result_id: str
+    ) -> ProviderResult | None:
+        return next(
+            (
+                x
+                for x in self.items.values()
+                if x.provider_id == provider_id
+                and x.external_result_id == external_result_id
+            ),
+            None,
+        )
+
+    async def list_for_referral(self, referral_id: UUID) -> list[ProviderResult]:
+        return [x for x in self.items.values() if x.referral_id == referral_id]
+
+
+class PlanRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, ReassessmentPlan] = {}
+
+    async def add(self, item: ReassessmentPlan) -> None:
+        self.items[item.id] = item
+
+    async def get(self, item_id: UUID) -> ReassessmentPlan | None:
+        return self.items.get(item_id)
+
+    async def get_by_provider_result(
+        self, provider_result_id: UUID
+    ) -> ReassessmentPlan | None:
+        return next(
+            (
+                x
+                for x in self.items.values()
+                if x.provider_result_id == provider_result_id
+            ),
+            None,
+        )
+
+    async def get_by_outcome(self, outcome_id: UUID) -> ReassessmentPlan | None:
+        return next(
+            (x for x in self.items.values() if x.outcome_id == outcome_id),
+            None,
+        )
+
+    async def update(self, item: ReassessmentPlan, *, expected_version: int) -> None:
+        assert self.items[item.id].version == expected_version
+        self.items[item.id] = item
+
+
+class WorkItemRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, WorkItem] = {}
+
+    async def add(self, item: WorkItem) -> None:
+        self.items[item.id] = item
+
+    async def get(self, item_id: UUID) -> WorkItem | None:
+        return self.items.get(item_id)
+
+    async def update(self, item: WorkItem, *, expected_version: int) -> None:
+        assert self.items[item.id].version == expected_version
+        self.items[item.id] = item
+
+
+class OutcomeRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, HamoonOutcome] = {}
+
+    async def add(self, item: HamoonOutcome) -> None:
+        self.items[item.id] = item
+
+    async def get(self, item_id: UUID) -> HamoonOutcome | None:
+        return self.items.get(item_id)
+
+    async def get_by_post_assessment(
+        self, post_assessment_id: UUID
+    ) -> HamoonOutcome | None:
+        return next(
+            (
+                x
+                for x in self.items.values()
+                if x.post_assessment_id == post_assessment_id
+            ),
+            None,
+        )
+
+    async def update(self, item: HamoonOutcome, *, expected_version: int) -> None:
+        assert self.items[item.id].version == expected_version
+        self.items[item.id] = item
+
+
+async def _measure(
+    *,
+    assessment: Assessment,
+    scores: tuple[str, str, str, str],
+    definitions: DefinitionRepo,
+    source: SourceRepo,
+    assessments: AssessmentRepo,
+    observations: ObservationRepo,
+    validations: ObservationValidationRepo,
+    accepted: AcceptedObservationRepo,
+    snapshots: SnapshotRepo,
+    events: Recorder,
+    audits: Recorder,
+) -> PGORSnapshot:
+    for indicator, score in zip(
+        definitions.bundle.indicators,
+        scores,
+        strict=True,
+    ):
+        observation, validation = await RecordIndicatorObservationHandler(
+            assessments=assessments,
+            definitions=definitions,
+            sources=source,
+            observations=observations,
+            validations=validations,
+            events=events,
+            audits=audits,
+        ).handle(
+            RecordIndicatorObservationCommand(
+                assessment_id=assessment.id,
+                actor_id=ACTOR,
+                indicator_definition_id=indicator.id,
+                raw_score_0_100=Decimal(score),
+                source_id=SOURCE,
+                source_detail=None,
+                effective_at=datetime.now(UTC),
+                request_id=f"observe-{indicator.code}",
+                correlation_id=CORRELATION,
+            )
+        )
+        await ChangeObservationValidationHandler(
+            observations=observations,
+            validations=validations,
+            events=events,
+            audits=audits,
+        ).handle(
+            ChangeObservationValidationCommand(
+                assessment_id=assessment.id,
+                observation_id=observation.id,
+                actor_id=ACTOR,
+                to_status=ObservationValidationStatus.VALIDATED,
+                expected_validation_version=validation.version,
+                reason_code="HUMAN_REVIEW",
+                reason_text=None,
+                request_id=f"validate-{indicator.code}",
+                correlation_id=CORRELATION,
+            )
+        )
+        await ResolveAcceptedObservationHandler(
+            observations=observations,
+            validations=validations,
+            accepted_observations=accepted,
+            events=events,
+            audits=audits,
+        ).handle(
+            ResolveAcceptedObservationCommand(
+                assessment_id=assessment.id,
+                indicator_definition_id=indicator.id,
+                observation_id=observation.id,
+                actor_id=ACTOR,
+                expected_projection_version=0,
+                reason_code="HUMAN_RESOLUTION",
+                reason_text=None,
+                request_id=f"accept-{indicator.code}",
+                correlation_id=CORRELATION,
+            )
+        )
+
+    return await CalculateOfficialPGORHandler(
+        assessments=assessments,
+        definitions=definitions,
+        accepted_observations=accepted,
+        observations=observations,
+        validations=validations,
+        formulas=FormulaRepo(),
+        snapshots=snapshots,
+        events=events,
+        audits=audits,
+    ).handle(
+        CalculateOfficialPGORCommand(
+            assessment_id=assessment.id,
+            formula_version_id=FORMULA,
+            actor_id=ACTOR,
+            request_id="calculate-pgor",
+            correlation_id=CORRELATION,
+        )
+    )
+
+
+@pytest.mark.asyncio
+async def test_core_e2e_household_to_outcome_learning_signal() -> None:
+    events = Recorder()
+    audits = Recorder()
+    households = HouseholdRepo()
+    assignments = AssignmentRepo()
+    facts = FactRepo()
+    fact_validations = FactValidationRepo()
+    accepted_state = AcceptedStateRepo()
+    definitions = DefinitionRepo()
+    assessments = AssessmentRepo()
+    observations = ObservationRepo()
+    observation_validations = ObservationValidationRepo(observations)
+    accepted_observations = AcceptedObservationRepo()
+    snapshots = SnapshotRepo()
+    features = FeatureRepo()
+    ai_decisions = AIDecisionRepo()
+    diagnoses = DiagnosisRepo()
+    humans = HumanRepo()
+    learning = LearningRepo()
+    traces = TraceRepo()
+    prescriptions = PrescriptionRepo()
