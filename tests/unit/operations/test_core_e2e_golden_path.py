@@ -1410,7 +1410,15 @@ async def test_core_e2e_household_to_outcome_learning_signal() -> None:
     assert accepted_diagnosis.accepted_payload is not None
     assert diagnosis_signal.ai_decision_id == diagnosis.ai_decision_id
 
-    prescription, _ = await GeneratePrescriptionHandler(
+    prescription_command = GeneratePrescriptionCommand(
+        household_id=household.id,
+        diagnosis_id=accepted_diagnosis.id,
+        pgor_snapshot_id=pre_snapshot.id,
+        actor_id=ACTOR,
+        request_id="prescription-ai",
+        correlation_id=CORRELATION,
+    )
+    prescription_handler = GeneratePrescriptionHandler(
         snapshots=snapshots,
         diagnoses=diagnoses,
         ai_decisions=ai_decisions,
@@ -1421,15 +1429,16 @@ async def test_core_e2e_household_to_outcome_learning_signal() -> None:
         accepted_state=accepted_state,
         events=events,
         audits=audits,
-    ).handle(
-        GeneratePrescriptionCommand(
-            household_id=household.id,
-            diagnosis_id=accepted_diagnosis.id,
-            pgor_snapshot_id=pre_snapshot.id,
-            actor_id=ACTOR,
-            request_id="prescription-ai",
-            correlation_id=CORRELATION,
-        )
+    )
+    prepared_prescription = await prescription_handler.prepare(prescription_command)
+    prescription_result = await prescription_handler.infer(
+        prepared=prepared_prescription,
+        correlation_id=CORRELATION,
+    )
+    prescription, _ = await prescription_handler.persist(
+        command=prescription_command,
+        prepared=prepared_prescription,
+        result=prescription_result,
     )
     approved, _, prescription_signal, prescription_items = (
         await ReviewPrescriptionHandler(
