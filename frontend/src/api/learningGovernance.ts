@@ -53,6 +53,7 @@ export interface LearningDataset {
 export interface DatasetExport {
   dataset_id: string;
   dataset_version: string;
+  status: DatasetStatus;
   manifest_digest: string;
   selection_policy_version: string;
   cases: Array<{
@@ -80,6 +81,13 @@ export interface ModelVersionCatalogItem {
   provider_status: "ACTIVE" | "DISABLED";
   version: string;
   concrete_model_id: string;
+  artifact_ref: string | null;
+  artifact_sha256: string | null;
+  parent_model_version_id: string | null;
+  training_dataset_version_id: string | null;
+  training_dataset_manifest_digest: string | null;
+  training_recipe_version: string | null;
+  trained_at: string | null;
   status: ModelVersionStatus;
   limitations: string | null;
   approved_at: string | null;
@@ -210,6 +218,42 @@ export async function exportLearningDataset(
 ): Promise<DatasetExport> {
   const response = await requestJson<DataResponse<DatasetExport>>(
     `/api/v1/admin/learning/datasets/${encodeURIComponent(datasetId)}/export`,
+  );
+  return response.data;
+}
+
+export async function registerLocalModelCandidate(input: {
+  taskClass: string;
+  modelKey: string;
+  version: string;
+  concreteModelId: string;
+  artifactRef: string;
+  artifactSha256: string;
+  parentModelVersionId?: string;
+  trainingDataset: LearningDataset;
+  trainingRecipeVersion: string;
+  trainedAt: string;
+  limitations?: string;
+}): Promise<ModelVersionCatalogItem> {
+  const response = await requestJson<DataResponse<ModelVersionCatalogItem>>(
+    "/api/v1/admin/ai/model-candidates",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        task_class: input.taskClass,
+        model_key: input.modelKey,
+        version: input.version,
+        concrete_model_id: input.concreteModelId,
+        artifact_ref: input.artifactRef,
+        artifact_sha256: input.artifactSha256,
+        parent_model_version_id: input.parentModelVersionId || null,
+        training_dataset_version_id: input.trainingDataset.id,
+        training_dataset_manifest_digest: input.trainingDataset.manifest_digest,
+        training_recipe_version: input.trainingRecipeVersion,
+        trained_at: input.trainedAt,
+        limitations: input.limitations || null,
+      }),
+    },
   );
   return response.data;
 }
