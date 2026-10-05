@@ -213,6 +213,12 @@ class RegisterLocalModelCandidateRequest(BaseModel):
         pattern=r"^[0-9a-f]{64}$",
     )
     parent_model_version_id: UUID | None = None
+    parent_model_artifact_sha256: str | None = Field(
+        default=None,
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
+    )
     training_dataset_version_id: UUID
     training_dataset_manifest_digest: str = Field(
         min_length=64,
