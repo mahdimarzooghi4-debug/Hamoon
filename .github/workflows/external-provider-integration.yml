@@ -1,0 +1,202 @@
+name: External Provider Integration Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact Stage-admitted 40-character commit SHA
+        required: true
+        type: string
+      provider_id:
+        description: Provider UUID whose Production integration should be verified
+        required: true
+        type: string
+      confirmation:
+        description: Type VERIFY_PROVIDER to run a synthetic non-PII provider probe
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-provider-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      PROMOTED_SHA: ${{ inputs.commit_sha }}
+      PROVIDER_ID: ${{ inputs.provider_id }}
+      HAMOON_GIT_COMMIT: ${{ inputs.commit_sha }}
+      HAMOON_PROVIDER_DISPATCH_CONFIG: ${{ secrets.HAMOON_PROVIDER_DISPATCH_CONFIG }}
+
+    steps:
+      - name: Validate explicit provider verification input
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          test "$CONFIRMATION" = "VERIFY_PROVIDER"
+          printf '%s' "$PROMOTED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test -n "$HAMOON_PROVIDER_DISPATCH_CONFIG"
+          python3 - <<'PY'
+          import os
+          from uuid import UUID
+          UUID(os.environ["PROVIDER_ID"])
+          PY
+
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Require candidate to belong to main history
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$PROMOTED_SHA" origin/main
+
+      - name: Resolve successful Stage Admission
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          artifact_name="hamoon-stage-admission-$PROMOTED_SHA"
+          artifact_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$artifact_name&per_page=100" \
+              --jq '[.artifacts[] | select(.expired == false)][0].id'
+          )"
+          test -n "$artifact_id"
+
+          stage_run_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id" \
+              --jq '.workflow_run.id'
+          )"
+          test -n "$stage_run_id"
+
+          stage_conclusion="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$stage_run_id" \
+              --jq '.conclusion'
+          )"
+          test "$stage_conclusion" = "success"
+          echo "STAGE_ADMISSION_RUN_ID=$stage_run_id" >> "$GITHUB_ENV"
+
+      - name: Download Stage attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p provider-verification-input
+          gh run download "$STAGE_ADMISSION_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-stage-admission-$PROMOTED_SHA" \
+            --dir provider-verification-input
+
+      - name: Bind verification to exact Stage admission
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          stage = json.loads(
+              Path(
+                  "provider-verification-input/stage-attestation.json"
+              ).read_text()
+          )
+          assert stage["status"] == "PASSED"
+          assert stage["commit_sha"] == os.environ["PROMOTED_SHA"]
+          assert (
+              str(stage["stage_admission_run_id"])
+              == os.environ["STAGE_ADMISSION_RUN_ID"]
+          )
+          PY
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install verification runtime
+        run: uv sync --frozen --all-extras
+
+      - name: Execute synthetic provider verification
+        run: |
+          uv run python scripts/execute_provider_integration_verification.py \
+            "$PROVIDER_ID" provider-verification-observed
+
+      - name: Create external provider integration attestation
+        env:
+          VERIFIER: ${{ github.actor }}
+          PROVIDER_VERIFICATION_RUN_ID: ${{ github.run_id }}
+        run: |
+          mkdir -p external-provider-integration
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          stage_path = Path(
+              "provider-verification-input/stage-attestation.json"
+          )
+          request_path = Path(
+              "provider-verification-observed/provider-verification-request.json"
+          )
+          receipt_path = Path(
+              "provider-verification-observed/provider-verification-receipt.json"
+          )
+
+          stage = json.loads(stage_path.read_text())
+          request = json.loads(request_path.read_text())
+          receipt = json.loads(receipt_path.read_text())
+
+          attestation = {
+              "schema_version": 1,
+              "status": "VERIFIED",
+              "verification_scope": "EXTERNAL_PROVIDER_INTEGRATION",
+              "external_provider_integration_verified": True,
+              "commit_sha": stage["commit_sha"],
+              "provider_id": request["provider_id"],
+              "verification_id": request["verification_id"],
+              "stage_admission_run_id": str(stage["stage_admission_run_id"]),
+              "provider_verification_run_id": os.environ[
+                  "PROVIDER_VERIFICATION_RUN_ID"
+              ],
+              "stage_attestation_sha256": hashlib.sha256(
+                  stage_path.read_bytes()
+              ).hexdigest(),
+              "provider_verification_request_sha256": hashlib.sha256(
+                  request_path.read_bytes()
+              ).hexdigest(),
+              "provider_verification_receipt_sha256": hashlib.sha256(
+                  receipt_path.read_bytes()
+              ).hexdigest(),
+              "verifier": os.environ["VERIFIER"],
+              "verified_at": datetime.now(UTC).isoformat(),
+          }
+          Path(
+              "external-provider-integration/"
+              "provider-integration-verification.json"
+          ).write_text(
+              json.dumps(attestation, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Verify external provider integration evidence
+        run: |
+          python3 scripts/verify_external_provider_integration.py \
+            provider-verification-input/stage-attestation.json \
+            provider-verification-observed/provider-verification-request.json \
+            provider-verification-observed/provider-verification-receipt.json \
+            external-provider-integration/provider-integration-verification.json
+
+      - name: Upload immutable provider integration evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamoon-provider-integration-${{ inputs.provider_id }}-${{ inputs.commit_sha }}
+          path: |
+            external-provider-integration/
+            provider-verification-observed/
+          if-no-files-found: error
+          retention-days: 90
