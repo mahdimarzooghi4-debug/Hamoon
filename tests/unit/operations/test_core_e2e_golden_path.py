@@ -1248,3 +1248,253 @@ async def test_core_e2e_household_to_outcome_learning_signal() -> None:
     learning = LearningRepo()
     traces = TraceRepo()
     prescriptions = PrescriptionRepo()
+    interventions = InterventionRepo()
+    matches = MatchRepo()
+    selections = SelectionRepo()
+    referrals = ReferralRepo()
+    dispatches = DispatchRepo()
+    results = ResultRepo()
+    plans = PlanRepo()
+    work_items = WorkItemRepo()
+    outcomes = OutcomeRepo()
+    source = SourceRepo()
+    registry = Registry()
+
+    household = await CreateHouseholdHandler(
+        households=households,
+        assignments=assignments,
+        events=events,
+        audits=audits,
+    ).handle(
+        CreateHouseholdCommand(
+            case_code="H-CORE-E2E",
+            actor_id=ACTOR,
+            organizational_unit_id="unit-e2e",
+            request_id="create-household",
+            correlation_id=CORRELATION,
+        )
+    )
+
+    fact = await RecordHouseholdFactHandler(
+        sources=source,
+        facts=facts,
+        validations=fact_validations,
+        events=events,
+        audits=audits,
+    ).handle(
+        RecordHouseholdFactCommand(
+            household_id=household.id,
+            actor_id=ACTOR,
+            fact_type="geo.coverage_code",
+            value_type=FactValueType.CODE,
+            value="BAKU-1",
+            source_id=SOURCE,
+            source_detail=None,
+            effective_from=datetime.now(UTC),
+            request_id="record-fact",
+            correlation_id=CORRELATION,
+        )
+    )
+    validated_fact = await ChangeFactValidationHandler(
+        facts=facts,
+        validations=fact_validations,
+        events=events,
+        audits=audits,
+    ).handle(
+        ChangeFactValidationCommand(
+            household_id=household.id,
+            fact_id=fact.id,
+            actor_id=ACTOR,
+            to_status=FactValidationStatus.VALIDATED,
+            expected_validation_version=1,
+            reason_code="HUMAN_REVIEW",
+            reason_text=None,
+            request_id="validate-fact",
+            correlation_id=CORRELATION,
+        )
+    )
+    assert validated_fact.status is FactValidationStatus.VALIDATED
+    accepted_fact = await ResolveAcceptedFactHandler(
+        facts=facts,
+        validations=fact_validations,
+        accepted_state=accepted_state,
+        events=events,
+        audits=audits,
+    ).handle(
+        ResolveAcceptedFactCommand(
+            household_id=household.id,
+            fact_type="geo.coverage_code",
+            fact_id=fact.id,
+            actor_id=ACTOR,
+            expected_projection_version=0,
+            reason_code="HUMAN_RESOLUTION",
+            reason_text=None,
+            request_id="accept-fact",
+            correlation_id=CORRELATION,
+        )
+    )
+
+    baseline = await StartAssessmentHandler(
+        assessments=assessments,
+        definitions=definitions,
+        events=events,
+        audits=audits,
+    ).handle(
+        StartAssessmentCommand(
+            household_id=household.id,
+            actor_id=ACTOR,
+            assessment_type=AssessmentType.BASELINE,
+            definition_version_id=DEFINITION,
+            reason="baseline",
+            request_id="start-baseline",
+            correlation_id=CORRELATION,
+        )
+    )
+    pre_snapshot = await _measure(
+        assessment=baseline,
+        scores=("70", "65", "30", "55"),
+        definitions=definitions,
+        source=source,
+        assessments=assessments,
+        observations=observations,
+        validations=observation_validations,
+        accepted=accepted_observations,
+        snapshots=snapshots,
+        events=events,
+        audits=audits,
+    )
+
+    diagnosis, _ = await GenerateDiagnosisHandler(
+        snapshots=snapshots,
+        definitions=definitions,
+        feature_packages=features,
+        ai_decisions=ai_decisions,
+        diagnoses=diagnoses,
+        traces=traces,
+        ai_client=DiagnosisAI(),
+        accepted_state=accepted_state,
+        events=events,
+        audits=audits,
+    ).handle(
+        GenerateDiagnosisCommand(
+            household_id=household.id,
+            pgor_snapshot_id=pre_snapshot.id,
+            actor_id=ACTOR,
+            request_id="diagnosis-ai",
+            correlation_id=CORRELATION,
+        )
+    )
+    accepted_diagnosis, _, diagnosis_signal = await ReviewDiagnosisHandler(
+        diagnoses=diagnoses,
+        ai_decisions=ai_decisions,
+        human_decisions=humans,
+        feature_packages=features,
+        traces=traces,
+        learning_signals=learning,
+        events=events,
+        audits=audits,
+        output_schema=DIAGNOSIS_V1_SCHEMA,
+    ).handle(
+        ReviewDiagnosisCommand(
+            diagnosis_id=diagnosis.id,
+            actor_id=ACTOR,
+            action=HumanDecisionAction.CONFIRM,
+            expected_version=diagnosis.version,
+            reason_code=None,
+            reason_text=None,
+            modified_payload=None,
+            request_id="review-diagnosis",
+            correlation_id=CORRELATION,
+        )
+    )
+    assert accepted_diagnosis.accepted_payload is not None
+    assert diagnosis_signal.ai_decision_id == diagnosis.ai_decision_id
+
+    prescription, _ = await GeneratePrescriptionHandler(
+        snapshots=snapshots,
+        diagnoses=diagnoses,
+        ai_decisions=ai_decisions,
+        feature_packages=features,
+        prescriptions=prescriptions,
+        traces=traces,
+        ai_client=PrescriptionAI(),
+        accepted_state=accepted_state,
+        events=events,
+        audits=audits,
+    ).handle(
+        GeneratePrescriptionCommand(
+            household_id=household.id,
+            diagnosis_id=accepted_diagnosis.id,
+            pgor_snapshot_id=pre_snapshot.id,
+            actor_id=ACTOR,
+            request_id="prescription-ai",
+            correlation_id=CORRELATION,
+        )
+    )
+    approved, _, prescription_signal, prescription_items = (
+        await ReviewPrescriptionHandler(
+            prescriptions=prescriptions,
+            ai_decisions=ai_decisions,
+            feature_packages=features,
+            human_decisions=humans,
+            learning_signals=learning,
+            traces=traces,
+            events=events,
+            audits=audits,
+            output_schema=PRESCRIPTION_V1_SCHEMA,
+        ).handle(
+            ReviewPrescriptionCommand(
+                prescription_id=prescription.id,
+                actor_id=ACTOR,
+                action=HumanDecisionAction.CONFIRM,
+                expected_version=prescription.version,
+                reason_code=None,
+                reason_text=None,
+                modified_payload=None,
+                request_id="review-prescription",
+                correlation_id=CORRELATION,
+            )
+        )
+    )
+    assert approved.accepted_payload is not None
+    assert prescription_signal.prescription_id == prescription.id
+
+    intervention = await ActivateInterventionHandler(
+        prescriptions=prescriptions,
+        interventions=interventions,
+        traces=traces,
+        events=events,
+        audits=audits,
+    ).handle(
+        ActivateInterventionCommand(
+            prescription_id=prescription.id,
+            prescription_item_id=prescription_items[0].id,
+            actor_id=ACTOR,
+            request_id="activate-intervention",
+            correlation_id=CORRELATION,
+        )
+    )
+
+    context_version = await accepted_state.context_version(household.id)
+    match = await MatchProvidersHandler(
+        interventions=interventions,
+        accepted_state=accepted_state,
+        registry=registry,
+        matches=matches,
+        events=events,
+        audits=audits,
+    ).handle(
+        MatchProvidersCommand(
+            intervention_id=intervention.id,
+            service_type="EMPLOYMENT_MARKET",
+            household_context_version=context_version,
+            actor_id=ACTOR,
+            request_id="provider-match",
+            correlation_id=CORRELATION,
+        )
+    )
+    assert len(match.candidates) == 1
+
+    referral, _, _, provider_signal = await CreateReferralHandler(
+        interventions=interventions,
+        registry=registry,
