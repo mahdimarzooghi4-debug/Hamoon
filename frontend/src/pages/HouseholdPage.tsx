@@ -10,6 +10,7 @@ import {
 import { AppLink } from "../app/navigation";
 import { DiagnosisSection } from "../components/DiagnosisSection";
 import { HouseholdTimelineSection } from "../components/HouseholdTimelineSection";
+import { PGORTraceSection } from "../components/PGORTraceSection";
 import { PrescriptionSection } from "../components/PrescriptionSection";
 import { ProviderReferralSection } from "../components/ProviderReferralSection";
 import { OutcomeMeasurementSection } from "../components/OutcomeMeasurementSection";
@@ -296,6 +297,8 @@ export function HouseholdPage({ householdId }: { householdId: string }) {
           </Panel>
         </div>
       </section>
+
+      {pgor ? <PGORTraceSection snapshotId={pgor.snapshot_id} /> : null}
 
       <HouseholdTimelineSection householdId={item.id} />
 
