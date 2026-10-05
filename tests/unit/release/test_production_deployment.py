@@ -147,7 +147,17 @@ def _chain(
     )
 
     request = tmp_path / "orchestrator-request.json"
-    _write_json(request, {**shared, "operation": "DEPLOY_HAMOON_RELEASE"})
+    _write_json(
+        request,
+        {
+            **shared,
+            "operation": "DEPLOY_HAMOON_RELEASE",
+            "runtime_preflight": {
+                "preflight_id": "preflight-001",
+                "contract_sha256": requirements_sha256,
+            },
+        },
+    )
 
     receipt = tmp_path / "orchestrator-receipt.json"
     _write_json(
@@ -161,6 +171,7 @@ def _chain(
             "production_endpoint": "https://hamoon.example.com",
             "backend_image_id": API_IMAGE_ID,
             "frontend_image_id": WEB_IMAGE_ID,
+            "preflight_id": "preflight-001",
             "deployed_at": "2026-10-05T13:00:00+00:00",
         },
     )
