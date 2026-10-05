@@ -94,9 +94,8 @@ class Settings(BaseSettings):
     oidc_jwks_url: str | None = None
     oidc_clock_skew_seconds: int = 30
 
+    # Legacy environment trap only: Production rejects HAMOON_OPENAI_API_KEY.
     openai_api_key: str | None = None
-    openai_base_url: str = "https://api.openai.com/v1"
-    openai_timeout_seconds: float = 60.0
     ai_model_root: str = ".hamoon/models"
 
     temporal_address: str = "localhost:7233"
