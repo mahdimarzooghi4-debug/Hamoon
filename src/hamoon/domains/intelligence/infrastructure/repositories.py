@@ -182,6 +182,7 @@ def _human_decision(model: HumanDecisionModel) -> HumanDecision:
         prescription_id=model.prescription_id,
         provider_match_id=model.provider_match_id,
         outcome_id=model.outcome_id,
+        learning_signal_id=model.learning_signal_id,
     )
 
 def _trace(model: DecisionTraceModel) -> DecisionTrace:
@@ -407,6 +408,7 @@ class SqlAlchemyDecisionTraceRepository:
                 referral_id=trace.referral_id,
                 provider_result_id=trace.provider_result_id,
                 outcome_id=trace.outcome_id,
+                learning_signal_id=trace.learning_signal_id,
                 opened_at=trace.opened_at,
                 closed_at=trace.closed_at,
             )
@@ -429,6 +431,7 @@ class SqlAlchemyDecisionTraceRepository:
         *,
         ai_decision_id: UUID,
         human_decision_id: UUID,
+        learning_signal_id: UUID | None = None,
         closed_at: datetime | None,
     ) -> None:
         result = await self._session.execute(
@@ -440,6 +443,8 @@ class SqlAlchemyDecisionTraceRepository:
         if model is None:
             raise RuntimeError("Decision trace is missing.")
         model.human_decision_id = human_decision_id
+        if learning_signal_id is not None:
+            model.learning_signal_id = learning_signal_id
         model.closed_at = closed_at
 
     async def attach_intervention(

@@ -160,4 +160,5 @@ async def test_confirm_links_human_decision_learning_signal_and_trace_to_ai() ->
     assert signal.outcome_id != signal.provider_result_id
     assert traces.closed["ai_decision_id"] == AI
     assert traces.closed["human_decision_id"] == decision.id
+    assert traces.closed["learning_signal_id"] == signal.id
     assert traces.closed["closed_at"] is not None

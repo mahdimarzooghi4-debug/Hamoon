@@ -713,6 +713,7 @@ Acceptance Criteria:
 
 ## PB-083 — Decision Trace
 Priority: P0
+Implementation: PARTIAL. PGOR snapshot, feature package, AI decision, human decision and downstream outcome context are linked; learning-signal linkage is persisted by DecisionTrace. Explicit Accepted State context version capture remains open.
 
 Acceptance Criteria:
 - household state version

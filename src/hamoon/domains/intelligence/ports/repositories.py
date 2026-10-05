@@ -72,6 +72,7 @@ class DecisionTraceRepository(Protocol):
         *,
         ai_decision_id: UUID,
         human_decision_id: UUID,
+        learning_signal_id: UUID | None = None,
         closed_at: datetime | None,
     ) -> None: ...
 

@@ -194,6 +194,7 @@ class ReviewPrescriptionHandler:
         await self._traces.attach_human_decision(
             ai_decision_id=prescription.ai_decision_id,
             human_decision_id=human_decision.id,
+            learning_signal_id=signal.id,
             closed_at=(
                 None
                 if command.action is HumanDecisionAction.DEFER

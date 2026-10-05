@@ -278,6 +278,10 @@ class DecisionTraceModel(Base):
         ForeignKey("hamoon_outcome.id", ondelete="SET NULL"),
         nullable=True,
     )
+    learning_signal_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("learning_signal.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     closed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),

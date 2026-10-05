@@ -150,7 +150,8 @@ class TraceRepo:
         *,
         ai_decision_id: UUID,
         human_decision_id: UUID,
-        closed_at,
+        learning_signal_id: UUID | None = None,
+        closed_at=None,
     ) -> None:
         assert ai_decision_id == self.item.ai_decision_id
         self.item = DecisionTrace(
@@ -164,6 +165,7 @@ class TraceRepo:
             human_decision_id=human_decision_id,
             opened_at=self.item.opened_at,
             closed_at=closed_at,
+            learning_signal_id=learning_signal_id,
         )
 
 
@@ -230,6 +232,7 @@ async def test_confirm_preserves_machine_output_and_creates_learning_signal() ->
     assert signal.signal_type.value == "DIAGNOSIS_CONFIRMED"
     assert events.items[-1].event_type == "DiagnosisConfirmed"
     assert traces.item.closed_at is not None
+    assert traces.item.learning_signal_id == signal.id
 
 
 @pytest.mark.asyncio

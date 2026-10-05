@@ -232,8 +232,29 @@ class TraceRepo:
     async def get_by_ai_decision(self, ai_decision_id):
         return self.trace
 
-    async def attach_human_decision(self, *, ai_decision_id, human_decision_id, closed_at):
+    async def attach_human_decision(
+        self,
+        *,
+        ai_decision_id,
+        human_decision_id,
+        learning_signal_id=None,
+        closed_at=None,
+    ):
         assert ai_decision_id == AI_DECISION_ID
+        self.trace = DecisionTrace(
+            id=self.trace.id,
+            household_id=self.trace.household_id,
+            trace_type=self.trace.trace_type,
+            state_fingerprint=self.trace.state_fingerprint,
+            pgor_snapshot_id=self.trace.pgor_snapshot_id,
+            feature_package_id=self.trace.feature_package_id,
+            ai_decision_id=self.trace.ai_decision_id,
+            human_decision_id=human_decision_id,
+            opened_at=self.trace.opened_at,
+            closed_at=closed_at,
+            prescription_id=self.trace.prescription_id,
+            learning_signal_id=learning_signal_id,
+        )
 
     async def attach_intervention(self, *, ai_decision_id, intervention_id):
         assert ai_decision_id == AI_DECISION_ID
@@ -272,6 +293,7 @@ async def test_approve_prescription_materializes_accepted_item_and_learning_sign
     prescriptions = PrescriptionRepo()
     learning = LearningRepo()
     events = Recorder()
+    traces = TraceRepo()
 
     updated, human, signal, items = await ReviewPrescriptionHandler(
         prescriptions=prescriptions,
@@ -279,7 +301,7 @@ async def test_approve_prescription_materializes_accepted_item_and_learning_sign
         feature_packages=FeatureRepo(),
         human_decisions=HumanRepo(),
         learning_signals=learning,
-        traces=TraceRepo(),
+        traces=traces,
         events=events,
         audits=Recorder(),
         output_schema=PRESCRIPTION_V1_SCHEMA,
@@ -300,6 +322,7 @@ async def test_approve_prescription_materializes_accepted_item_and_learning_sign
     assert updated.status is PrescriptionStatus.APPROVED
     assert human.decision_context.value == "PRESCRIPTION"
     assert signal.signal_type.value == "PRESCRIPTION_CONFIRMED"
+    assert traces.trace.learning_signal_id == signal.id
     assert len(items) == 1
     assert items[0].target_pgor_variable.value == "O"
     assert items[0].intervention_type.value == "MARKET_LINKAGE"

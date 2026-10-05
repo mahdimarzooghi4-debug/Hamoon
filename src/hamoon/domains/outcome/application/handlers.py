@@ -383,6 +383,7 @@ class ReviewOutcomeHandler:
             await self._traces.attach_human_decision(
                 ai_decision_id=ai_decision_id,
                 human_decision_id=human.id,
+                learning_signal_id=signal.id,
                 closed_at=now,
             )
 
