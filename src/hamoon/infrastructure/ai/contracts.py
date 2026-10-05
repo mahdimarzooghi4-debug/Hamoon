@@ -37,7 +37,6 @@ class StructuredAIRequest:
     feature_schema_version: str
     features: dict[str, JsonValue]
     correlation_id: str
-    model_artifact_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +51,7 @@ class ProviderStructuredRequest:
     output_schema: dict[str, JsonValue]
     features: dict[str, JsonValue]
     correlation_id: str
+    model_artifact_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +59,7 @@ class ProviderStructuredResponse:
     provider_code: str
     model_id: str
     output: dict[str, JsonValue]
+    model_artifact_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,3 +74,4 @@ class StructuredAIResult:
     prompt_policy_version: str
     output_schema_version: str
     output: dict[str, JsonValue]
+    model_artifact_sha256: str | None = None
