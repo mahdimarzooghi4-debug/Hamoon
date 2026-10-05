@@ -1,0 +1,193 @@
+name: External Evidence Integration Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact Stage-admitted 40-character commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: Type VERIFY_EVIDENCE to test Production storage and scanner
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-evidence-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      PROMOTED_SHA: ${{ inputs.commit_sha }}
+      HAMOON_GIT_COMMIT: ${{ inputs.commit_sha }}
+      HAMOON_EVIDENCE_S3_ENDPOINT: ${{ secrets.HAMOON_EVIDENCE_S3_ENDPOINT }}
+      HAMOON_EVIDENCE_S3_ACCESS_KEY: ${{ secrets.HAMOON_EVIDENCE_S3_ACCESS_KEY }}
+      HAMOON_EVIDENCE_S3_SECRET_KEY: ${{ secrets.HAMOON_EVIDENCE_S3_SECRET_KEY }}
+      HAMOON_EVIDENCE_S3_BUCKET: ${{ secrets.HAMOON_EVIDENCE_S3_BUCKET }}
+      HAMOON_EVIDENCE_S3_REGION: ${{ secrets.HAMOON_EVIDENCE_S3_REGION }}
+      HAMOON_EVIDENCE_SCANNER_ENDPOINT: ${{ secrets.HAMOON_EVIDENCE_SCANNER_ENDPOINT }}
+      HAMOON_EVIDENCE_SCANNER_TOKEN: ${{ secrets.HAMOON_EVIDENCE_SCANNER_TOKEN }}
+
+    steps:
+      - name: Validate explicit Evidence verification input
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          test "$CONFIRMATION" = "VERIFY_EVIDENCE"
+          printf '%s' "$PROMOTED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test -n "$HAMOON_EVIDENCE_S3_ENDPOINT"
+          test -n "$HAMOON_EVIDENCE_S3_ACCESS_KEY"
+          test -n "$HAMOON_EVIDENCE_S3_SECRET_KEY"
+          test -n "$HAMOON_EVIDENCE_S3_BUCKET"
+          test -n "$HAMOON_EVIDENCE_S3_REGION"
+          test -n "$HAMOON_EVIDENCE_SCANNER_ENDPOINT"
+          test -n "$HAMOON_EVIDENCE_SCANNER_TOKEN"
+
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Require candidate to belong to main history
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$PROMOTED_SHA" origin/main
+
+      - name: Resolve successful Stage Admission
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          artifact_name="hamoon-stage-admission-$PROMOTED_SHA"
+          artifact_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$artifact_name&per_page=100" \
+              --jq '[.artifacts[] | select(.expired == false)][0].id'
+          )"
+          test -n "$artifact_id"
+
+          stage_run_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id" \
+              --jq '.workflow_run.id'
+          )"
+          test -n "$stage_run_id"
+
+          stage_conclusion="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$stage_run_id" \
+              --jq '.conclusion'
+          )"
+          test "$stage_conclusion" = "success"
+          echo "STAGE_ADMISSION_RUN_ID=$stage_run_id" >> "$GITHUB_ENV"
+
+      - name: Download Stage attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence-verification-input
+          gh run download "$STAGE_ADMISSION_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-stage-admission-$PROMOTED_SHA" \
+            --dir evidence-verification-input
+
+      - name: Bind verification to exact Stage admission
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          stage = json.loads(
+              Path("evidence-verification-input/stage-attestation.json").read_text()
+          )
+          assert stage["status"] == "PASSED"
+          assert stage["commit_sha"] == os.environ["PROMOTED_SHA"]
+          assert (
+              str(stage["stage_admission_run_id"])
+              == os.environ["STAGE_ADMISSION_RUN_ID"]
+          )
+          PY
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install verification runtime
+        run: uv sync --frozen --all-extras
+
+      - name: Execute synthetic Evidence integration verification
+        run: |
+          uv run python scripts/execute_evidence_integration_verification.py \
+            evidence-verification-observed
+
+      - name: Create external Evidence integration attestation
+        env:
+          VERIFIER: ${{ github.actor }}
+          EVIDENCE_VERIFICATION_RUN_ID: ${{ github.run_id }}
+        run: |
+          mkdir -p external-evidence-integration
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from datetime import UTC, datetime
+          from pathlib import Path
+
+          stage_path = Path(
+              "evidence-verification-input/stage-attestation.json"
+          )
+          observation_path = Path(
+              "evidence-verification-observed/"
+              "evidence-integration-observation.json"
+          )
+          stage = json.loads(stage_path.read_text())
+          observation = json.loads(observation_path.read_text())
+
+          attestation = {
+              "schema_version": 1,
+              "status": "VERIFIED",
+              "verification_scope": "EXTERNAL_EVIDENCE_STORAGE_SCANNER",
+              "external_evidence_integration_verified": True,
+              "commit_sha": stage["commit_sha"],
+              "verification_id": observation["verification_id"],
+              "stage_admission_run_id": str(stage["stage_admission_run_id"]),
+              "evidence_verification_run_id": os.environ[
+                  "EVIDENCE_VERIFICATION_RUN_ID"
+              ],
+              "stage_attestation_sha256": hashlib.sha256(
+                  stage_path.read_bytes()
+              ).hexdigest(),
+              "evidence_observation_sha256": hashlib.sha256(
+                  observation_path.read_bytes()
+              ).hexdigest(),
+              "verifier": os.environ["VERIFIER"],
+              "verified_at": datetime.now(UTC).isoformat(),
+          }
+          Path(
+              "external-evidence-integration/"
+              "evidence-integration-verification.json"
+          ).write_text(
+              json.dumps(attestation, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Verify external Evidence integration evidence
+        run: |
+          python3 scripts/verify_external_evidence_integration.py \
+            evidence-verification-input/stage-attestation.json \
+            evidence-verification-observed/evidence-integration-observation.json \
+            external-evidence-integration/evidence-integration-verification.json
+
+      - name: Upload immutable Evidence integration evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamoon-evidence-integration-${{ inputs.commit_sha }}
+          path: |
+            external-evidence-integration/
+            evidence-verification-observed/
+          if-no-files-found: error
+          retention-days: 90
