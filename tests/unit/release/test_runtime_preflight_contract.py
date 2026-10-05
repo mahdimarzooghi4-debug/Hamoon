@@ -12,6 +12,7 @@ EXPECTED_CHECKS = [
     "otlp_traces_https",
     "otlp_logs_https",
     "protected_metrics_configured",
+    "native_ai_local_model_store",
     "provider_dispatch_configured",
     "backup_policy_configured",
     "retention_policy_configured",
