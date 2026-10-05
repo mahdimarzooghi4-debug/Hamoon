@@ -122,3 +122,11 @@ async def test_s3_storage_allows_only_scoped_verification_cleanup() -> None:
         await storage.delete_verification_object(
             storage_key="evidence/real-object"
         )
+
+    with pytest.raises(
+        ValueError,
+        match="EVIDENCE_VERIFICATION_DELETE_KEY_INVALID",
+    ):
+        await storage.delete_verification_object(
+            storage_key="_hamoon-verification/../evidence/real-object"
+        )
