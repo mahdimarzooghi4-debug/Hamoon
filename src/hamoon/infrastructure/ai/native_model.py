@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import math
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import cast
@@ -36,6 +38,12 @@ class NativeModelArtifact(BaseModel):
     )
     trained_at: datetime
     examples: list[NativeModelExample] = Field(min_length=1)
+
+
+_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 
 class NativeModelArtifactError(RuntimeError):
@@ -137,8 +145,16 @@ def example_similarity(
     features: dict[str, JsonValue],
     example_input: dict[str, JsonValue],
 ) -> float:
-    request_flat = _flatten(cast(JsonValue, features))
-    example_flat = _flatten(cast(JsonValue, example_input))
+    request_flat = {
+        key: value
+        for key, value in _flatten(cast(JsonValue, features)).items()
+        if not (isinstance(value, str) and _UUID_RE.fullmatch(value))
+    }
+    example_flat = {
+        key: value
+        for key, value in _flatten(cast(JsonValue, example_input)).items()
+        if not (isinstance(value, str) and _UUID_RE.fullmatch(value))
+    }
     if not request_flat:
         return 0.0
     total = 0.0
@@ -169,7 +185,26 @@ def infer_from_artifact(
 
     best: NativeModelExample | None = None
     best_score = -math.inf
+    current_bottlenecks = {
+        value
+        for value in features.get("pgor.bottleneck_variables", [])
+        if isinstance(value, str)
+    } if isinstance(features.get("pgor.bottleneck_variables"), list) else set()
     for example in artifact.examples:
+        if task_class is AITaskClass.PRESCRIPTION and current_bottlenecks:
+            raw_items = example.target.get("items")
+            if not isinstance(raw_items, list):
+                continue
+            target_variables = {
+                item.get("target_variable")
+                for item in raw_items
+                if isinstance(item, dict)
+                and isinstance(item.get("target_variable"), str)
+            }
+            if not target_variables or not target_variables.issubset(
+                current_bottlenecks
+            ):
+                continue
         score = example_similarity(
             features=features,
             example_input=example.input,
@@ -180,7 +215,28 @@ def infer_from_artifact(
     if best is None:
         raise NativeModelArtifactError("NATIVE_MODEL_NO_TRAINING_EXAMPLES")
 
-    target = dict(best.target)
+    target = copy.deepcopy(best.target)
+    if task_class is AITaskClass.PRESCRIPTION:
+        intensity = features.get("prescription.intensity_score")
+        diagnosis_id = features.get("diagnosis.id")
+        if not isinstance(intensity, str) or not isinstance(diagnosis_id, str):
+            raise NativeModelArtifactError(
+                "NATIVE_MODEL_PRESCRIPTION_CONTEXT_INVALID"
+            )
+        target["intensity_score"] = intensity
+        raw_items = target.get("items")
+        if not isinstance(raw_items, list):
+            raise NativeModelArtifactError(
+                "NATIVE_MODEL_PRESCRIPTION_TARGET_INVALID"
+            )
+        for raw_item in raw_items:
+            if not isinstance(raw_item, dict):
+                raise NativeModelArtifactError(
+                    "NATIVE_MODEL_PRESCRIPTION_TARGET_INVALID"
+                )
+            raw_item["diagnosis_refs"] = [f"diagnosis:{diagnosis_id}"]
+        return target
+
     if task_class is AITaskClass.OUTCOME_INTERPRETATION:
         classification = target.get("classification")
         if not isinstance(classification, str):
