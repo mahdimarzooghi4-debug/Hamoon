@@ -37,6 +37,37 @@ class EvaluationStatus(StrEnum):
     PASSED = "PASSED"
     FAILED = "FAILED"
 
+
+class ModelTrainingStatus(StrEnum):
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+
+@dataclass(frozen=True, slots=True)
+class ModelTrainingRunState:
+    id: UUID
+    task_class: AITaskClass
+    model_key: str
+    target_version: str
+    concrete_model_id: str
+    artifact_ref: str
+    training_dataset_version_id: UUID
+    training_dataset_manifest_digest: str
+    training_recipe_version: str
+    parent_model_version_id: UUID | None
+    parent_model_artifact_sha256: str | None
+    limitations: str | None
+    status: ModelTrainingStatus
+    workflow_id: str
+    candidate_model_version_id: UUID | None
+    error_code: str | None
+    requested_at: datetime
+    requested_by: UUID
+    started_at: datetime | None
+    completed_at: datetime | None
+
+
 @dataclass(frozen=True, slots=True)
 class ResolvedAIRoute:
     routing_policy: AIRoutingPolicy
