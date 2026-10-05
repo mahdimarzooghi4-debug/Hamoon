@@ -920,13 +920,48 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         model_version = await self._session.get(AIModelVersionModel, model_version_id)
         if model_version is None:
             raise LookupError("AI_MODEL_VERSION_NOT_FOUND")
+        model = await self._session.get(AIModelModel, model_version.ai_model_id)
+        if model is None:
+            raise LookupError("AI_MODEL_NOT_FOUND")
+        provider = await self._session.get(AIProviderModel, model.provider_id)
+        if provider is None:
+            raise LookupError("AI_PROVIDER_NOT_FOUND")
+        if (
+            provider.status is not AIProviderStatus.ACTIVE
+            or provider.code != HAMOON_NATIVE_PROVIDER_CODE
+        ):
+            raise ValueError("EVALUATION_REQUIRES_HAMOON_NATIVE_MODEL")
+        if model.purpose != task_class.value:
+            raise ValueError("EVALUATION_MODEL_PURPOSE_MISMATCH")
+        if (
+            model_version.artifact_sha256 is None
+            or re.fullmatch(r"[0-9a-f]{64}", model_version.artifact_sha256) is None
+        ):
+            raise ValueError("EVALUATION_MODEL_ARTIFACT_REQUIRED")
+        if model_version.status not in {
+            AIModelVersionStatus.CANDIDATE,
+            AIModelVersionStatus.APPROVED,
+        }:
+            raise ValueError("EVALUATION_MODEL_VERSION_NOT_ELIGIBLE")
+
         prompt_version = await self._session.get(
             PromptPolicyVersionModel,
             prompt_policy_version_id,
         )
         if prompt_version is None:
             raise LookupError("PROMPT_POLICY_VERSION_NOT_FOUND")
-        model = EvaluationRunModel(
+        prompt_policy = await self._session.get(
+            PromptPolicyModel,
+            prompt_version.prompt_policy_id,
+        )
+        if prompt_policy is None:
+            raise LookupError("PROMPT_POLICY_NOT_FOUND")
+        if prompt_version.status is not PromptPolicyVersionStatus.ACTIVE:
+            raise ValueError("EVALUATION_PROMPT_NOT_ACTIVE")
+        if prompt_policy.purpose != task_class.value:
+            raise ValueError("EVALUATION_PROMPT_PURPOSE_MISMATCH")
+
+        evaluation_model = EvaluationRunModel(
             id=uuid4(),
             task_class=task_class,
             model_version_id=model_version_id,
@@ -941,8 +976,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             summary_metrics={},
             completed_at=None,
         )
-        self._session.add(model)
-        return _evaluation_run_state(model)
+        self._session.add(evaluation_model)
+        return _evaluation_run_state(evaluation_model)
 
     async def get_evaluation_run(
         self,
