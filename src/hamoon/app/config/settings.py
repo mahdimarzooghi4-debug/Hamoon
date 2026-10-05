@@ -93,9 +93,9 @@ class Settings(BaseSettings):
     oidc_jwks_url: str | None = None
     oidc_clock_skew_seconds: int = 30
 
-    openai_api_key: str | None = None
-    openai_base_url: str = "https://api.openai.com/v1"
-    openai_timeout_seconds: float = 60.0
+    ai_model_root: str = ".hamoon/models"
+    ai_local_runner_path: str = ".hamoon/bin/hamoon-local-ai-runner"
+    ai_local_runner_timeout_seconds: float = 120.0
 
     temporal_address: str = "localhost:7233"
     temporal_namespace: str = "default"
@@ -112,6 +112,8 @@ class Settings(BaseSettings):
             raise ValueError("EVIDENCE_SCANNER_BACKEND_INVALID")
         if self.evidence_scanner_timeout_seconds <= 0:
             raise ValueError("EVIDENCE_SCANNER_TIMEOUT_INVALID")
+        if self.ai_local_runner_timeout_seconds <= 0:
+            raise ValueError("LOCAL_AI_TIMEOUT_INVALID")
 
         environment = self.environment.strip().lower()
         if environment not in {"prod", "production"}:
@@ -156,6 +158,13 @@ class Settings(BaseSettings):
             errors.append("PRODUCTION_OTEL_LOGS_EXPORTER_HTTPS_REQUIRED")
         if not self.structured_logging:
             errors.append("PRODUCTION_STRUCTURED_LOGGING_REQUIRED")
+
+        model_root = self.ai_model_root.strip()
+        runner_path = self.ai_local_runner_path.strip()
+        if not model_root.startswith("/"):
+            errors.append("PRODUCTION_LOCAL_AI_MODEL_ROOT_ABSOLUTE_REQUIRED")
+        if not runner_path.startswith("/"):
+            errors.append("PRODUCTION_LOCAL_AI_RUNNER_ABSOLUTE_REQUIRED")
 
         if not self.database_url.startswith("postgresql"):
             errors.append("PRODUCTION_POSTGRESQL_REQUIRED")
