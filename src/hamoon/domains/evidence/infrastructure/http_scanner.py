@@ -94,13 +94,18 @@ class HttpEvidenceScanner(EvidenceScanner):
 
         raw_status = payload.get("status")
         raw_detail = payload.get("detail")
-        if raw_status not in {"CLEAN", "INFECTED"}:
+        status_value: Literal["CLEAN", "INFECTED"]
+        if raw_status == "CLEAN":
+            status_value = "CLEAN"
+        elif raw_status == "INFECTED":
+            status_value = "INFECTED"
+        else:
             raise ValueError("EVIDENCE_SCANNER_RESPONSE_INVALID")
         if raw_detail is not None and not isinstance(raw_detail, str):
             raise ValueError("EVIDENCE_SCANNER_RESPONSE_INVALID")
 
         result = EvidenceScanResponse(
-            status=raw_status,
+            status=status_value,
             detail=raw_detail,
         )
         return result.status == "CLEAN", result.detail
