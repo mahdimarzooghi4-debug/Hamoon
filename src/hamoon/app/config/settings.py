@@ -1,4 +1,5 @@
 from functools import lru_cache
+import os
 import re
 from typing import Self
 from urllib.parse import urlsplit
@@ -165,6 +166,16 @@ class Settings(BaseSettings):
             errors.append("PRODUCTION_LOCAL_AI_MODEL_ROOT_ABSOLUTE_REQUIRED")
         if not runner_path.startswith("/"):
             errors.append("PRODUCTION_LOCAL_AI_RUNNER_ABSOLUTE_REQUIRED")
+        if any(
+            os.getenv(name, "").strip()
+            for name in (
+                "OPENAI_API_KEY",
+                "ANTHROPIC_API_KEY",
+                "GOOGLE_API_KEY",
+                "HAMOON_OPENAI_API_KEY",
+            )
+        ):
+            errors.append("PRODUCTION_EXTERNAL_AI_CREDENTIAL_FORBIDDEN")
 
         if not self.database_url.startswith("postgresql"):
             errors.append("PRODUCTION_POSTGRESQL_REQUIRED")
