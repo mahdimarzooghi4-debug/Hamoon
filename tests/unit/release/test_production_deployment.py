@@ -36,16 +36,9 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
                 "archive": "hamoon-web.tar",
                 "archive_sha256": "e" * 64,
             },
-            "governance": {
-                "release_approval_run_id": "303",
-                "deployment_admission_run_id": "404",
-                "release_manifest_sha256": hashlib.sha256(
-                    manifest.read_bytes()
-                ).hexdigest(),
-                "release_approval_sha256": "f" * 64,
-            },
         },
     )
+    manifest_sha256 = hashlib.sha256(manifest.read_bytes()).hexdigest()
 
     admission = tmp_path / "production-deployment-admission.json"
     _write_json(
@@ -64,9 +57,7 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
             "expected_deployment_id": DEPLOYMENT_ID,
             "backend_image_id": API_IMAGE_ID,
             "frontend_image_id": WEB_IMAGE_ID,
-            "release_manifest_sha256": hashlib.sha256(
-                manifest.read_bytes()
-            ).hexdigest(),
+            "release_manifest_sha256": manifest_sha256,
             "release_approval_sha256": "f" * 64,
         },
     )
@@ -93,6 +84,12 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
                 "image_id": WEB_IMAGE_ID,
                 "archive": "hamoon-web.tar",
                 "archive_sha256": "e" * 64,
+            },
+            "governance": {
+                "release_approval_run_id": "303",
+                "deployment_admission_run_id": "404",
+                "release_manifest_sha256": manifest_sha256,
+                "release_approval_sha256": "f" * 64,
             },
         },
     )
@@ -133,9 +130,7 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
             "backend_image_id": API_IMAGE_ID,
             "frontend_image_id": WEB_IMAGE_ID,
             "receipt_id": "receipt-001",
-            "release_manifest_sha256": hashlib.sha256(
-                manifest.read_bytes()
-            ).hexdigest(),
+            "release_manifest_sha256": manifest_sha256,
             "deployment_admission_sha256": hashlib.sha256(
                 admission.read_bytes()
             ).hexdigest(),
@@ -216,6 +211,25 @@ def test_production_deployment_verifier_rejects_receipt_image_drift(
 
     assert result.returncode != 0
     assert "receipt backend_image_id mismatch" in result.stderr
+
+
+def test_production_deployment_verifier_rejects_governance_drift(
+    tmp_path: Path,
+) -> None:
+    release, admission, request, receipt, deployment = _chain(tmp_path)
+    request_value = json.loads(request.read_text())
+    request_value["governance"]["release_approval_run_id"] = "999"
+    _write_json(request, request_value)
+    deployment_value = json.loads(deployment.read_text())
+    deployment_value["orchestrator_request_sha256"] = hashlib.sha256(
+        request.read_bytes()
+    ).hexdigest()
+    _write_json(deployment, deployment_value)
+
+    result = _verify(release, admission, request, receipt, deployment)
+
+    assert result.returncode != 0
+    assert "request release approval run mismatch" in result.stderr
 
 
 def test_production_deployment_verifier_rejects_bot_deployer(
