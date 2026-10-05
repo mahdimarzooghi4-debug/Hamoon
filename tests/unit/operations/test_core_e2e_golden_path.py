@@ -248,3 +248,253 @@ class FactValidationRepo:
     ) -> None:
         assert self.items[previous.fact_id].version == previous.version
         self.items[current.fact_id] = current
+
+
+class AcceptedStateRepo:
+    def __init__(self) -> None:
+        self.items: dict[tuple[UUID, str], CurrentAcceptedFact] = {}
+
+    async def get(
+        self, *, household_id: UUID, fact_type: str
+    ) -> CurrentAcceptedFact | None:
+        return self.items.get((household_id, fact_type))
+
+    async def list_for_household(self, household_id: UUID) -> list[CurrentAcceptedFact]:
+        return [x for (hid, _), x in self.items.items() if hid == household_id]
+
+    async def set_current(
+        self,
+        *,
+        accepted: CurrentAcceptedFact,
+        previous_fact_id: UUID | None,
+        reason_code: str,
+        reason_text: str | None,
+        event_id: UUID,
+    ) -> None:
+        self.items[(accepted.household_id, accepted.fact_type)] = accepted
+
+    async def context_version(self, household_id: UUID) -> int:
+        return sum(
+            item.projection_version
+            for (hid, _), item in self.items.items()
+            if hid == household_id
+        )
+
+
+class DefinitionRepo:
+    def __init__(self) -> None:
+        self.version = PGORDefinitionVersion(
+            id=DEFINITION,
+            code="core-e2e",
+            version="1",
+            status=PGORDefinitionStatus.ACTIVE,
+            requirement_policy_status=RequirementPolicyStatus.RESOLVED,
+            source_reference="core-e2e",
+        )
+        variables: list[PGORVariableDefinition] = []
+        dimensions: list[PGORDimensionDefinition] = []
+        indicators: list[PGORIndicatorDefinition] = []
+        for index, code in enumerate(PGORVariableCode, start=1):
+            variable_id = UUID(f"80000000-0000-0000-0000-{index:012d}")
+            dimension_id = UUID(f"81000000-0000-0000-0000-{index:012d}")
+            indicator_id = UUID(f"82000000-0000-0000-0000-{index:012d}")
+            variables.append(
+                PGORVariableDefinition(variable_id, DEFINITION, code, code.value, index)
+            )
+            dimensions.append(
+                PGORDimensionDefinition(
+                    dimension_id,
+                    variable_id,
+                    f"{code.value.lower()}-dimension",
+                    code.value,
+                    index,
+                )
+            )
+            indicators.append(
+                PGORIndicatorDefinition(
+                    indicator_id,
+                    dimension_id,
+                    f"{code.value.lower()}-indicator",
+                    code.value,
+                    0,
+                    100,
+                    True,
+                    True,
+                    1,
+                )
+            )
+        self.bundle = PGORDefinitionBundle(
+            self.version,
+            tuple(variables),
+            tuple(dimensions),
+            tuple(indicators),
+        )
+
+    async def get_active_bundle(self) -> PGORDefinitionBundle:
+        return self.bundle
+
+    async def get_bundle(
+        self, definition_version_id: UUID
+    ) -> PGORDefinitionBundle | None:
+        return self.bundle if definition_version_id == DEFINITION else None
+
+    async def get_version(
+        self, definition_version_id: UUID
+    ) -> PGORDefinitionVersion | None:
+        return self.version if definition_version_id == DEFINITION else None
+
+    async def list_indicators(
+        self, definition_version_id: UUID
+    ) -> list[PGORIndicatorDefinition]:
+        if definition_version_id != DEFINITION:
+            return []
+        return list(self.bundle.indicators)
+
+    async def get_indicator(
+        self, *, definition_version_id: UUID, indicator_id: UUID
+    ) -> PGORIndicatorDefinition | None:
+        if definition_version_id != DEFINITION:
+            return None
+        return next((x for x in self.bundle.indicators if x.id == indicator_id), None)
+
+
+class AssessmentRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, Assessment] = {}
+
+    async def add(self, item: Assessment) -> None:
+        self.items[item.id] = item
+
+    async def get(self, item_id: UUID) -> Assessment | None:
+        return self.items.get(item_id)
+
+
+class ObservationRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, IndicatorObservation] = {}
+
+    async def add(self, item: IndicatorObservation) -> None:
+        self.items[item.id] = item
+
+    async def get_for_assessment(
+        self, *, assessment_id: UUID, observation_id: UUID
+    ) -> IndicatorObservation | None:
+        item = self.items.get(observation_id)
+        if item is None or item.assessment_id != assessment_id:
+            return None
+        return item
+
+    async def list_for_assessment(
+        self, assessment_id: UUID
+    ) -> list[IndicatorObservation]:
+        return [x for x in self.items.values() if x.assessment_id == assessment_id]
+
+
+class ObservationValidationRepo:
+    def __init__(self, observations: ObservationRepo) -> None:
+        self.observations = observations
+        self.items: dict[UUID, ObservationValidationState] = {}
+
+    async def create_initial(self, state: ObservationValidationState) -> None:
+        self.items[state.observation_id] = state
+
+    async def get_state(
+        self, observation_id: UUID
+    ) -> ObservationValidationState | None:
+        return self.items.get(observation_id)
+
+    async def transition(
+        self,
+        *,
+        previous: ObservationValidationState,
+        current: ObservationValidationState,
+    ) -> None:
+        assert self.items[previous.observation_id].version == previous.version
+        self.items[current.observation_id] = current
+
+    async def count_unresolved_for_assessment(self, assessment_id: UUID) -> int:
+        return sum(
+            1
+            for observation_id, state in self.items.items()
+            if self.observations.items[observation_id].assessment_id == assessment_id
+            and state.status
+            in {
+                ObservationValidationStatus.PENDING_VALIDATION,
+                ObservationValidationStatus.DISPUTED,
+            }
+        )
+
+
+class AcceptedObservationRepo:
+    def __init__(self) -> None:
+        self.items: dict[tuple[UUID, UUID], AcceptedIndicatorObservation] = {}
+
+    async def get(
+        self, *, assessment_id: UUID, indicator_definition_id: UUID
+    ) -> AcceptedIndicatorObservation | None:
+        return self.items.get((assessment_id, indicator_definition_id))
+
+    async def list_for_assessment(
+        self, assessment_id: UUID
+    ) -> list[AcceptedIndicatorObservation]:
+        return [x for (aid, _), x in self.items.items() if aid == assessment_id]
+
+    async def set_current(
+        self,
+        *,
+        accepted: AcceptedIndicatorObservation,
+        previous_observation_id: UUID | None,
+        reason_code: str,
+        reason_text: str | None,
+        event_id: UUID,
+    ) -> None:
+        key = (accepted.assessment_id, accepted.indicator_definition_id)
+        self.items[key] = accepted
+
+
+class FormulaRepo:
+    def __init__(self) -> None:
+        self.formula = FormulaVersion(
+            FORMULA,
+            "core-e2e",
+            "1",
+            FormulaStatus.ACTIVE,
+            Decimal("0.34"),
+            Decimal("0.33"),
+            Decimal("0.33"),
+            datetime(2026, 1, 1, tzinfo=UTC),
+            datetime(2026, 1, 1, tzinfo=UTC),
+            True,
+        )
+
+    async def get(self, formula_version_id: UUID) -> FormulaVersion | None:
+        return self.formula if formula_version_id == FORMULA else None
+
+    async def get_active(self) -> FormulaVersion:
+        return self.formula
+
+
+class SnapshotRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, PGORSnapshot] = {}
+        self.inputs: dict[UUID, list[PGORSnapshotInput]] = {}
+
+    async def create(self, **kwargs) -> PGORSnapshot:
+        result = kwargs["result"]
+        snapshot_id = uuid4()
+        snapshot = PGORSnapshot(
+            id=snapshot_id,
+            household_id=kwargs["household_id"],
+            assessment_id=kwargs["assessment_id"],
+            definition_version_id=kwargs["definition_version_id"],
+            formula_version_id=kwargs["formula_version_id"],
+            engine_version=kwargs["engine_version"],
+            scoring_version=kwargs["scoring_version"],
+            status=kwargs["status"],
+            p=result.p,
+            g=result.g,
+            o=result.o,
+            r=result.r,
+            e=result.e,
+            bottleneck_variables=result.bottleneck_variables,
+            e_band=result.e_band,
