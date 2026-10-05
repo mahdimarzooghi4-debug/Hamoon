@@ -19,9 +19,14 @@ from hamoon.domains.assessment.infrastructure.models import AssessmentModel
 from hamoon.domains.evidence.domain.entities import EvidenceLifecycleStatus
 from hamoon.domains.evidence.infrastructure.models import EvidenceModel
 from hamoon.domains.family_data.domain.entities import FactValidationStatus
-from hamoon.domains.family_data.infrastructure.models import FactValidationStateModel
+from hamoon.domains.family_data.infrastructure.models import (
+    CurrentAcceptedFactModel,
+    FactValidationStateModel,
+    HouseholdFactModel,
+)
 from hamoon.domains.intelligence.domain.decisions import (
     HumanDecisionAction,
+    HumanDecisionContext,
     LearningSignalQuality,
 )
 from hamoon.domains.intelligence.domain.registry import (
@@ -38,10 +43,20 @@ from hamoon.domains.intelligence.infrastructure.models import (
 from hamoon.domains.operations.domain.entities import (
     ReassessmentPlanStatus,
     WorkItemStatus,
+    WorkItemType,
 )
 from hamoon.domains.operations.infrastructure.models import (
     ReassessmentPlanModel,
     WorkItemModel,
+)
+from hamoon.domains.referral.domain.entities import IntegrationProcessingStatus
+from hamoon.domains.referral.infrastructure.models import (
+    IntegrationMessageModel,
+    ReferralDispatchModel,
+)
+from hamoon.app.observability.operational_events import (
+    OperationalRuntimeEventModel,
+    OperationalRuntimeEventType,
 )
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.models import OutboxMessageModel
@@ -84,6 +99,30 @@ async def get_data_health(
         .select_from(FactValidationStateModel)
         .where(FactValidationStateModel.status == FactValidationStatus.DISPUTED),
     )
+    missing_required_data = await _scalar_count(
+        session,
+        select(func.count())
+        .select_from(WorkItemModel)
+        .where(
+            WorkItemModel.work_type == WorkItemType.DATA_COMPLETION,
+            WorkItemModel.status.in_(
+                (WorkItemStatus.OPEN, WorkItemStatus.CLAIMED)
+            ),
+        ),
+    )
+    stale_source_data = await _scalar_count(
+        session,
+        select(func.count())
+        .select_from(CurrentAcceptedFactModel)
+        .join(
+            HouseholdFactModel,
+            HouseholdFactModel.id == CurrentAcceptedFactModel.fact_id,
+        )
+        .where(
+            HouseholdFactModel.effective_to.is_not(None),
+            HouseholdFactModel.effective_to < now,
+        ),
+    )
     incomplete_assessments = await _scalar_count(
         session,
         select(func.count())
@@ -117,11 +156,44 @@ async def get_data_health(
             == EvidenceLifecycleStatus.QUARANTINED
         ),
     )
+    failed_integration_messages = await _scalar_count(
+        session,
+        select(func.count())
+        .select_from(IntegrationMessageModel)
+        .where(
+            IntegrationMessageModel.processing_status
+            == IntegrationProcessingStatus.FAILED
+        ),
+    )
+    failed_referral_dispatches = await _scalar_count(
+        session,
+        select(func.count())
+        .select_from(ReferralDispatchModel)
+        .where(ReferralDispatchModel.status == "FAILED"),
+    )
+    failed_outbox_messages = await _scalar_count(
+        session,
+        select(func.count())
+        .select_from(OutboxMessageModel)
+        .where(
+            OutboxMessageModel.published_at.is_(None),
+            OutboxMessageModel.last_error.is_not(None),
+        ),
+    )
+    integration_failures = (
+        failed_integration_messages
+        + failed_referral_dispatches
+        + failed_outbox_messages
+    )
     return DataHealthResponse(
         data=DataHealthData(
+            missing_required_data=missing_required_data,
+            unresolved_conflicts=disputed,
+            incomplete_assessments=incomplete_assessments,
+            stale_source_data=stale_source_data,
+            integration_failures=integration_failures,
             pending_validation_facts=pending_validation,
             disputed_facts=disputed,
-            incomplete_assessments=incomplete_assessments,
             overdue_work_items=overdue_work_items,
             pending_outbox_messages=pending_outbox,
             quarantined_evidence=quarantined_evidence,
@@ -143,12 +215,28 @@ async def get_machine_health(
 ) -> MachineHealthResponse:
     now = datetime.now(UTC)
 
-    async def decision_count(action: HumanDecisionAction) -> int:
+    async def diagnosis_decision_count(action: HumanDecisionAction) -> int:
         return await _scalar_count(
             session,
             select(func.count())
             .select_from(HumanDecisionModel)
-            .where(HumanDecisionModel.action == action),
+            .where(
+                HumanDecisionModel.action == action,
+                HumanDecisionModel.decision_context
+                == HumanDecisionContext.DIAGNOSIS,
+            ),
+        )
+
+    async def runtime_event_count(
+        event_type: OperationalRuntimeEventType,
+    ) -> int:
+        return await _scalar_count(
+            session,
+            select(func.count())
+            .select_from(OperationalRuntimeEventModel)
+            .where(
+                OperationalRuntimeEventModel.event_type == event_type.value
+            ),
         )
 
     async def signal_count(quality: LearningSignalQuality) -> int:
@@ -190,15 +278,71 @@ async def get_machine_health(
             )
         ),
     )
+    workflow_backlog = await _scalar_count(
+        session,
+        select(func.count())
+        .select_from(WorkItemModel)
+        .where(
+            WorkItemModel.work_type.in_(
+                (
+                    WorkItemType.REFERRAL_FOLLOWUP,
+                    WorkItemType.REASSESSMENT_DUE,
+                    WorkItemType.REASSESSMENT,
+                    WorkItemType.OUTCOME_REVIEW,
+                )
+            ),
+            WorkItemModel.status.in_(
+                (WorkItemStatus.OPEN, WorkItemStatus.CLAIMED)
+            ),
+        ),
+    )
+    ai_fallback_total = await _scalar_count(
+        session,
+        select(func.count())
+        .select_from(WorkItemModel)
+        .where(WorkItemModel.work_type == WorkItemType.AI_FALLBACK),
+    )
+    diagnosis_confirm_total = await diagnosis_decision_count(
+        HumanDecisionAction.CONFIRM
+    )
+    diagnosis_modify_total = await diagnosis_decision_count(
+        HumanDecisionAction.MODIFY
+    )
+    diagnosis_replace_total = await diagnosis_decision_count(
+        HumanDecisionAction.REPLACE
+    )
+    diagnosis_reject_total = await diagnosis_decision_count(
+        HumanDecisionAction.REJECT
+    )
+    diagnosis_defer_total = await diagnosis_decision_count(
+        HumanDecisionAction.DEFER
+    )
+    schema_failures = await runtime_event_count(
+        OperationalRuntimeEventType.AI_SCHEMA_FAILURE
+    )
+    inference_failures = await runtime_event_count(
+        OperationalRuntimeEventType.AI_INFERENCE_FAILURE
+    )
+    routing_failures = await runtime_event_count(
+        OperationalRuntimeEventType.AI_ROUTING_FAILURE
+    )
 
     return MachineHealthResponse(
         data=MachineHealthData(
+            diagnosis_confirm_total=diagnosis_confirm_total,
+            diagnosis_modify_total=diagnosis_modify_total,
+            diagnosis_replace_total=diagnosis_replace_total,
+            schema_failures=schema_failures,
+            ai_fallback_total=ai_fallback_total,
+            inference_failures=inference_failures,
+            workflow_backlog=workflow_backlog,
+            routing_failures=routing_failures,
             ai_decisions_total=ai_decisions_total,
-            human_confirm_total=await decision_count(HumanDecisionAction.CONFIRM),
-            human_modify_total=await decision_count(HumanDecisionAction.MODIFY),
-            human_replace_total=await decision_count(HumanDecisionAction.REPLACE),
-            human_reject_total=await decision_count(HumanDecisionAction.REJECT),
-            human_defer_total=await decision_count(HumanDecisionAction.DEFER),
+            human_confirm_total=diagnosis_confirm_total,
+            human_modify_total=diagnosis_modify_total,
+            human_replace_total=diagnosis_replace_total,
+            human_reject_total=diagnosis_reject_total,
+            human_defer_total=diagnosis_defer_total,
             learning_signal_raw=await signal_count(LearningSignalQuality.RAW),
             learning_signal_curated=await signal_count(
                 LearningSignalQuality.CURATED
