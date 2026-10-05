@@ -77,10 +77,45 @@ jobs:
             --name "hamoon-production-deployment-admission-$PROMOTED_SHA" \
             --dir verification-input/admission
 
-      - name: Resolve governance evidence chain
+      - name: Resolve immutable Production deployment evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          artifact_name="hamoon-production-deployment-$PROMOTED_SHA"
+          artifact_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$artifact_name&per_page=100" \
+              --jq '[.artifacts[] | select(.expired == false)][0].id'
+          )"
+          test -n "$artifact_id"
+
+          deployment_run_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id" \
+              --jq '.workflow_run.id'
+          )"
+          test -n "$deployment_run_id"
+
+          deployment_conclusion="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$deployment_run_id" \
+              --jq '.conclusion'
+          )"
+          test "$deployment_conclusion" = "success"
+          echo "PRODUCTION_DEPLOYMENT_RUN_ID=$deployment_run_id" >> "$GITHUB_ENV"
+
+      - name: Download Production deployment evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p verification-input/deployment
+          gh run download "$PRODUCTION_DEPLOYMENT_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-production-deployment-$PROMOTED_SHA" \
+            --dir verification-input/deployment
+
+      - name: Resolve governance and deployed runtime identity
         run: |
           python3 - <<'PY' >> "$GITHUB_ENV"
           import json
+          import os
           from pathlib import Path
 
           admission = json.loads(
@@ -89,13 +124,23 @@ jobs:
                   "production-deployment-admission.json"
               ).read_text()
           )
+          deployment = json.loads(
+              Path(
+                  "verification-input/deployment/"
+                  "production-deployment.json"
+              ).read_text()
+          )
+          assert (
+              str(deployment["production_deployment_run_id"])
+              == os.environ["PRODUCTION_DEPLOYMENT_RUN_ID"]
+          )
           print(f'SOURCE_CI_RUN_ID={admission["source_ci_run_id"]}')
           print(f'STAGE_ADMISSION_RUN_ID={admission["stage_admission_run_id"]}')
           print(f'RELEASE_APPROVAL_RUN_ID={admission["release_approval_run_id"]}')
-          print(f'PRODUCTION_ENDPOINT={admission["production_endpoint"]}')
-          print(f'EXPECTED_DEPLOYMENT_ID={admission["expected_deployment_id"]}')
-          print(f'EXPECTED_API_IMAGE_ID={admission["backend_image_id"]}')
-          print(f'EXPECTED_WEB_IMAGE_ID={admission["frontend_image_id"]}')
+          print(f'PRODUCTION_ENDPOINT={deployment["production_endpoint"]}')
+          print(f'EXPECTED_DEPLOYMENT_ID={deployment["deployment_id"]}')
+          print(f'EXPECTED_API_IMAGE_ID={deployment["backend_image_id"]}')
+          print(f'EXPECTED_WEB_IMAGE_ID={deployment["frontend_image_id"]}')
           PY
 
       - name: Download exact release, Stage and approval evidence
@@ -137,6 +182,12 @@ jobs:
             verification-input/stage/stage-attestation.json \
             verification-input/approval/release-approval.json \
             verification-input/admission/production-deployment-admission.json
+          python3 scripts/verify_production_deployment.py \
+            verification-input/release \
+            verification-input/admission/production-deployment-admission.json \
+            verification-input/deployment/orchestrator-request.json \
+            verification-input/deployment/orchestrator-receipt.json \
+            verification-input/deployment/production-deployment.json
 
       - name: Probe Hosted Production runtime identity
         run: |
@@ -218,10 +269,14 @@ jobs:
               "verification-input/admission/"
               "production-deployment-admission.json"
           )
+          deployment_path = Path(
+              "verification-input/deployment/production-deployment.json"
+          )
           backend_path = Path("production-observed/backend-release.json")
           frontend_path = Path("production-observed/frontend-release.json")
 
           admission = json.loads(admission_path.read_text())
+          deployment = json.loads(deployment_path.read_text())
           backend = json.loads(backend_path.read_text())
           frontend = json.loads(frontend_path.read_text())
 
@@ -238,11 +293,14 @@ jobs:
               "deployment_admission_run_id": admission[
                   "deployment_admission_run_id"
               ],
+              "production_deployment_run_id": deployment[
+                  "production_deployment_run_id"
+              ],
               "production_verification_run_id": os.environ[
                   "VERIFICATION_RUN_ID"
               ],
-              "production_target": admission["production_target"],
-              "production_endpoint": admission["production_endpoint"],
+              "production_target": deployment["production_target"],
+              "production_endpoint": deployment["production_endpoint"],
               "deployment_id": backend["deployment_id"],
               "backend_image_id": backend["image_id"],
               "frontend_image_id": frontend["image_id"],
@@ -252,6 +310,9 @@ jobs:
               ],
               "deployment_admission_sha256": hashlib.sha256(
                   admission_path.read_bytes()
+              ).hexdigest(),
+              "production_deployment_sha256": hashlib.sha256(
+                  deployment_path.read_bytes()
               ).hexdigest(),
               "backend_release_observation_sha256": hashlib.sha256(
                   backend_path.read_bytes()
@@ -275,6 +336,7 @@ jobs:
         run: |
           python3 scripts/verify_production_verification.py \
             verification-input/admission/production-deployment-admission.json \
+            verification-input/deployment/production-deployment.json \
             production-observed/backend-release.json \
             production-observed/frontend-release.json \
             production-verification/production-verification.json
