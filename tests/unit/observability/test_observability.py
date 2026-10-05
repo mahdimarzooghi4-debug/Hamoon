@@ -53,6 +53,9 @@ def test_metrics_endpoint_exposes_low_cardinality_http_metrics() -> None:
     metrics = client.get("/metrics")
     assert metrics.status_code == 200
     assert "hamoon_http_requests_total" in metrics.text
+    assert "hamoon_pgor_calculations_total" in metrics.text
+    assert "hamoon_ai_executions_total" in metrics.text
+    assert "hamoon_security_denials_total" in metrics.text
     assert 'route="/health/live"' in metrics.text
     assert "X-Request-Id" in response.headers
 

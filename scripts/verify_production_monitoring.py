@@ -36,6 +36,11 @@ REQUIRED_METRIC_FAMILIES = {
     "hamoon_worker_healthy",
     "hamoon_worker_heartbeat_age_seconds",
     "hamoon_operational_metrics_refresh_failures_total",
+    "hamoon_provider_dispatch_success_total",
+    "hamoon_provider_dispatch_failure_total",
+    "hamoon_pgor_calculations_total",
+    "hamoon_ai_executions_total",
+    "hamoon_security_denials_total",
 }
 
 

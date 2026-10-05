@@ -54,6 +54,21 @@ PROVIDER_DISPATCH_FAILURE = Counter(
     "Failed provider referral dispatch attempts.",
     ("provider_id", "failure_class"),
 )
+PGOR_CALCULATIONS = Counter(
+    "hamoon_pgor_calculations_total",
+    "Deterministic PGOR calculation attempts.",
+    ("mode", "status"),
+)
+AI_EXECUTIONS = Counter(
+    "hamoon_ai_executions_total",
+    "Structured AI gateway executions.",
+    ("task_class", "provider", "status"),
+)
+SECURITY_DENIALS = Counter(
+    "hamoon_security_denials_total",
+    "Authorization and authentication denials.",
+    ("boundary", "reason"),
+)
 
 DEPENDENCY_HEALTH = Gauge(
     "hamoon_dependency_health",

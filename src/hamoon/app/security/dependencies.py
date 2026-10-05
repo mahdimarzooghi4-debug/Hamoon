@@ -6,6 +6,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from hamoon.app.config.settings import get_settings
+from hamoon.app.observability.metrics import SECURITY_DENIALS
 from hamoon.app.security.context import AuthorizationContext, Role
 from hamoon.app.security.oidc import (
     AuthenticatedPrincipal,
@@ -35,6 +36,10 @@ async def _principal(
     validator: OIDCJWTValidator,
 ) -> AuthenticatedPrincipal:
     if credentials is None or credentials.scheme.lower() != "bearer":
+        SECURITY_DENIALS.labels(
+            boundary="authentication",
+            reason="missing_bearer",
+        ).inc()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "UNAUTHENTICATED"},
@@ -42,6 +47,10 @@ async def _principal(
     try:
         return await validator.validate(credentials.credentials)
     except TokenValidationError as exc:
+        SECURITY_DENIALS.labels(
+            boundary="authentication",
+            reason="invalid_token",
+        ).inc()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "UNAUTHENTICATED"},
@@ -59,6 +68,10 @@ async def get_authorization_context(
         Role.AI_RUNTIME,
     }
     if principal.roles.intersection(machine_roles):
+        SECURITY_DENIALS.labels(
+            boundary="identity_type",
+            reason="service_identity_on_human_path",
+        ).inc()
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"code": "SERVICE_IDENTITY_REQUIRED"},
@@ -77,6 +90,10 @@ async def get_authorization_context(
             await session.commit()
         except IdentityDisabledError as exc:
             await session.rollback()
+            SECURITY_DENIALS.labels(
+                boundary="identity_status",
+                reason="human_disabled",
+            ).inc()
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"code": "IDENTITY_DISABLED"},
@@ -100,6 +117,10 @@ async def get_provider_authorization_context(
 ) -> AuthorizationContext:
     principal = await _principal(credentials, validator)
     if Role.PROVIDER_INTEGRATION not in principal.roles:
+        SECURITY_DENIALS.labels(
+            boundary="provider_identity",
+            reason="provider_role_missing",
+        ).inc()
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"code": "FORBIDDEN"},
@@ -112,6 +133,10 @@ async def get_provider_authorization_context(
             subject=principal.subject,
         )
         if identity is None:
+            SECURITY_DENIALS.labels(
+                boundary="provider_identity",
+                reason="provider_not_mapped",
+            ).inc()
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"code": "PROVIDER_IDENTITY_NOT_MAPPED"},
@@ -125,6 +150,10 @@ async def get_provider_authorization_context(
             or actor.status is not ActorStatus.ACTIVE
             or actor.actor_type is not ActorType.PROVIDER
         ):
+            SECURITY_DENIALS.labels(
+                boundary="provider_identity",
+                reason="provider_disabled",
+            ).inc()
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"code": "PROVIDER_IDENTITY_DISABLED"},
@@ -146,6 +175,10 @@ def require_roles(*required_roles: Role):
         context: Annotated[AuthorizationContext, Depends(get_authorization_context)],
     ) -> AuthorizationContext:
         if not any(context.has_role(role) for role in required_roles):
+            SECURITY_DENIALS.labels(
+                boundary="role",
+                reason="forbidden",
+            ).inc()
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"code": "FORBIDDEN"},

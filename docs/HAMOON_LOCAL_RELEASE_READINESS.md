@@ -19,7 +19,7 @@ The local product boundary includes:
 - Learning signals, curated datasets and evaluation/promotion governance.
 - Durable PostgreSQL outbox with NATS JetStream delivery and retry.
 - Private S3-compatible evidence storage through the real MinIO adapter, with integrity verification, quarantine and download; Production additionally requires a remote HTTPS evidence scanner and secret token.
-- Structured PII-safe logs, Prometheus-compatible metrics and OpenTelemetry hooks.
+- Structured PII-safe logs, Prometheus-compatible core metrics for API/DB/outbox-NATS/Temporal/PGOR/AI/provider/security, and OpenTelemetry hooks.
 - Authorization-scoped Caseworker Work Queue with source-linked review, follow-up, reassessment, data-completion and conflict tasks.
 - Data Health and Machine Health aggregate read models.
 - Unit, contract, security, closed-loop Golden Path and infrastructure integration gates.

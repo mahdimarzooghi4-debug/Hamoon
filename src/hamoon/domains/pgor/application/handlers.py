@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from hamoon.app.observability.metrics import PGOR_CALCULATIONS
 from hamoon.domains.assessment.application.handlers import (
     EvaluateAssessmentReadinessHandler,
 )
@@ -73,6 +74,7 @@ class CalculateOfficialPGORHandler:
             validations=self._validations,
         ).handle(assessment.id)
         if readiness.status is not AssessmentReadinessStatus.READY:
+            PGOR_CALCULATIONS.labels(mode="official", status="blocked").inc()
             raise PGORCalculationBlockedError(
                 ",".join(readiness.blocking_reasons) or readiness.status.value
             )
@@ -83,6 +85,7 @@ class CalculateOfficialPGORHandler:
             else await self._formulas.get_active()
         )
         if formula is None:
+            PGOR_CALCULATIONS.labels(mode="official", status="formula_missing").inc()
             raise FormulaVersionNotFoundError(
                 str(command.formula_version_id or "ACTIVE_FORMULA")
             )
@@ -94,11 +97,13 @@ class CalculateOfficialPGORHandler:
             or formula.effective_from > now
             or not formula.production_eligible
         ):
+            PGOR_CALCULATIONS.labels(mode="official", status="blocked").inc()
             raise PGORCalculationBlockedError("FORMULA_NOT_PRODUCTION_ACTIVE")
         formula.validate_coefficients()
 
         bundle = await self._definitions.get_bundle(assessment.definition_version_id)
         if bundle is None:
+            PGOR_CALCULATIONS.labels(mode="official", status="blocked").inc()
             raise PGORCalculationBlockedError("PGOR_DEFINITION_NOT_AVAILABLE")
 
         variables_by_id = {item.id: item for item in bundle.variables}
@@ -142,6 +147,7 @@ class CalculateOfficialPGORHandler:
         }
         missing_dimension_ids = expected_dimension_ids - observed_dimension_ids
         if missing_dimension_ids:
+            PGOR_CALCULATIONS.labels(mode="official", status="blocked").inc()
             raise PGORCalculationBlockedError("MISSING_PGOR_DIMENSION_DATA")
 
         result = calculate_pgor(
@@ -227,4 +233,5 @@ class CalculateOfficialPGORHandler:
                 },
             )
         )
+        PGOR_CALCULATIONS.labels(mode="official", status="success").inc()
         return snapshot

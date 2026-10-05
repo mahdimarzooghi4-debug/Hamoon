@@ -39,6 +39,16 @@ hamoon_worker_heartbeat_age_seconds{{worker="temporal-worker"}} 5
 hamoon_worker_heartbeat_age_seconds{{worker="provider-worker"}} 5
 # TYPE hamoon_operational_metrics_refresh_failures_total counter
 hamoon_operational_metrics_refresh_failures_total{{dependency="postgresql"}} 0
+# TYPE hamoon_provider_dispatch_success_total counter
+hamoon_provider_dispatch_success_total{{provider_id="provider-test"}} 1
+# TYPE hamoon_provider_dispatch_failure_total counter
+hamoon_provider_dispatch_failure_total{{provider_id="provider-test",failure_class="retryable"}} 0
+# TYPE hamoon_pgor_calculations_total counter
+hamoon_pgor_calculations_total{{mode="official",status="success"}} 1
+# TYPE hamoon_ai_executions_total counter
+hamoon_ai_executions_total{{task_class="DIAGNOSIS",provider="FAKE",status="success"}} 1
+# TYPE hamoon_security_denials_total counter
+hamoon_security_denials_total{{boundary="role",reason="forbidden"}} 0
 """
 
 

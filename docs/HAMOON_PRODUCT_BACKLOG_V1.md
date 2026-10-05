@@ -877,6 +877,7 @@ Acceptance Criteria:
 
 ## PB-121 — Core Metrics
 Priority: P0
+Implementation: COMPLETE. Production Monitoring requires PII-safe metric families covering API, PostgreSQL, durable outbox/NATS delivery, exact-release Temporal worker health, deterministic PGOR, structured AI gateway execution, provider dispatch and security denials.
 
 Must include:
 - API

@@ -3,6 +3,7 @@ from collections.abc import Mapping
 from jsonschema import ValidationError, validate
 from pydantic import JsonValue
 
+from hamoon.app.observability.metrics import AI_EXECUTIONS
 from hamoon.infrastructure.ai.contracts import (
     AIRoutingPolicy,
     ProviderStructuredRequest,
@@ -40,13 +41,20 @@ class ProviderAIGateway:
         output_schema: dict[str, JsonValue],
         instructions: str = "",
     ) -> StructuredAIResult:
+        labels = {
+            "task_class": request.task_class.value,
+            "provider": routing_policy.provider_code,
+        }
         if routing_policy.task_class is not request.task_class:
+            AI_EXECUTIONS.labels(**labels, status="routing_error").inc()
             raise AIRoutingError("Routing policy task does not match request task.")
         if not routing_policy.structured_output_required:
+            AI_EXECUTIONS.labels(**labels, status="routing_error").inc()
             raise AIRoutingError("Decision-producing task requires structured output.")
 
         provider = self._providers.get(routing_policy.provider_code)
         if provider is None:
+            AI_EXECUTIONS.labels(**labels, status="routing_error").inc()
             raise AIRoutingError("Configured provider adapter is unavailable.")
 
         try:
@@ -65,13 +73,16 @@ class ProviderAIGateway:
                 )
             )
         except Exception as exc:
+            AI_EXECUTIONS.labels(**labels, status="provider_error").inc()
             raise AIProviderExecutionError("AI_PROVIDER_EXECUTION_FAILED") from exc
 
         try:
             validate(instance=response.output, schema=output_schema)
         except ValidationError as exc:
+            AI_EXECUTIONS.labels(**labels, status="schema_error").inc()
             raise AIOutputSchemaError("AI_OUTPUT_SCHEMA_INVALID") from exc
 
+        AI_EXECUTIONS.labels(**labels, status="success").inc()
         return StructuredAIResult(
             feature_package_id=request.feature_package_id,
             feature_schema_version=request.feature_schema_version,
