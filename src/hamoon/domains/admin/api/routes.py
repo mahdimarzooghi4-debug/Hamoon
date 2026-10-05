@@ -6,6 +6,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
 
+from hamoon.app.observability.operational_events import (
+    OperationalRuntimeEventModel,
+    OperationalRuntimeEventType,
+)
 from hamoon.app.security.context import AuthorizationContext, Role
 from hamoon.app.security.dependencies import require_roles
 from hamoon.domains.admin.api.schemas import (
@@ -53,10 +57,6 @@ from hamoon.domains.referral.domain.entities import IntegrationProcessingStatus
 from hamoon.domains.referral.infrastructure.models import (
     IntegrationMessageModel,
     ReferralDispatchModel,
-)
-from hamoon.app.observability.operational_events import (
-    OperationalRuntimeEventModel,
-    OperationalRuntimeEventType,
 )
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.models import OutboxMessageModel
