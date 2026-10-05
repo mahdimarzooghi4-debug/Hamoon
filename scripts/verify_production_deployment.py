@@ -45,27 +45,52 @@ def _require_timestamp(value: object, field: str) -> None:
     require(timestamp.tzinfo is not None, f"{field} must include timezone")
 
 
+def _required_checks(requirements: dict[str, object]) -> list[str]:
+    require(requirements.get("schema_version") == 1, "preflight schema invalid")
+    require(
+        requirements.get("contract") == "HAMOON_PRODUCTION_RUNTIME_PREFLIGHT",
+        "preflight contract invalid",
+    )
+    raw = requirements.get("required_checks")
+    require(isinstance(raw, list) and bool(raw), "preflight required_checks missing")
+    checks: list[str] = []
+    for value in raw:
+        require(isinstance(value, str) and bool(value.strip()), "preflight check invalid")
+        check = value.strip()
+        require(check not in checks, "preflight checks must be unique")
+        checks.append(check)
+    return checks
+
+
 def main() -> None:
-    if len(sys.argv) != 6:
+    if len(sys.argv) != 9:
         raise SystemExit(
             "usage: verify_production_deployment.py "
-            "<release-dir> <deployment-admission.json> "
+            "<release-dir> <deployment-admission.json> <runtime-preflight.json> "
+            "<preflight-request.json> <preflight-receipt.json> "
             "<orchestrator-request.json> <orchestrator-receipt.json> "
             "<production-deployment.json>"
         )
 
     release_dir = Path(sys.argv[1])
     admission_path = Path(sys.argv[2])
-    request_path = Path(sys.argv[3])
-    receipt_path = Path(sys.argv[4])
-    deployment_path = Path(sys.argv[5])
+    requirements_path = Path(sys.argv[3])
+    preflight_request_path = Path(sys.argv[4])
+    preflight_receipt_path = Path(sys.argv[5])
+    request_path = Path(sys.argv[6])
+    receipt_path = Path(sys.argv[7])
+    deployment_path = Path(sys.argv[8])
 
     manifest_path = release_dir / "manifest.json"
     manifest = load_json(manifest_path)
     admission = load_json(admission_path)
+    requirements = load_json(requirements_path)
+    preflight_request = load_json(preflight_request_path)
+    preflight_receipt = load_json(preflight_receipt_path)
     request = load_json(request_path)
     receipt = load_json(receipt_path)
     deployment = load_json(deployment_path)
+    required_checks = _required_checks(requirements)
 
     require(deployment.get("schema_version") == 1, "unsupported schema_version")
     require(deployment.get("status") == "DEPLOYED", "status must be DEPLOYED")
@@ -132,6 +157,9 @@ def main() -> None:
     )
 
     hash_bindings = (
+        ("runtime_preflight_contract_sha256", requirements_path),
+        ("preflight_request_sha256", preflight_request_path),
+        ("preflight_receipt_sha256", preflight_receipt_path),
         ("release_manifest_sha256", manifest_path),
         ("deployment_admission_sha256", admission_path),
         ("orchestrator_request_sha256", request_path),
@@ -144,6 +172,55 @@ def main() -> None:
             f"{field} invalid",
         )
         require(file_sha256(path) == value, f"{field} mismatch")
+
+    require(
+        preflight_request.get("operation") == "PREFLIGHT_HAMOON_PRODUCTION",
+        "preflight request operation invalid",
+    )
+    for field in (
+        "commit_sha",
+        "source_ci_run_id",
+        "production_target",
+        "production_endpoint",
+        "deployment_id",
+    ):
+        require(
+            preflight_request.get(field) == deployment.get(field),
+            f"preflight request {field} mismatch",
+        )
+    preflight_meta = preflight_request.get("runtime_preflight")
+    require(isinstance(preflight_meta, dict), "preflight request metadata missing")
+    require(
+        preflight_meta.get("contract_sha256") == file_sha256(requirements_path),
+        "preflight contract hash mismatch",
+    )
+    require(
+        preflight_meta.get("required_checks") == required_checks,
+        "preflight required check set mismatch",
+    )
+
+    require(preflight_receipt.get("status") == "READY", "preflight status must be READY")
+    for field in (
+        "commit_sha",
+        "deployment_id",
+        "production_target",
+        "production_endpoint",
+        "backend_image_id",
+        "frontend_image_id",
+    ):
+        require(
+            preflight_receipt.get(field) == deployment.get(field),
+            f"preflight receipt {field} mismatch",
+        )
+    checks = preflight_receipt.get("checks")
+    require(isinstance(checks, dict), "preflight receipt checks missing")
+    require(set(checks) == set(required_checks), "preflight receipt check set mismatch")
+    for check in required_checks:
+        require(checks.get(check) is True, f"preflight required check failed: {check}")
+    preflight_id = deployment.get("preflight_id")
+    require(isinstance(preflight_id, str) and bool(preflight_id), "preflight_id missing")
+    require(preflight_id == preflight_receipt.get("preflight_id"), "preflight_id mismatch")
+    _require_timestamp(preflight_receipt.get("checked_at"), "preflight checked_at")
 
     require(request.get("operation") == "DEPLOY_HAMOON_RELEASE", "request operation invalid")
     require(request.get("commit_sha") == commit_sha, "request commit mismatch")
@@ -237,6 +314,7 @@ def main() -> None:
                 "status": "valid",
                 "commit_sha": commit_sha,
                 "deployment_id": deployment.get("deployment_id"),
+                "preflight_id": preflight_id,
                 "production_endpoint": deployment.get("production_endpoint"),
             },
             sort_keys=True,
