@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 from typing import cast
 from uuid import UUID, uuid4
 
 import httpx
 
 from hamoon.infrastructure.provider_dispatch import ProviderDispatchTarget
+
+
+_COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 class ProviderIntegrationVerificationError(RuntimeError):
@@ -96,6 +100,10 @@ async def verify_provider_integration(
     timeout_seconds: float = 20.0,
     client: httpx.AsyncClient | None = None,
 ) -> tuple[dict[str, object], dict[str, object]]:
+    if _COMMIT_RE.fullmatch(commit_sha) is None:
+        raise ProviderIntegrationVerificationError(
+            "Provider verification commit SHA is invalid."
+        )
     if target.verification_endpoint is None:
         raise ProviderIntegrationVerificationError(
             "Provider verification endpoint is not configured."
