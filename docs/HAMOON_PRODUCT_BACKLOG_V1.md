@@ -364,6 +364,10 @@ Acceptance Criteria:
 
 ## PB-037 — PGOR Trace
 Priority: P1
+Implementation: COMPLETE. Authorized caseworkers/managers can inspect the immutable historical
+input trace of a persisted PGOR snapshot, including exact observation IDs/versions, definition
+metadata, raw and normalized scores, engine/scoring versions and input fingerprint. The trace
+is read-only and never recomputes PGOR; the live household workspace renders this persisted trace.
 
 Acceptance Criteria:
 - authorized user can inspect which observations and versions produced the snapshot.

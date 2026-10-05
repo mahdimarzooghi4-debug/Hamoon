@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -83,3 +84,35 @@ class PGORSnapshotData(BaseModel):
 
 class PGORSnapshotResponse(BaseModel):
     data: PGORSnapshotData
+
+
+class PGORTraceInputData(BaseModel):
+    observation_id: UUID
+    observation_version: int
+    indicator_definition_id: UUID
+    indicator_code: str
+    indicator_name_fa: str
+    dimension_definition_id: UUID
+    dimension_code: str
+    dimension_name_fa: str
+    variable_code: PGORVariableCode
+    raw_score_0_100: Decimal
+    normalized_score: Decimal
+
+
+class PGORTraceData(BaseModel):
+    snapshot_id: UUID
+    household_id: UUID
+    assessment_id: UUID
+    definition_version_id: UUID
+    definition_version: str
+    formula_version_id: UUID
+    engine_version: str
+    scoring_version: str
+    input_fingerprint: str
+    calculated_at: datetime
+    inputs: list[PGORTraceInputData]
+
+
+class PGORTraceResponse(BaseModel):
+    data: PGORTraceData
