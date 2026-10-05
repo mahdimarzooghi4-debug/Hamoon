@@ -37,20 +37,22 @@ def file_sha256(path: Path) -> str:
 
 def main() -> None:
     require(
-        len(sys.argv) == 5,
+        len(sys.argv) == 6,
         (
             "usage: verify_production_verification.py "
-            "<deployment-admission> <backend-release> "
-            "<frontend-release> <verification>"
+            "<deployment-admission> <production-deployment> "
+            "<backend-release> <frontend-release> <verification>"
         ),
     )
 
     admission_path = Path(sys.argv[1]).resolve()
-    backend_path = Path(sys.argv[2]).resolve()
-    frontend_path = Path(sys.argv[3]).resolve()
-    verification_path = Path(sys.argv[4]).resolve()
+    deployment_path = Path(sys.argv[2]).resolve()
+    backend_path = Path(sys.argv[3]).resolve()
+    frontend_path = Path(sys.argv[4]).resolve()
+    verification_path = Path(sys.argv[5]).resolve()
 
     admission = load_json(admission_path)
+    deployment = load_json(deployment_path)
     backend = load_json(backend_path)
     frontend = load_json(frontend_path)
     verification = load_json(verification_path)
@@ -60,6 +62,36 @@ def main() -> None:
         admission.get("production_deployed") is False,
         "admission must precede deployment evidence",
     )
+    require(deployment.get("status") == "DEPLOYED", "deployment not executed")
+    require(
+        deployment.get("production_deployed") is True,
+        "deployment evidence must prove Production deployment",
+    )
+    require(
+        deployment.get("commit_sha") == admission.get("commit_sha"),
+        "deployment commit mismatch",
+    )
+    require(
+        deployment.get("production_target") == admission.get("production_target"),
+        "deployment production_target mismatch",
+    )
+    require(
+        deployment.get("production_endpoint") == admission.get("production_endpoint"),
+        "deployment production_endpoint mismatch",
+    )
+    require(
+        deployment.get("deployment_id") == admission.get("expected_deployment_id"),
+        "deployment_id mismatch with admission",
+    )
+    require(
+        deployment.get("backend_image_id") == admission.get("backend_image_id"),
+        "deployment backend image mismatch",
+    )
+    require(
+        deployment.get("frontend_image_id") == admission.get("frontend_image_id"),
+        "deployment frontend image mismatch",
+    )
+
     require(verification.get("schema_version") == 1, "unsupported schema")
     require(verification.get("status") == "VERIFIED", "status must be VERIFIED")
     require(
@@ -81,6 +113,7 @@ def main() -> None:
         "commit_sha invalid",
     )
     require(admission.get("commit_sha") == commit_sha, "commit mismatch")
+    require(deployment.get("commit_sha") == commit_sha, "deployment commit mismatch")
 
     for field in (
         "source_ci_run_id",
@@ -92,6 +125,22 @@ def main() -> None:
             verification.get(field) == admission.get(field),
             f"{field} mismatch",
         )
+        require(
+            deployment.get(field) == admission.get(field),
+            f"deployment {field} mismatch",
+        )
+
+    production_deployment_run_id = deployment.get("production_deployment_run_id")
+    require(
+        isinstance(production_deployment_run_id, str)
+        and production_deployment_run_id.isdigit(),
+        "production_deployment_run_id invalid",
+    )
+    require(
+        verification.get("production_deployment_run_id")
+        == production_deployment_run_id,
+        "production_deployment_run_id mismatch",
+    )
 
     verification_run_id = verification.get("production_verification_run_id")
     require(
@@ -100,16 +149,16 @@ def main() -> None:
     )
 
     require(
-        verification.get("production_target") == admission.get("production_target"),
+        verification.get("production_target") == deployment.get("production_target"),
         "production_target mismatch",
     )
     require(
         verification.get("production_endpoint")
-        == admission.get("production_endpoint"),
+        == deployment.get("production_endpoint"),
         "production_endpoint mismatch",
     )
 
-    expected_deployment_id = admission.get("expected_deployment_id")
+    expected_deployment_id = deployment.get("deployment_id")
     require(
         isinstance(expected_deployment_id, str)
         and DEPLOYMENT_ID_RE.fullmatch(expected_deployment_id) is not None,
@@ -158,6 +207,7 @@ def main() -> None:
 
     for field, path in (
         ("deployment_admission_sha256", admission_path),
+        ("production_deployment_sha256", deployment_path),
         ("backend_release_observation_sha256", backend_path),
         ("frontend_release_observation_sha256", frontend_path),
     ):
