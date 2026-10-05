@@ -149,7 +149,7 @@ def test_execute_production_deployment_rejects_cross_host_status_url() -> None:
 
     with pytest.raises(
         DeploymentOrchestratorError,
-        match="must remain on the orchestrator host",
+        match="must remain on the orchestrator HTTPS origin",
     ):
         execute_production_deployment(
             orchestrator_endpoint="https://deploy.example.com/v1/deployments",
@@ -187,4 +187,29 @@ def test_build_deployment_request_rejects_image_drift() -> None:
             repository="owner/Hamoon",
             manifest=_manifest(),
             admission=admission,
+        )
+
+
+
+def test_execute_production_deployment_rejects_cross_port_status_url() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            202,
+            json={
+                "status": "ACCEPTED",
+                "status_url": "https://deploy.example.com:8443/status/1",
+            },
+        )
+
+    with pytest.raises(
+        DeploymentOrchestratorError,
+        match="must remain on the orchestrator HTTPS origin",
+    ):
+        execute_production_deployment(
+            orchestrator_endpoint="https://deploy.example.com/v1/deployments",
+            token=TOKEN,
+            repository="owner/Hamoon",
+            manifest=_manifest(),
+            admission=_admission(),
+            transport=httpx.MockTransport(handler),
         )
