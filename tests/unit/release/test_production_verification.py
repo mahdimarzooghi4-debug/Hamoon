@@ -16,7 +16,7 @@ def _write_json(path: Path, value: object) -> None:
     path.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
+def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
     admission = tmp_path / "production-deployment-admission.json"
     _write_json(
         admission,
@@ -32,6 +32,28 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
             "production_target": "hamoon-prod-primary",
             "production_endpoint": "https://hamoon.example.com",
             "expected_deployment_id": DEPLOYMENT_ID,
+            "backend_image_id": API_IMAGE_ID,
+            "frontend_image_id": WEB_IMAGE_ID,
+        },
+    )
+
+    deployment = tmp_path / "production-deployment.json"
+    _write_json(
+        deployment,
+        {
+            "schema_version": 1,
+            "status": "DEPLOYED",
+            "deployment_scope": "HOSTED_PRODUCTION_EXECUTION",
+            "production_deployed": True,
+            "commit_sha": COMMIT,
+            "source_ci_run_id": "101",
+            "stage_admission_run_id": "202",
+            "release_approval_run_id": "303",
+            "deployment_admission_run_id": "404",
+            "production_deployment_run_id": "505",
+            "production_target": "hamoon-prod-primary",
+            "production_endpoint": "https://hamoon.example.com",
+            "deployment_id": DEPLOYMENT_ID,
             "backend_image_id": API_IMAGE_ID,
             "frontend_image_id": WEB_IMAGE_ID,
         },
@@ -77,7 +99,8 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
             "stage_admission_run_id": "202",
             "release_approval_run_id": "303",
             "deployment_admission_run_id": "404",
-            "production_verification_run_id": "505",
+            "production_deployment_run_id": "505",
+            "production_verification_run_id": "606",
             "production_target": "hamoon-prod-primary",
             "production_endpoint": "https://hamoon.example.com",
             "deployment_id": DEPLOYMENT_ID,
@@ -87,6 +110,9 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
             "database_migration_versions": ["20261004_release_identity"],
             "deployment_admission_sha256": hashlib.sha256(
                 admission.read_bytes()
+            ).hexdigest(),
+            "production_deployment_sha256": hashlib.sha256(
+                deployment.read_bytes()
             ).hexdigest(),
             "backend_release_observation_sha256": hashlib.sha256(
                 backend.read_bytes()
@@ -98,11 +124,12 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
             "verified_at": "2026-10-04T18:00:00+00:00",
         },
     )
-    return admission, backend, frontend, verification
+    return admission, deployment, backend, frontend, verification
 
 
 def _verify(
     admission: Path,
+    deployment: Path,
     backend: Path,
     frontend: Path,
     verification: Path,
@@ -112,6 +139,7 @@ def _verify(
             sys.executable,
             "scripts/verify_production_verification.py",
             str(admission),
+            str(deployment),
             str(backend),
             str(frontend),
             str(verification),
@@ -136,12 +164,12 @@ def test_production_verification_accepts_exact_runtime_identity(
 def test_production_verification_rejects_stale_frontend(
     tmp_path: Path,
 ) -> None:
-    admission, backend, frontend, verification = _chain(tmp_path)
+    admission, deployment, backend, frontend, verification = _chain(tmp_path)
     value = json.loads(frontend.read_text())
     value["git_commit"] = "d" * 40
     _write_json(frontend, value)
 
-    result = _verify(admission, backend, frontend, verification)
+    result = _verify(admission, deployment, backend, frontend, verification)
 
     assert result.returncode != 0
     assert "frontend commit mismatch" in result.stderr
@@ -150,12 +178,12 @@ def test_production_verification_rejects_stale_frontend(
 def test_production_verification_rejects_wrong_backend_image(
     tmp_path: Path,
 ) -> None:
-    admission, backend, frontend, verification = _chain(tmp_path)
+    admission, deployment, backend, frontend, verification = _chain(tmp_path)
     value = json.loads(backend.read_text())
     value["image_id"] = "sha256:" + "e" * 64
     _write_json(backend, value)
 
-    result = _verify(admission, backend, frontend, verification)
+    result = _verify(admission, deployment, backend, frontend, verification)
 
     assert result.returncode != 0
     assert "backend image mismatch" in result.stderr
@@ -164,12 +192,12 @@ def test_production_verification_rejects_wrong_backend_image(
 def test_production_verification_rejects_wrong_deployment_id(
     tmp_path: Path,
 ) -> None:
-    admission, backend, frontend, verification = _chain(tmp_path)
+    admission, deployment, backend, frontend, verification = _chain(tmp_path)
     value = json.loads(frontend.read_text())
     value["deployment_id"] = "prod-other"
     _write_json(frontend, value)
 
-    result = _verify(admission, backend, frontend, verification)
+    result = _verify(admission, deployment, backend, frontend, verification)
 
     assert result.returncode != 0
     assert "frontend deployment_id mismatch" in result.stderr
@@ -178,12 +206,25 @@ def test_production_verification_rejects_wrong_deployment_id(
 def test_production_verification_rejects_missing_migration_identity(
     tmp_path: Path,
 ) -> None:
-    admission, backend, frontend, verification = _chain(tmp_path)
+    admission, deployment, backend, frontend, verification = _chain(tmp_path)
     value = json.loads(backend.read_text())
     value["database_migration_versions"] = []
     _write_json(backend, value)
 
-    result = _verify(admission, backend, frontend, verification)
+    result = _verify(admission, deployment, backend, frontend, verification)
 
     assert result.returncode != 0
     assert "database migration identity missing" in result.stderr
+
+
+
+def test_production_verification_rejects_tampered_deployment_evidence(
+    tmp_path: Path,
+) -> None:
+    admission, deployment, backend, frontend, verification = _chain(tmp_path)
+    deployment.write_text(deployment.read_text() + " ", encoding="utf-8")
+
+    result = _verify(admission, deployment, backend, frontend, verification)
+
+    assert result.returncode != 0
+    assert "production_deployment_sha256 mismatch" in result.stderr

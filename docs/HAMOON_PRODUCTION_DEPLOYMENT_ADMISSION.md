@@ -1,6 +1,6 @@
 # Hamoon — Production Deployment Admission Gate
 
-Status: Implemented governance boundary; Hosted Production is not yet deployed.
+Status: Implemented governance boundary. Hosted deployment execution is implemented through the provider-neutral Production Deploy workflow, but a concrete external orchestrator endpoint/credential is environment-owned.
 
 This gate sits between explicit Release Approval and any provider-specific Production
 deployment workflow.
@@ -49,9 +49,10 @@ The artifact deliberately records `production_deployed=false`.
 ## Important boundary
 
 This is **not** proof of a Hosted Production deployment. It is the final admission
-artifact a future provider-specific deployment must consume before changing Production.
-The deployment workflow must later emit separate evidence that the admitted image IDs
-were actually deployed and healthy at the approved endpoint.
+artifact consumed by the `Production Deploy` workflow before changing Production.
+That workflow calls the trusted external HTTPS deployment orchestrator and emits a
+separate immutable `hamoon-production-deployment-<sha>` artifact only after the
+orchestrator returns a final `DEPLOYED` receipt bound to the exact admitted identities.
 
 ## Governance chain
 
@@ -61,7 +62,8 @@ CI
 → Stage Admission PASSED
 → explicit Human Release Approval
 → Production Deployment Admission
-→ provider-specific Hosted Production deployment
+→ Production Deploy / trusted external orchestrator
+→ immutable Production deployment receipt
 → Production verification
 → Monitoring
 ```
