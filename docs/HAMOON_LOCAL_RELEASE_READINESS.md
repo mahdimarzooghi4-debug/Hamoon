@@ -30,7 +30,7 @@ The local product boundary includes:
 - One-command local Docker Compose stack, including the real web frontend runtime.
 - Build-once release artifact chain: backend/frontend images are built once, scanned, smoke-tested by exact image ID, then packaged with a digest manifest.
 - Supply-chain metadata for the tested artifacts: CycloneDX SBOMs, SLSA-style in-toto provenance, SHA-256 checksums, and an offline bundle verifier.
-- Provider-neutral hosted Production Deploy execution after Release Approval/Deployment Admission, using a protected GitHub Production Environment, remote HTTPS orchestrator, exact-image request binding and immutable DEPLOYED receipt evidence.
+- Provider-neutral hosted Production Deploy execution after Release Approval/Deployment Admission, using a protected GitHub Production Environment, remote HTTPS orchestrator, exact-image request binding, mandatory versioned external-runtime preflight and immutable DEPLOYED receipt evidence.
 
 ## Intentionally deferred integrations
 

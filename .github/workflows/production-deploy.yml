@@ -155,6 +155,7 @@ jobs:
           uv run python scripts/execute_production_deployment.py \
             deployment-input/release \
             deployment-input/admission/production-deployment-admission.json \
+            ops/production/runtime-preflight.json \
             production-deployment
 
       - name: Create immutable Production deployment attestation
@@ -175,10 +176,18 @@ jobs:
               "deployment-input/admission/"
               "production-deployment-admission.json"
           )
+          requirements_path = Path("ops/production/runtime-preflight.json")
+          preflight_request_path = Path(
+              "production-deployment/preflight-request.json"
+          )
+          preflight_receipt_path = Path(
+              "production-deployment/preflight-receipt.json"
+          )
           request_path = Path("production-deployment/orchestrator-request.json")
           receipt_path = Path("production-deployment/orchestrator-receipt.json")
 
           admission = json.loads(admission_path.read_text())
+          preflight_receipt = json.loads(preflight_receipt_path.read_text())
           receipt = json.loads(receipt_path.read_text())
 
           deployment = {
@@ -201,7 +210,17 @@ jobs:
               "deployment_id": receipt["deployment_id"],
               "backend_image_id": receipt["backend_image_id"],
               "frontend_image_id": receipt["frontend_image_id"],
+              "preflight_id": preflight_receipt["preflight_id"],
               "receipt_id": receipt["receipt_id"],
+              "runtime_preflight_contract_sha256": hashlib.sha256(
+                  requirements_path.read_bytes()
+              ).hexdigest(),
+              "preflight_request_sha256": hashlib.sha256(
+                  preflight_request_path.read_bytes()
+              ).hexdigest(),
+              "preflight_receipt_sha256": hashlib.sha256(
+                  preflight_receipt_path.read_bytes()
+              ).hexdigest(),
               "release_manifest_sha256": hashlib.sha256(
                   manifest_path.read_bytes()
               ).hexdigest(),
@@ -233,6 +252,9 @@ jobs:
           python3 scripts/verify_production_deployment.py \
             deployment-input/release \
             deployment-input/admission/production-deployment-admission.json \
+            ops/production/runtime-preflight.json \
+            production-deployment/preflight-request.json \
+            production-deployment/preflight-receipt.json \
             production-deployment/orchestrator-request.json \
             production-deployment/orchestrator-receipt.json \
             production-deployment/production-deployment.json

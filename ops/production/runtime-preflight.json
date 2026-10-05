@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "contract": "HAMOON_PRODUCTION_RUNTIME_PREFLIGHT",
+  "required_checks": [
+    "postgresql_connectivity",
+    "nats_jetstream_connectivity",
+    "temporal_connectivity",
+    "oidc_discovery_https",
+    "evidence_s3_private_https",
+    "evidence_scanner_https",
+    "otlp_traces_https",
+    "otlp_logs_https",
+    "protected_metrics_configured",
+    "provider_dispatch_configured",
+    "backup_policy_configured",
+    "retention_policy_configured"
+  ]
+}
