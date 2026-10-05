@@ -3035,3 +3035,55 @@ a {
   color: var(--hamoon-muted);
   font-size: 11px;
 }
+
+
+.admin-health-page {
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.admin-health-section {
+  display: grid;
+  gap: var(--hamoon-space-20);
+}
+
+.admin-health-timestamp {
+  color: var(--hamoon-muted);
+  font-size: 11px;
+}
+
+.admin-health-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--hamoon-space-8);
+}
+
+.admin-health-detail-grid > div {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border-radius: var(--hamoon-radius-10);
+  background: var(--hamoon-page);
+}
+
+.admin-health-detail-grid span {
+  color: var(--hamoon-muted);
+  font-size: 10px;
+}
+
+.admin-health-detail-grid strong {
+  color: var(--hamoon-blue);
+  font-size: 17px;
+}
+
+@media (max-width: 1100px) {
+  .admin-health-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-health-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
