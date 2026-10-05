@@ -748,3 +748,253 @@ class PrescriptionAI:
                 ],
                 "review_flags": ["HUMAN_REVIEW_REQUIRED"],
             },
+        )
+
+
+class PrescriptionRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, Prescription] = {}
+        self.line_items: dict[UUID, PrescriptionItem] = {}
+
+    async def add(self, item: Prescription) -> None:
+        self.items[item.id] = item
+
+    async def get(self, item_id: UUID) -> Prescription | None:
+        return self.items.get(item_id)
+
+    async def update(self, item: Prescription, *, expected_version: int) -> None:
+        assert self.items[item.id].version == expected_version
+        self.items[item.id] = item
+
+    async def add_items(self, items: tuple[PrescriptionItem, ...]) -> None:
+        for item in items:
+            self.line_items[item.id] = item
+
+    async def get_item(
+        self, *, prescription_id: UUID, item_id: UUID
+    ) -> PrescriptionItem | None:
+        item = self.line_items.get(item_id)
+        if item is None or item.prescription_id != prescription_id:
+            return None
+        return item
+
+    async def get_item_by_id(self, item_id: UUID) -> PrescriptionItem | None:
+        return self.line_items.get(item_id)
+
+    async def list_items(self, prescription_id: UUID) -> list[PrescriptionItem]:
+        return [
+            x for x in self.line_items.values() if x.prescription_id == prescription_id
+        ]
+
+    async def mark_item_activated(self, item_id: UUID) -> None:
+        item = self.line_items[item_id]
+        self.line_items[item_id] = replace(
+            item,
+            status=PrescriptionItemStatus.ACTIVATED,
+        )
+
+
+class InterventionRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, Intervention] = {}
+
+    async def add(self, item: Intervention) -> None:
+        self.items[item.id] = item
+
+    async def get(self, item_id: UUID) -> Intervention | None:
+        return self.items.get(item_id)
+
+    async def get_by_prescription_item(
+        self, prescription_item_id: UUID
+    ) -> Intervention | None:
+        return next(
+            (
+                x
+                for x in self.items.values()
+                if x.prescription_item_id == prescription_item_id
+            ),
+            None,
+        )
+
+    async def list_for_household(self, household_id: UUID) -> list[Intervention]:
+        return [x for x in self.items.values() if x.household_id == household_id]
+
+
+class Registry:
+    async def get_provider(self, provider_id: UUID) -> Provider | None:
+        if provider_id != PROVIDER:
+            return None
+        return Provider(
+            PROVIDER,
+            "provider",
+            "Provider",
+            ProviderStatus.ACTIVE,
+            None,
+            "API",
+            datetime.now(UTC),
+        )
+
+    async def list_providers(self) -> list[Provider]:
+        item = await self.get_provider(PROVIDER)
+        return [] if item is None else [item]
+
+    async def get_service(self, service_id: UUID) -> ProviderService | None:
+        if service_id != SERVICE:
+            return None
+        return ProviderService(
+            id=SERVICE,
+            provider_id=PROVIDER,
+            service_type="EMPLOYMENT_MARKET",
+            title="Market linkage",
+            description="",
+            supported_intervention_types=(InterventionType.MARKET_LINKAGE,),
+            eligibility_policy_version="eligibility-v1",
+            coverage_policy_version="coverage-v1",
+            coverage_fact_type="geo.coverage_code",
+            coverage_codes=("BAKU-1",),
+            sla_policy_version=None,
+            active=True,
+        )
+
+    async def list_services_for_provider(
+        self, provider_id: UUID
+    ) -> list[ProviderService]:
+        item = await self.get_service(SERVICE)
+        return [] if provider_id != PROVIDER or item is None else [item]
+
+    async def list_services_by_type(self, service_type: str) -> list[ProviderService]:
+        item = await self.get_service(SERVICE)
+        if item is None or service_type != "EMPLOYMENT_MARKET":
+            return []
+        return [item]
+
+    async def list_eligibility_rules(
+        self, provider_service_id: UUID
+    ) -> list[ProviderEligibilityRule]:
+        if provider_service_id != SERVICE:
+            return []
+        return [
+            ProviderEligibilityRule(
+                id=uuid4(),
+                provider_service_id=SERVICE,
+                fact_type="geo.coverage_code",
+                operator=EligibilityOperator.EXISTS,
+                expected_value=None,
+                reason_code="COVERAGE_FACT_REQUIRED",
+                active=True,
+            )
+        ]
+
+    async def latest_capacity(
+        self, provider_service_id: UUID
+    ) -> ProviderCapacitySnapshot | None:
+        if provider_service_id != SERVICE:
+            return None
+        return ProviderCapacitySnapshot(
+            id=uuid4(),
+            provider_service_id=SERVICE,
+            capacity_status=CapacityStatus.AVAILABLE,
+            available_slots=5,
+            valid_at=datetime.now(UTC),
+            received_at=datetime.now(UTC),
+            source_reference="core-e2e",
+        )
+
+
+class MatchRepo:
+    def __init__(self) -> None:
+        self.item: ProviderMatch | None = None
+
+    async def add(self, item: ProviderMatch) -> None:
+        self.item = item
+
+    async def get(self, item_id: UUID) -> ProviderMatch | None:
+        return self.item if self.item is not None and self.item.id == item_id else None
+
+    async def get_latest_for_intervention(
+        self, intervention_id: UUID
+    ) -> ProviderMatch | None:
+        if self.item is None or self.item.intervention_id != intervention_id:
+            return None
+        return self.item
+
+    async def get_candidate(
+        self,
+        *,
+        provider_match_id: UUID,
+        provider_id: UUID,
+        provider_service_id: UUID,
+    ):
+        if self.item is None or self.item.id != provider_match_id:
+            return None
+        return next(
+            (
+                x
+                for x in self.item.candidates
+                if x.provider_id == provider_id
+                and x.provider_service_id == provider_service_id
+            ),
+            None,
+        )
+
+
+class SelectionRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, ProviderSelection] = {}
+
+    async def add(self, item: ProviderSelection) -> None:
+        self.items[item.id] = item
+
+
+class ReferralRepo:
+    def __init__(self) -> None:
+        self.items: dict[UUID, Referral] = {}
+        self.events: list[ReferralEvent] = []
+
+    async def add(self, item: Referral) -> None:
+        self.items[item.id] = item
+
+    async def get(self, item_id: UUID) -> Referral | None:
+        return self.items.get(item_id)
+
+    async def get_by_provider_reference(
+        self, *, provider_id: UUID, external_referral_id: str
+    ) -> Referral | None:
+        return next(
+            (
+                x
+                for x in self.items.values()
+                if x.provider_id == provider_id
+                and x.external_referral_id == external_referral_id
+            ),
+            None,
+        )
+
+    async def update(self, item: Referral, *, expected_version: int) -> None:
+        assert self.items[item.id].version == expected_version
+        self.items[item.id] = item
+
+    async def add_event(self, item: ReferralEvent) -> None:
+        self.events.append(item)
+
+    async def list_events(self, item_id: UUID) -> list[ReferralEvent]:
+        return [x for x in self.events if x.referral_id == item_id]
+
+    async def mark_data_items_shared(
+        self,
+        *,
+        referral_id: UUID,
+        shared_at: datetime,
+        authorization_basis: str,
+    ) -> None:
+        current = self.items[referral_id]
+        self.items[referral_id] = replace(
+            current,
+            data_items=tuple(
+                replace(
+                    item,
+                    shared_at=shared_at,
+                    authorization_basis=authorization_basis,
+                )
+                for item in current.data_items
+            ),
