@@ -144,9 +144,7 @@ class SqlAlchemyEmpowermentOverviewRepository:
         outcome_counts = {classification: 0 for classification in OutcomeClassification}
         for classification, count in outcome_rows:
             if classification is not None:
-                outcome_counts[cast(OutcomeClassification, classification)] = int(
-                    count
-                )
+                outcome_counts[classification] = int(count)
 
         unreviewed_outcomes = int(
             (
