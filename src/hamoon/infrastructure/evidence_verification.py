@@ -16,6 +16,7 @@ from hamoon.domains.evidence.infrastructure.s3_storage import (
 
 _COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 _SYNTHETIC_CONTENT = b"HAMOON_EVIDENCE_INTEGRATION_VERIFICATION_V1\n"
+_OVERWRITE_CONTENT = b"HAMOON_EVIDENCE_INTEGRATION_OVERWRITE_PROBE_V1\n"
 
 
 class EvidenceIntegrationVerificationError(RuntimeError):
@@ -39,6 +40,24 @@ def _remote_https(value: str) -> bool:
         address.is_loopback
         or address.is_link_local
         or address.is_unspecified
+    )
+
+
+def _anonymous_bucket_list_url(
+    *,
+    endpoint: str,
+    bucket: str,
+) -> str:
+    parsed = urlsplit(endpoint.rstrip("/"))
+    raw_path = f"{parsed.path.rstrip('/')}/{bucket}"
+    return urlunsplit(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            quote(raw_path, safe="/-_.~"),
+            "list-type=2&max-keys=1",
+            "",
+        )
     )
 
 
@@ -126,9 +145,11 @@ async def verify_evidence_integration(
 
     checks: dict[str, bool] = {
         "storage_put": False,
+        "storage_overwrite_denied": False,
         "storage_metadata_integrity": False,
         "storage_signed_read_integrity": False,
         "storage_anonymous_read_denied": False,
+        "storage_anonymous_list_denied": False,
         "scanner_clean": False,
         "storage_cleanup": False,
     }
@@ -143,6 +164,20 @@ async def verify_evidence_integration(
                 "Evidence S3 PUT identity mismatch."
             )
         checks["storage_put"] = True
+
+        try:
+            await storage.put(
+                storage_key=storage_key,
+                content=_OVERWRITE_CONTENT,
+            )
+        except ValueError as exc:
+            if str(exc) != "EVIDENCE_OBJECT_ALREADY_EXISTS":
+                raise
+            checks["storage_overwrite_denied"] = True
+        else:
+            raise EvidenceIntegrationVerificationError(
+                "Evidence S3 overwrite protection is not enforced."
+            )
 
         metadata = await storage.metadata(storage_key=storage_key)
         if (
@@ -186,6 +221,30 @@ async def verify_evidence_integration(
                 "Evidence S3 object is not proven private."
             )
         checks["storage_anonymous_read_denied"] = True
+
+        bucket_list_url = _anonymous_bucket_list_url(
+            endpoint=s3_endpoint,
+            bucket=s3_bucket,
+        )
+        owns_list_client = anonymous_client is None
+        list_client = anonymous_client or httpx.AsyncClient(
+            timeout=storage_timeout_seconds,
+            follow_redirects=False,
+        )
+        try:
+            list_response = await list_client.get(bucket_list_url)
+        except (httpx.TimeoutException, httpx.TransportError) as exc:
+            raise EvidenceIntegrationVerificationError(
+                "Anonymous Evidence S3 bucket privacy probe failed."
+            ) from exc
+        finally:
+            if owns_list_client:
+                await list_client.aclose()
+        if list_response.status_code not in {401, 403}:
+            raise EvidenceIntegrationVerificationError(
+                "Evidence S3 bucket listing is not proven private."
+            )
+        checks["storage_anonymous_list_denied"] = True
 
         clean, _detail = await scanner.scan(
             media_type="text/plain",
