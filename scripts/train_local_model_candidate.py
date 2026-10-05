@@ -222,6 +222,7 @@ def main() -> None:
         "artifact_ref": artifact_ref,
         "artifact_sha256": manifest_sha256,
         "parent_model_version_id": args.parent_model_version_id,
+        "parent_model_artifact_sha256": parent_digest,
         "training_dataset_version_id": dataset["dataset_id"],
         "training_dataset_manifest_digest": dataset["manifest_digest"],
         "training_recipe_version": args.recipe_version,
