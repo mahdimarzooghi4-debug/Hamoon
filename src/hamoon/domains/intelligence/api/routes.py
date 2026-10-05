@@ -670,18 +670,19 @@ async def train_native_ai_model(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> TrainNativeModelResponse:
     datasets = SqlAlchemyLearningDatasetRepository(session)
-    dataset = await datasets.get(body.dataset_version_id)
-    if dataset is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "LEARNING_DATASET_NOT_FOUND"},
-        )
-    if dataset.status is not DatasetVersionStatus.APPROVED:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"code": "TRAINING_DATASET_NOT_APPROVED"},
-        )
-    items = await datasets.list_items(dataset.id)
+    async with session.begin():
+        dataset = await datasets.get(body.dataset_version_id)
+        if dataset is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"code": "LEARNING_DATASET_NOT_FOUND"},
+            )
+        if dataset.status is not DatasetVersionStatus.APPROVED:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"code": "TRAINING_DATASET_NOT_APPROVED"},
+            )
+        items = await datasets.list_items(dataset.id)
     try:
         _artifact, digest = train_native_model(
             model_root=settings.ai_model_root,
