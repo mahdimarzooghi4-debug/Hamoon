@@ -60,8 +60,10 @@ Every run must prove:
 - `storage_anonymous_list_denied`
 - `storage_cleanup`
 
-The anonymous privacy checks must receive HTTP 401 or 403 for both the exact synthetic
-object and a bucket-list request. A public 2xx response fails the gate. The second PUT
+The anonymous privacy checks must receive HTTP 401, 403 or a masked 404 for both the
+exact synthetic object and a bucket-list request. Signed access has already proven the
+object/bucket exists, so a masked 404 is treated as access denial. A public 2xx response
+fails the gate. The second PUT
 against the same key must also be rejected by the storage service, proving the
 conditional no-overwrite contract used by Hamoon.
 
