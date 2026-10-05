@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   accessForPath,
+  canUseAdminHealth,
   canUseCasework,
   canUseLearningGovernance,
 } from "../.tmp-auth-test/access.js";
@@ -31,14 +32,19 @@ assert.equal(
 );
 
 assert.equal(accessForPath("/admin/learning", admin), "allowed");
+assert.equal(accessForPath("/admin/health", admin), "allowed");
 assert.equal(accessForPath("/work-queue", admin), "forbidden");
 assert.equal(
   accessForPath("/admin/learning", auditor),
   "forbidden",
 );
+assert.equal(accessForPath("/admin/health", auditor), "allowed");
+assert.equal(accessForPath("/admin/health", caseworker), "forbidden");
 
 assert.equal(canUseCasework(mixed), true);
 assert.equal(canUseLearningGovernance(mixed), true);
+assert.equal(canUseAdminHealth(mixed), true);
+assert.equal(canUseAdminHealth(auditor), true);
 
 assert.deepEqual(
   extractHamoonRoles({

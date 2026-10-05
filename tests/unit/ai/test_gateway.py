@@ -116,3 +116,119 @@ async def test_ai_gateway_span_carries_business_correlation(monkeypatch) -> None
     assert captured["hamoon.ai.task_class"] == "DIAGNOSIS"
     assert captured["hamoon.ai.status"] == "success"
     assert captured["ended"] is True
+
+
+@pytest.mark.asyncio
+async def test_ai_gateway_persists_schema_failure_health_signal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import hamoon.infrastructure.ai.gateway as gateway_module
+    from hamoon.infrastructure.ai.contracts import (
+        ProviderStructuredResponse,
+    )
+
+    captured: list[dict[str, object]] = []
+
+    async def capture(**kwargs: object) -> None:
+        captured.append(kwargs)
+
+    class InvalidProvider:
+        code = "INVALID"
+
+        async def generate_structured(
+            self,
+            _request: object,
+        ) -> ProviderStructuredResponse:
+            return ProviderStructuredResponse(
+                provider_code="INVALID",
+                model_id="invalid-v1",
+                output={},
+            )
+
+    monkeypatch.setattr(
+        gateway_module,
+        "record_operational_runtime_event_safe",
+        capture,
+    )
+    gateway = ProviderAIGateway(providers={"INVALID": InvalidProvider()})
+    policy = AIRoutingPolicy(
+        id=POLICY_ID,
+        version="health-v1",
+        task_class=AITaskClass.DIAGNOSIS,
+        provider_code="INVALID",
+        model_alias="hamoon.diagnosis.v1",
+        concrete_model_id="invalid-v1",
+        prompt_policy_version="diagnosis-prompt-v1",
+        output_schema_version="diagnosis-v1",
+    )
+
+    with pytest.raises(gateway_module.AIOutputSchemaError):
+        await gateway.generate_structured(
+            request=StructuredAIRequest(
+                task_class=AITaskClass.DIAGNOSIS,
+                feature_package_id=PACKAGE_ID,
+                feature_schema_version="diagnosis-input-v1",
+                features={},
+                correlation_id="corr-schema-failure",
+            ),
+            routing_policy=policy,
+            output_schema=SCHEMA,
+        )
+
+    assert len(captured) == 1
+    assert captured[0]["event_type"].value == "AI_SCHEMA_FAILURE"
+    assert captured[0]["detail_code"] == "AI_OUTPUT_SCHEMA_INVALID"
+    assert captured[0]["correlation_id"] == "corr-schema-failure"
+
+
+@pytest.mark.asyncio
+async def test_ai_gateway_persists_inference_failure_health_signal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import hamoon.infrastructure.ai.gateway as gateway_module
+
+    captured: list[dict[str, object]] = []
+
+    async def capture(**kwargs: object) -> None:
+        captured.append(kwargs)
+
+    class FailingProvider:
+        code = "FAIL"
+
+        async def generate_structured(self, _request: object) -> object:
+            raise RuntimeError("provider unavailable")
+
+    monkeypatch.setattr(
+        gateway_module,
+        "record_operational_runtime_event_safe",
+        capture,
+    )
+    gateway = ProviderAIGateway(providers={"FAIL": FailingProvider()})
+    policy = AIRoutingPolicy(
+        id=POLICY_ID,
+        version="health-v1",
+        task_class=AITaskClass.DIAGNOSIS,
+        provider_code="FAIL",
+        model_alias="hamoon.diagnosis.v1",
+        concrete_model_id="fail-v1",
+        prompt_policy_version="diagnosis-prompt-v1",
+        output_schema_version="diagnosis-v1",
+    )
+
+    with pytest.raises(gateway_module.AIProviderExecutionError):
+        await gateway.generate_structured(
+            request=StructuredAIRequest(
+                task_class=AITaskClass.DIAGNOSIS,
+                feature_package_id=PACKAGE_ID,
+                feature_schema_version="diagnosis-input-v1",
+                features={},
+                correlation_id="corr-inference-failure",
+            ),
+            routing_policy=policy,
+            output_schema=SCHEMA,
+        )
+
+    assert len(captured) == 1
+    assert captured[0]["event_type"].value == "AI_INFERENCE_FAILURE"
+    assert captured[0]["detail_code"] == "AI_PROVIDER_EXECUTION_FAILED"
+    assert captured[0]["correlation_id"] == "corr-inference-failure"

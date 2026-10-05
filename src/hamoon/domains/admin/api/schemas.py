@@ -4,9 +4,13 @@ from pydantic import BaseModel
 
 
 class DataHealthData(BaseModel):
+    missing_required_data: int
+    unresolved_conflicts: int
+    incomplete_assessments: int
+    stale_source_data: int
+    integration_failures: int
     pending_validation_facts: int
     disputed_facts: int
-    incomplete_assessments: int
     overdue_work_items: int
     pending_outbox_messages: int
     quarantined_evidence: int
@@ -18,6 +22,14 @@ class DataHealthResponse(BaseModel):
 
 
 class MachineHealthData(BaseModel):
+    diagnosis_confirm_total: int
+    diagnosis_modify_total: int
+    diagnosis_replace_total: int
+    schema_failures: int
+    ai_fallback_total: int
+    inference_failures: int
+    workflow_backlog: int
+    routing_failures: int
     ai_decisions_total: int
     human_confirm_total: int
     human_modify_total: int

@@ -11,6 +11,10 @@ from hamoon.app.observability.heartbeats import (
     read_operational_snapshot,
     record_worker_heartbeat,
 )
+from hamoon.app.observability.operational_events import (
+    OperationalRuntimeEventType,
+    record_operational_runtime_event_safe,
+)
 from hamoon.infrastructure.db.session import database_migration_versions
 
 
@@ -28,13 +32,40 @@ async def test_admin_health_projections_execute_on_real_postgres() -> None:
         scopes=frozenset(),
     )
 
+    await record_operational_runtime_event_safe(
+        event_type=OperationalRuntimeEventType.AI_SCHEMA_FAILURE,
+        source="integration-test",
+        detail_code="SCHEMA_TEST",
+        correlation_id="integration-admin-health",
+        dimensions={"task_class": "DIAGNOSIS"},
+    )
+    await record_operational_runtime_event_safe(
+        event_type=OperationalRuntimeEventType.AI_INFERENCE_FAILURE,
+        source="integration-test",
+        detail_code="INFERENCE_TEST",
+        correlation_id="integration-admin-health",
+        dimensions={"task_class": "DIAGNOSIS"},
+    )
+
     async with session_maker() as session:
         data = await get_data_health(context, session)
         machine = await get_machine_health(context, session)
 
+    assert data.data.missing_required_data >= 0
+    assert data.data.unresolved_conflicts >= 0
+    assert data.data.incomplete_assessments >= 0
+    assert data.data.stale_source_data >= 0
+    assert data.data.integration_failures >= 0
     assert data.data.pending_validation_facts >= 0
     assert data.data.pending_outbox_messages >= 0
     assert data.data.quarantined_evidence >= 0
+    assert machine.data.diagnosis_confirm_total >= 0
+    assert machine.data.diagnosis_modify_total >= 0
+    assert machine.data.diagnosis_replace_total >= 0
+    assert machine.data.schema_failures >= 1
+    assert machine.data.ai_fallback_total >= 0
+    assert machine.data.inference_failures >= 1
+    assert machine.data.workflow_backlog >= 0
     assert machine.data.ai_decisions_total >= 0
     assert machine.data.learning_signal_raw >= 0
     assert machine.data.evaluation_pending >= 0

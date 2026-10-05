@@ -23,7 +23,7 @@ The local product boundary includes:
 - Structured PII-safe logs, Prometheus-compatible core metrics for API/DB/outbox-NATS/Temporal/PGOR/AI/provider/security, and CI-enforced Request → Event/NATS → Temporal → AI observability correlation.
 - Authorization-scoped Caseworker Work Queue with source-linked review, follow-up, reassessment, data-completion and conflict tasks.
 - Assignment-scoped, PII-minimal Household Timeline spanning facts, assessment, PGOR, diagnosis, prescription, referral, provider result and Outcome.
-- Data Health and Machine Health aggregate read models.
+- Complete Data Health and Machine Health projections plus a live ADMIN/SECURITY_AUDITOR workspace, including missing-data/conflict/stale-source/integration and diagnosis/schema/fallback/inference/workflow metrics.
 - Explicit PB-122 security regression acceptance gate for household/provider/AI/Accepted-State/Evidence/logging boundaries.\n- PB-123 full core E2E acceptance gate spanning Household → Accepted State → deterministic PGOR → AI/human decisions → Provider flow → reassessment → Outcome → Learning Signal.
 - Unit, contract, security, closed-loop Golden Path and infrastructure integration gates.
 - One-command local Docker Compose stack, including the real web frontend runtime.

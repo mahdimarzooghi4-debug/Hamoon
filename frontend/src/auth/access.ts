@@ -8,7 +8,8 @@ export type RouteAccess =
   | "forbidden";
 
 const CASEWORK_PATHS = new Set(["/work-queue", "/households"]);
-const ADMIN_PATHS = new Set(["/admin/learning"]);
+const LEARNING_ADMIN_PATHS = new Set(["/admin/learning"]);
+const HEALTH_ADMIN_PATHS = new Set(["/admin/health"]);
 
 export function hasRole(
   principal: PrincipalLike,
@@ -27,6 +28,13 @@ export function canUseLearningGovernance(
   return hasRole(principal, "ADMIN");
 }
 
+export function canUseAdminHealth(principal: PrincipalLike): boolean {
+  return (
+    hasRole(principal, "ADMIN")
+    || hasRole(principal, "SECURITY_AUDITOR")
+  );
+}
+
 export function accessForPath(
   path: string,
   principal: PrincipalLike,
@@ -37,9 +45,10 @@ export function accessForPath(
 
   const requiresCasework =
     CASEWORK_PATHS.has(path) || path.startsWith("/households/");
-  const requiresAdmin = ADMIN_PATHS.has(path);
+  const requiresLearningAdmin = LEARNING_ADMIN_PATHS.has(path);
+  const requiresHealthAdmin = HEALTH_ADMIN_PATHS.has(path);
 
-  if (!requiresCasework && !requiresAdmin) {
+  if (!requiresCasework && !requiresLearningAdmin && !requiresHealthAdmin) {
     return "allowed";
   }
   if (principal === null) {
@@ -48,7 +57,10 @@ export function accessForPath(
   if (requiresCasework && !canUseCasework(principal)) {
     return "forbidden";
   }
-  if (requiresAdmin && !canUseLearningGovernance(principal)) {
+  if (requiresLearningAdmin && !canUseLearningGovernance(principal)) {
+    return "forbidden";
+  }
+  if (requiresHealthAdmin && !canUseAdminHealth(principal)) {
     return "forbidden";
   }
   return "allowed";

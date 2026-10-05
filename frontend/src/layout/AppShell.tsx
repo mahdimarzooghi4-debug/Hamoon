@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { getReadiness, type HealthResponse } from "../api/health";
 import { type AppPath, AppLink } from "../app/navigation";
 import {
+  canUseAdminHealth,
   canUseCasework,
   canUseLearningGovernance,
 } from "../auth/access";
@@ -26,6 +27,7 @@ export function AppShell({
   const authenticated = principal !== null;
   const caseworkAllowed = canUseCasework(principal);
   const governanceAllowed = canUseLearningGovernance(principal);
+  const healthAllowed = canUseAdminHealth(principal);
 
   useEffect(() => {
     let mounted = true;
@@ -44,7 +46,8 @@ export function AppShell({
   const ready = health?.status === "ready";
   const householdsActive =
     activePath === "/households" || activePath.startsWith("/households/");
-  const adminActive = activePath === "/admin/learning";
+  const adminActive =
+    activePath === "/admin/learning" || activePath === "/admin/health";
 
   return (
     <div className="app-shell">
@@ -60,7 +63,9 @@ export function AppShell({
               <span>
                 {governanceAllowed
                   ? "مدیریت یادگیری و حاکمیت AI"
-                  : caseworkAllowed
+                  : healthAllowed
+                    ? "پایش سلامت داده و ماشین"
+                    : caseworkAllowed
                     ? "مددکار پرونده"
                     : authenticated
                       ? "کاربر سازمانی"
@@ -94,9 +99,25 @@ export function AppShell({
                 </AppLink>
               </>
             ) : null}
+            {healthAllowed ? (
+              <AppLink
+                className={
+                  activePath === "/admin/health"
+                    ? "topbar__link is-active"
+                    : "topbar__link"
+                }
+                to="/admin/health"
+              >
+                سلامت سامانه
+              </AppLink>
+            ) : null}
             {governanceAllowed ? (
               <AppLink
-                className={adminActive ? "topbar__link is-active" : "topbar__link"}
+                className={
+                  activePath === "/admin/learning"
+                    ? "topbar__link is-active"
+                    : "topbar__link"
+                }
                 to="/admin/learning"
               >
                 یادگیری و حاکمیت

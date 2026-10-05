@@ -2,6 +2,7 @@ import { accessForPath, canUseCasework } from "../auth/access";
 import { browserPrincipal } from "../auth/oidc";
 import { AppShell } from "../layout/AppShell";
 import { AccessGatePage } from "../pages/AccessGatePage";
+import { AdminHealthPage } from "../pages/AdminHealthPage";
 import { AuthCallbackPage } from "../pages/AuthCallbackPage";
 import { HomePage } from "../pages/HomePage";
 import { HouseholdPage } from "../pages/HouseholdPage";
@@ -29,6 +30,8 @@ export function App() {
     page = <HouseholdPage householdId={path.slice("/households/".length)} />;
   } else if (path === "/admin/learning") {
     page = <LearningGovernancePage />;
+  } else if (path === "/admin/health") {
+    page = <AdminHealthPage />;
   } else if (principal !== null && !canUseCasework(principal)) {
     page = <RoleHomePage principal={principal} />;
   } else {
