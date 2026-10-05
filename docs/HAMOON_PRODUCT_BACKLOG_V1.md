@@ -894,6 +894,7 @@ Must include:
 
 ## PB-122 — Security Regression Suite
 Priority: P0
+Implementation: COMPLETE. CI has an explicit six-boundary acceptance contract covering unauthorized household access, Provider isolation, AI/service authority restrictions, Accepted State human authorization, sensitive Evidence scope and PII-safe structured logging, plus the broader security/provider-result suites.
 
 Must test:
 - unauthorized household

@@ -29,19 +29,24 @@ _SAFE_EXTRA_FIELDS = (
 _SECRET_PATTERNS = (
     re.compile(r"(?i)(bearer\s+)[^\s,;]+"),
     re.compile(
-        r"(?i)(access_token|refresh_token|client_secret|password|national_id|phone)"
+        r"(?i)(access_token|refresh_token|client_secret|password|national_id|phone|email)"
         r"([=:]\s*)[^\s,;]+"
     ),
+    re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"),
+    re.compile(r"(?<!\d)(?:\+\d{10,15}|0\d{9,14})(?!\d)"),
 )
 
 
 def sanitize_log_message(value: str) -> str:
     sanitized = value
     for pattern in _SECRET_PATTERNS:
-        if pattern.pattern.lower().startswith("(?i)(bearer"):
+        lowered = pattern.pattern.lower()
+        if lowered.startswith("(?i)(bearer"):
             sanitized = pattern.sub(r"\1[REDACTED]", sanitized)
-        else:
+        elif lowered.startswith("(?i)(access_token"):
             sanitized = pattern.sub(r"\1\2[REDACTED]", sanitized)
+        else:
+            sanitized = pattern.sub("[REDACTED]", sanitized)
     return sanitized
 
 

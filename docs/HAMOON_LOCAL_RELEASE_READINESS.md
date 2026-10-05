@@ -22,6 +22,7 @@ The local product boundary includes:
 - Structured PII-safe logs, Prometheus-compatible core metrics for API/DB/outbox-NATS/Temporal/PGOR/AI/provider/security, and OpenTelemetry hooks.
 - Authorization-scoped Caseworker Work Queue with source-linked review, follow-up, reassessment, data-completion and conflict tasks.
 - Data Health and Machine Health aggregate read models.
+- Explicit PB-122 security regression acceptance gate for household/provider/AI/Accepted-State/Evidence/logging boundaries.
 - Unit, contract, security, closed-loop Golden Path and infrastructure integration gates.
 - One-command local Docker Compose stack, including the real web frontend runtime.
 - Build-once release artifact chain: backend/frontend images are built once, scanned, smoke-tested by exact image ID, then packaged with a digest manifest.
