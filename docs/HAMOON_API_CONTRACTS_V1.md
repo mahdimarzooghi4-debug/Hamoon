@@ -1094,7 +1094,7 @@ Trace باید شامل:
 - state version
 - PGOR snapshot
 - model version
-- exact native model artifact SHA-256
+- exact internal model artifact SHA-256
 - prompt/policy version
 - evidence refs
 - structured output
@@ -1150,12 +1150,13 @@ Admin/Internal:
 ```text
 GET  /api/v1/admin/ai/model-versions
 GET  /api/v1/admin/ai/prompt-policy-versions
-POST /api/v1/admin/ai/native-models/train
+POST /api/v1/admin/ai/internal-model-candidates
 ```
 
-Native training فقط از Dataset `APPROVED` انجام می‌شود و یک immutable local artifact با
-SHA-256 تولید می‌کند. خروجی training همیشه Model Version با status = `CANDIDATE` است؛
-training هرگز Production را خودکار تغییر نمی‌دهد.
+ثبت Candidate فقط metadata و lineage یک artifact داخلی را ثبت می‌کند. Dataset باید
+`APPROVED` باشد و Registry، artifact SHA-256، training dataset manifest digest و
+training pipeline version را نگه می‌دارد. این endpoint هیچ Training algorithm یا executor
+را اجرا نمی‌کند و هرگز Production را خودکار تغییر نمی‌دهد.
 
 ---
 
@@ -1171,7 +1172,7 @@ POST /api/v1/admin/ai/routing-policies
 POST /api/v1/admin/ai/routing-policies/{id}/promote
 ```
 
-Promotion فقط برای `HAMOON_NATIVE` با artifact digest معتبر، Evaluation گذرکرده و
+Promotion فقط برای `INTERNAL_MODEL` با artifact/training lineage معتبر، Evaluation گذرکرده و
 تأیید صریح ADMIN مجاز است.
 
 ---
@@ -1407,11 +1408,13 @@ Production execution boundary:
 
 ```text
 Feature Package
-→ ACTIVE HAMOON_NATIVE route
-→ local artifact digest verification
-→ in-process native inference
+→ ACTIVE INTERNAL_MODEL route with complete lineage
+→ approved internal executor (when implemented)
 → schema/domain guardrails
 → Human Review
+
+در فاز فعلی executor داخلی عمداً پیاده‌سازی نشده است؛ بنابراین Production inference
+fail closed می‌شود و Human AI_FALLBACK Work Item ساخته می‌شود.
 ```
 
 هیچ AI API داخلی یا خارجی، endpoint inference یا network fallback در Production وجود ندارد.
