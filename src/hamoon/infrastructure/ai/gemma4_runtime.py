@@ -19,7 +19,6 @@ from hamoon.infrastructure.ai.contracts import (
     ProviderStructuredRequest,
 )
 from hamoon.infrastructure.ai.gemma4_baseline import (
-    GEMMA4_BASELINE_MODEL_ID,
     GEMMA4_BASELINE_MODEL_SHA256,
     GEMMA4_BASELINE_PIPELINE_VERSION,
     GEMMA4_BASELINE_REVISION,
