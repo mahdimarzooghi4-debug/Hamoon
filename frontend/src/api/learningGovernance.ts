@@ -83,6 +83,7 @@ export interface ModelVersionCatalogItem {
   concrete_model_id: string;
   artifact_sha256: string | null;
   parent_model_version_id: string | null;
+  training_dataset_version_id: string | null;
   training_dataset_manifest_digest: string | null;
   training_pipeline_version: string | null;
   production_evaluation_run_id: string | null;
