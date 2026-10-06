@@ -192,6 +192,8 @@ export function LearningGovernancePage() {
   const [exportPreview, setExportPreview] = useState<DatasetExport | null>(null);
 
   const [trainingDatasetId, setTrainingDatasetId] = useState("");
+  const [trainingBaseModelVersionId, setTrainingBaseModelVersionId] =
+    useState("");
   const [trainingModelKey, setTrainingModelKey] = useState("");
   const [trainingVersion, setTrainingVersion] = useState("");
   const [trainingModelId, setTrainingModelId] = useState("");
@@ -318,6 +320,21 @@ export function LearningGovernancePage() {
       ),
     [approvedDatasets],
   );
+
+  const eligibleGrowthBases = useMemo(() => {
+    const dataset = ready?.datasets.find(
+      (item) => item.id === trainingDatasetId,
+    );
+    if (!ready || !dataset) return [];
+    return ready.models.filter(
+      (item) =>
+        item.provider_code === "HAMOON_NATIVE" &&
+        item.provider_status === "ACTIVE" &&
+        item.artifact_sha256 !== null &&
+        (item.status === "APPROVED" || item.status === "PRODUCTION") &&
+        item.purpose === dataset.purpose,
+    );
+  }, [ready, trainingDatasetId]);
 
   const eligibleModels = useMemo(
     () =>
@@ -530,8 +547,10 @@ export function LearningGovernancePage() {
           modelKey: trainingModelKey.trim(),
           version: trainingVersion.trim(),
           modelId: trainingModelId.trim(),
+          baseModelVersionId: trainingBaseModelVersionId || undefined,
           limitations: trainingLimitations.trim(),
         });
+        setTrainingBaseModelVersionId("");
         setTrainingVersion("");
         setTrainingModelId("");
         setTrainingLimitations("");
@@ -1128,6 +1147,30 @@ export function LearningGovernancePage() {
             </label>
           </div>
           <label className="admin-field-wide">
+            <span>نسخه والد برای رشد تدریجی</span>
+            <select
+              value={trainingBaseModelVersionId}
+              onChange={(event) => {
+                const nextId = event.target.value;
+                setTrainingBaseModelVersionId(nextId);
+                const parent = readyData.models.find(
+                  (item) => item.id === nextId,
+                );
+                if (parent) {
+                  setTrainingModelKey(parent.model_key);
+                  setTrainingModelId(parent.concrete_model_id);
+                }
+              }}
+            >
+              <option value="">بدون والد — نسل اول مدل</option>
+              {eligibleGrowthBases.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.model_key} / {item.version} — {item.status}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="admin-field-wide">
             <span>محدودیت‌های نسخه</span>
             <input
               maxLength={2000}
@@ -1152,6 +1195,19 @@ export function LearningGovernancePage() {
                 </span>
                 <span className="digest-value">
                   artifact: {model.artifact_sha256 ?? "legacy / بدون artifact"}
+                </span>
+                <span>
+                  والد:{" "}
+                  {model.parent_model_version_id
+                    ? (() => {
+                        const parent = modelById.get(
+                          model.parent_model_version_id,
+                        );
+                        return parent
+                          ? `${parent.model_key} / ${parent.version}`
+                          : shortId(model.parent_model_version_id);
+                      })()
+                    : "نسل اول"}
                 </span>
               </div>
               <Badge
