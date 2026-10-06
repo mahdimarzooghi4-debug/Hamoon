@@ -1094,6 +1094,7 @@ Trace باید شامل:
 - state version
 - PGOR snapshot
 - model version
+- exact native model artifact SHA-256
 - prompt/policy version
 - evidence refs
 - structured output
@@ -1147,27 +1148,31 @@ Client عملیاتی نباید Arbitrary Learning Signal بسازد مگر API
 Admin/Internal:
 
 ```text
-GET /ai/models
-GET /ai/models/{id}/versions
-GET /ai/prompt-policies
-GET /ai/prompt-policies/{id}/versions
+GET  /api/v1/admin/ai/model-versions
+GET  /api/v1/admin/ai/prompt-policy-versions
+POST /api/v1/admin/ai/native-models/train
 ```
 
-Mutation این Registryها در V1 بهتر است از Internal Admin/Deployment process انجام شود، نه Caseworker API.
+Native training فقط از Dataset `APPROVED` انجام می‌شود و یک immutable local artifact با
+SHA-256 تولید می‌کند. خروجی training همیشه Model Version با status = `CANDIDATE` است؛
+training هرگز Production را خودکار تغییر نمی‌دهد.
 
 ---
 
 # 34. Evaluation APIs
 
-Internal:
+Internal/Admin:
 
 ```text
-POST /ai/evaluations
-GET  /ai/evaluations/{id}
-GET  /ai/evaluations/{id}/metrics
+POST /api/v1/admin/ai/evaluations
+POST /api/v1/admin/ai/evaluations/{id}/complete
+GET  /api/v1/admin/ai/evaluations
+POST /api/v1/admin/ai/routing-policies
+POST /api/v1/admin/ai/routing-policies/{id}/promote
 ```
 
-Production Model promotion API جداگانه و نیازمند approval خواهد بود.
+Promotion فقط برای `HAMOON_NATIVE` با artifact digest معتبر، Evaluation گذرکرده و
+تأیید صریح ADMIN مجاز است.
 
 ---
 
@@ -1395,21 +1400,21 @@ Response:
 
 # 45. AI Inference Semantics
 
-Domain API باید client را به Model Provider وابسته نکند.
+Domain API به engine implementation وابسته نیست؛ client فقط command دامنه‌ای مانند
+`Generate Diagnosis` را اجرا می‌کند.
 
-Client می‌گوید:
-
-```text
-Generate Diagnosis
-```
-
-نه:
+Production execution boundary:
 
 ```text
-Call model X with prompt Y
+Feature Package
+→ ACTIVE HAMOON_NATIVE route
+→ local artifact digest verification
+→ in-process native inference
+→ schema/domain guardrails
+→ Human Review
 ```
 
-Model routing concern Intelligence Platform است.
+هیچ AI API داخلی یا خارجی، endpoint inference یا network fallback در Production وجود ندارد.
 
 ---
 
