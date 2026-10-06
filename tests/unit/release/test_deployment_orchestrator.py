@@ -22,6 +22,7 @@ PREFLIGHT_CHECKS = [
     "postgresql_connectivity",
     "nats_jetstream_connectivity",
     "gemma4_checkpoint_attested",
+    "gemma4_checkpoint_provisioned",
 ]
 CHECKPOINT = {
     "model_id": "google/gemma-4-12B-it",
@@ -29,6 +30,11 @@ CHECKPOINT = {
     "model_sha256": "5a84cb313260ac447237b890387116dfa8682e49a6b44bc585ae8353abbff18d",
     "tokenizer_sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f",
     "execution_mode": "IN_PROCESS",
+    "network_model_download": False,
+}
+PROVISIONING = {
+    "filesystem_scope": "PRIVATE_LOCAL",
+    "read_only": True,
     "network_model_download": False,
 }
 
@@ -71,10 +77,11 @@ def _admission() -> dict[str, object]:
 
 def _requirements() -> dict[str, object]:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "contract": "HAMOON_PRODUCTION_RUNTIME_PREFLIGHT",
         "required_checks": PREFLIGHT_CHECKS,
         "internal_model_checkpoint": CHECKPOINT,
+        "internal_model_checkpoint_provisioning": PROVISIONING,
     }
 
 
@@ -90,6 +97,12 @@ def _preflight_receipt() -> dict[str, object]:
         "frontend_image_id": WEB_IMAGE_ID,
         "checks": {check: True for check in PREFLIGHT_CHECKS},
         "internal_model_checkpoint": CHECKPOINT,
+        "internal_model_checkpoint_provisioning": {
+            **PROVISIONING,
+            "checkpoint_root": "/srv/hamoon/models/gemma-4-12b-it",
+            "verification_id": "checkpoint-verify-001",
+            "verified_at": "2026-10-05T12:54:00+00:00",
+        },
         "checked_at": "2026-10-05T12:55:00+00:00",
     }
 
@@ -274,6 +287,7 @@ def test_build_preflight_request_binds_runtime_contract() -> None:
     assert metadata["contract_sha256"] == "2" * 64
     assert metadata["required_checks"] == PREFLIGHT_CHECKS
     assert metadata["internal_model_checkpoint"] == CHECKPOINT
+    assert metadata["internal_model_checkpoint_provisioning"] == PROVISIONING
 
 def test_execute_production_preflight_requires_all_checks_ready() -> None:
     observed_operations: list[object] = []
@@ -319,6 +333,60 @@ def test_execute_production_preflight_rejects_failed_required_check() -> None:
             requirements_sha256="2" * 64,
             transport=httpx.MockTransport(handler),
         )
+
+def test_execute_production_preflight_rejects_checkpoint_provisioning_drift() -> None:
+    receipt = _preflight_receipt()
+    provisioning = cast(
+        dict[str, object],
+        receipt["internal_model_checkpoint_provisioning"],
+    )
+    provisioning["read_only"] = False
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=receipt)
+
+    with pytest.raises(
+        DeploymentOrchestratorError,
+        match="checkpoint provisioning read_only does not match request",
+    ):
+        execute_production_preflight(
+            orchestrator_endpoint="https://deploy.example.com/v1/deployments",
+            token=TOKEN,
+            repository="owner/Hamoon",
+            manifest=_manifest(),
+            admission=_admission(),
+            requirements=_requirements(),
+            requirements_sha256="2" * 64,
+            transport=httpx.MockTransport(handler),
+        )
+
+
+def test_execute_production_preflight_rejects_relative_checkpoint_root() -> None:
+    receipt = _preflight_receipt()
+    provisioning = cast(
+        dict[str, object],
+        receipt["internal_model_checkpoint_provisioning"],
+    )
+    provisioning["checkpoint_root"] = "models/gemma-4-12b-it"
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=receipt)
+
+    with pytest.raises(
+        DeploymentOrchestratorError,
+        match="checkpoint_root must be an absolute non-root path",
+    ):
+        execute_production_preflight(
+            orchestrator_endpoint="https://deploy.example.com/v1/deployments",
+            token=TOKEN,
+            repository="owner/Hamoon",
+            manifest=_manifest(),
+            admission=_admission(),
+            requirements=_requirements(),
+            requirements_sha256="2" * 64,
+            transport=httpx.MockTransport(handler),
+        )
+
 
 def test_execute_production_preflight_rejects_checkpoint_identity_drift() -> None:
     receipt = _preflight_receipt()

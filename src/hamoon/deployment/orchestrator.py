@@ -212,10 +212,43 @@ def _internal_model_checkpoint_contract(
     return dict(checkpoint)
 
 
+def _checkpoint_provisioning_contract(
+    requirements: dict[str, object],
+) -> dict[str, object]:
+    raw = requirements.get("internal_model_checkpoint_provisioning")
+    if not isinstance(raw, dict):
+        raise DeploymentOrchestratorError(
+            "Production checkpoint provisioning contract is missing."
+        )
+    provisioning = cast(dict[str, object], raw)
+    required_fields = {
+        "filesystem_scope",
+        "read_only",
+        "network_model_download",
+    }
+    if set(provisioning) != required_fields:
+        raise DeploymentOrchestratorError(
+            "Production checkpoint provisioning contract fields are invalid."
+        )
+    if provisioning.get("filesystem_scope") != "PRIVATE_LOCAL":
+        raise DeploymentOrchestratorError(
+            "Production checkpoint filesystem_scope must be PRIVATE_LOCAL."
+        )
+    if provisioning.get("read_only") is not True:
+        raise DeploymentOrchestratorError(
+            "Production checkpoint provisioning must be read-only."
+        )
+    if provisioning.get("network_model_download") is not False:
+        raise DeploymentOrchestratorError(
+            "Production checkpoint provisioning must disable network model download."
+        )
+    return dict(provisioning)
+
+
 def _required_preflight_checks(
     requirements: dict[str, object],
 ) -> tuple[str, ...]:
-    if requirements.get("schema_version") != 2:
+    if requirements.get("schema_version") != 3:
         raise DeploymentOrchestratorError(
             "Production runtime preflight schema_version is unsupported."
         )
@@ -245,6 +278,10 @@ def _required_preflight_checks(
         raise DeploymentOrchestratorError(
             "Production runtime preflight must attest the Gemma checkpoint."
         )
+    if "gemma4_checkpoint_provisioned" not in checks:
+        raise DeploymentOrchestratorError(
+            "Production runtime preflight must attest checkpoint provisioning."
+        )
     return tuple(checks)
 
 
@@ -263,6 +300,7 @@ def build_preflight_request(
     )
     checks = _required_preflight_checks(requirements)
     checkpoint = _internal_model_checkpoint_contract(requirements)
+    provisioning = _checkpoint_provisioning_contract(requirements)
     if len(requirements_sha256) != 64 or any(
         character not in "0123456789abcdef" for character in requirements_sha256
     ):
@@ -276,6 +314,7 @@ def build_preflight_request(
             "contract_sha256": requirements_sha256,
             "required_checks": list(checks),
             "internal_model_checkpoint": checkpoint,
+            "internal_model_checkpoint_provisioning": provisioning,
         },
     }
 
@@ -339,6 +378,57 @@ def _validate_preflight_receipt(
     if cast(dict[str, object], receipt_checkpoint) != checkpoint:
         raise DeploymentOrchestratorError(
             "Production internal model checkpoint attestation does not match request."
+        )
+
+    provisioning_request_value = runtime_preflight.get(
+        "internal_model_checkpoint_provisioning"
+    )
+    if not isinstance(provisioning_request_value, dict):
+        raise DeploymentOrchestratorError(
+            "Production checkpoint provisioning request metadata is missing."
+        )
+    provisioning_request = cast(dict[str, object], provisioning_request_value)
+    provisioning_receipt_value = receipt.get("internal_model_checkpoint_provisioning")
+    if not isinstance(provisioning_receipt_value, dict):
+        raise DeploymentOrchestratorError(
+            "Production checkpoint provisioning attestation is missing."
+        )
+    provisioning_receipt = cast(dict[str, object], provisioning_receipt_value)
+    for field in ("filesystem_scope", "read_only", "network_model_download"):
+        if provisioning_receipt.get(field) != provisioning_request.get(field):
+            raise DeploymentOrchestratorError(
+                f"Production checkpoint provisioning {field} does not match request."
+            )
+    checkpoint_root = provisioning_receipt.get("checkpoint_root")
+    if (
+        not isinstance(checkpoint_root, str)
+        or not checkpoint_root.startswith("/")
+        or checkpoint_root == "/"
+    ):
+        raise DeploymentOrchestratorError(
+            "Production checkpoint_root must be an absolute non-root path."
+        )
+    verification_id = _require_string(
+        provisioning_receipt.get("verification_id"),
+        field="checkpoint_provisioning.verification_id",
+    )
+    if len(verification_id) > 200:
+        raise DeploymentOrchestratorError(
+            "checkpoint provisioning verification_id is too long."
+        )
+    verified_at = _require_string(
+        provisioning_receipt.get("verified_at"),
+        field="checkpoint_provisioning.verified_at",
+    )
+    try:
+        verified_timestamp = datetime.fromisoformat(verified_at)
+    except ValueError as exc:
+        raise DeploymentOrchestratorError(
+            "checkpoint provisioning verified_at is invalid."
+        ) from exc
+    if verified_timestamp.tzinfo is None:
+        raise DeploymentOrchestratorError(
+            "checkpoint provisioning verified_at must include a timezone."
         )
 
     required_checks_value = runtime_preflight.get("required_checks")

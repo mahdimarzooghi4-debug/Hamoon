@@ -75,8 +75,34 @@ def _checkpoint_contract(requirements: dict[str, object]) -> dict[str, object]:
     return checkpoint
 
 
+def _checkpoint_provisioning_contract(
+    requirements: dict[str, object],
+) -> dict[str, object]:
+    raw = requirements.get("internal_model_checkpoint_provisioning")
+    require(isinstance(raw, dict), "checkpoint provisioning contract missing")
+    provisioning = dict(raw)
+    require(
+        set(provisioning)
+        == {"filesystem_scope", "read_only", "network_model_download"},
+        "checkpoint provisioning fields invalid",
+    )
+    require(
+        provisioning.get("filesystem_scope") == "PRIVATE_LOCAL",
+        "checkpoint filesystem_scope invalid",
+    )
+    require(
+        provisioning.get("read_only") is True,
+        "checkpoint provisioning must be read-only",
+    )
+    require(
+        provisioning.get("network_model_download") is False,
+        "checkpoint provisioning network download must be disabled",
+    )
+    return provisioning
+
+
 def _required_checks(requirements: dict[str, object]) -> list[str]:
-    require(requirements.get("schema_version") == 2, "preflight schema invalid")
+    require(requirements.get("schema_version") == 3, "preflight schema invalid")
     require(
         requirements.get("contract") == "HAMOON_PRODUCTION_RUNTIME_PREFLIGHT",
         "preflight contract invalid",
@@ -92,6 +118,10 @@ def _required_checks(requirements: dict[str, object]) -> list[str]:
     require(
         "gemma4_checkpoint_attested" in checks,
         "preflight Gemma checkpoint attestation check missing",
+    )
+    require(
+        "gemma4_checkpoint_provisioned" in checks,
+        "preflight Gemma checkpoint provisioning check missing",
     )
     return checks
 
@@ -126,6 +156,7 @@ def main() -> None:
     deployment = load_json(deployment_path)
     required_checks = _required_checks(requirements)
     checkpoint_contract = _checkpoint_contract(requirements)
+    provisioning_contract = _checkpoint_provisioning_contract(requirements)
 
     require(deployment.get("schema_version") == 1, "unsupported schema_version")
     require(deployment.get("status") == "DEPLOYED", "status must be DEPLOYED")
@@ -237,6 +268,11 @@ def main() -> None:
         preflight_meta.get("internal_model_checkpoint") == checkpoint_contract,
         "preflight checkpoint contract mismatch",
     )
+    require(
+        preflight_meta.get("internal_model_checkpoint_provisioning")
+        == provisioning_contract,
+        "preflight checkpoint provisioning contract mismatch",
+    )
 
     require(preflight_receipt.get("status") == "READY", "preflight status must be READY")
     for field in (
@@ -254,6 +290,36 @@ def main() -> None:
     require(
         preflight_receipt.get("internal_model_checkpoint") == checkpoint_contract,
         "preflight checkpoint attestation mismatch",
+    )
+    provisioning_receipt = preflight_receipt.get(
+        "internal_model_checkpoint_provisioning"
+    )
+    require(
+        isinstance(provisioning_receipt, dict),
+        "preflight checkpoint provisioning attestation missing",
+    )
+    for field, expected in provisioning_contract.items():
+        require(
+            provisioning_receipt.get(field) == expected,
+            f"preflight checkpoint provisioning {field} mismatch",
+        )
+    checkpoint_root = provisioning_receipt.get("checkpoint_root")
+    require(
+        isinstance(checkpoint_root, str)
+        and checkpoint_root.startswith("/")
+        and checkpoint_root != "/",
+        "preflight checkpoint_root invalid",
+    )
+    verification_id = provisioning_receipt.get("verification_id")
+    require(
+        isinstance(verification_id, str)
+        and bool(verification_id)
+        and len(verification_id) <= 200,
+        "preflight checkpoint verification_id invalid",
+    )
+    _require_timestamp(
+        provisioning_receipt.get("verified_at"),
+        "preflight checkpoint verified_at",
     )
     checks = preflight_receipt.get("checks")
     require(isinstance(checks, dict), "preflight receipt checks missing")
