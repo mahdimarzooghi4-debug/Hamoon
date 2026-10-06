@@ -461,3 +461,40 @@ Hamoon Production AI باید بتواند با قطع کامل اینترنت �
 باشند.
 
 این ADR برای تمام implementationهای بعدی AI در هامون الزام‌آور است.
+
+
+---
+
+# 27. Model Growth Lineage
+
+رشد مدل بومی باید lineage صریح داشته باشد.
+
+نسخه جدید می‌تواند فقط از یک Model Version والد با وضعیت:
+
+```text
+APPROVED | PRODUCTION
+```
+
+ساخته شود.
+
+روند رشد:
+
+```text
+Parent Native Artifact
++ New APPROVED Dataset
+→ New Immutable Native Artifact
+→ New CANDIDATE Model Version
+→ Offline Evaluation
+→ Human Promotion
+```
+
+نسخه جدید مثال‌های معتبر والد را حفظ می‌کند، مثال‌های Dataset جدید را اضافه می‌کند و
+duplicateهای یکسان را دوباره وارد artifact نمی‌کند.
+
+هویت lineage در دو لایه ثبت می‌شود:
+
+- `parent_model_version_id` در Model Registry؛
+- `parent_artifact_sha256` داخل Native Model Artifact.
+
+این lineage به معنی online learning یا self-promotion نیست. هر نسل جدید همچنان باید تمام
+Evaluation و Promotionهای انسانی را طی کند.
