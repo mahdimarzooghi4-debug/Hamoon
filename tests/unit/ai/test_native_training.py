@@ -24,6 +24,8 @@ ACTOR_ID = UUID("22222222-2222-2222-2222-222222222222")
 SIGNAL_ID = UUID("33333333-3333-3333-3333-333333333333")
 ITEM_ID = UUID("44444444-4444-4444-4444-444444444444")
 OLD_DIAGNOSIS_ID = "55555555-5555-5555-5555-555555555555"
+CREATED_AT = datetime(2026, 10, 5, 8, 0, tzinfo=UTC)
+APPROVED_AT = datetime(2026, 10, 5, 9, 0, tzinfo=UTC)
 
 
 def _dataset(*, status: DatasetVersionStatus = DatasetVersionStatus.APPROVED) -> LearningDatasetVersion:
@@ -36,9 +38,9 @@ def _dataset(*, status: DatasetVersionStatus = DatasetVersionStatus.APPROVED) ->
         status=status,
         manifest_ref=f"db://learning-datasets/{DATASET_ID}/items",
         manifest_digest="a" * 64,
-        created_at=datetime.now(UTC),
+        created_at=CREATED_AT,
         created_by=ACTOR_ID,
-        approved_at=datetime.now(UTC) if status is DatasetVersionStatus.APPROVED else None,
+        approved_at=APPROVED_AT if status is DatasetVersionStatus.APPROVED else None,
         approved_by=ACTOR_ID if status is DatasetVersionStatus.APPROVED else None,
     )
 
@@ -147,3 +149,27 @@ def test_native_training_rejects_dataset_task_mismatch(tmp_path: Path) -> None:
             dataset=_dataset(),
             items=[_item()],
         )
+
+
+
+def test_native_training_is_reproducible_for_same_approved_dataset(
+    tmp_path: Path,
+) -> None:
+    first_artifact, first_digest = train_native_model(
+        model_root=str(tmp_path),
+        task_class=AITaskClass.PRESCRIPTION,
+        model_id="hamoon-prescription-native-v1",
+        dataset=_dataset(),
+        items=[_item()],
+    )
+    second_artifact, second_digest = train_native_model(
+        model_root=str(tmp_path),
+        task_class=AITaskClass.PRESCRIPTION,
+        model_id="hamoon-prescription-native-v1",
+        dataset=_dataset(),
+        items=[_item()],
+    )
+
+    assert first_digest == second_digest
+    assert first_artifact == second_artifact
+    assert first_artifact.trained_at == APPROVED_AT
