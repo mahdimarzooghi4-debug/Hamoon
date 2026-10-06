@@ -43,6 +43,7 @@ from hamoon.domains.learning.api.schemas import (
 )
 from hamoon.domains.learning.application.commands import (
     ApproveDatasetCommand,
+    CreateAutomaticDatasetForCuratedSignalCommand,
     CreateEvaluationRunCommand,
     CreateOutcomeDatasetCommand,
     CreateReviewedDecisionDatasetCommand,
@@ -50,6 +51,7 @@ from hamoon.domains.learning.application.commands import (
 )
 from hamoon.domains.learning.application.handlers import (
     ApproveDatasetHandler,
+    CreateAutomaticDatasetForCuratedSignalHandler,
     CreateEvaluationRunHandler,
     CreateOutcomeDatasetHandler,
     CreateReviewedDecisionDatasetHandler,
@@ -166,10 +168,13 @@ async def curate_learning_signal(
     correlation_id = current_correlation_id() or request_id
     try:
         async with session.begin():
+            signals = SqlAlchemyLearningSignalRepository(session)
+            events = SqlAlchemyDomainEventRecorder(session)
+            audits = SqlAlchemyAuditRecorder(session)
             signal = await CurateLearningSignalHandler(
-                signals=SqlAlchemyLearningSignalRepository(session),
-                events=SqlAlchemyDomainEventRecorder(session),
-                audits=SqlAlchemyAuditRecorder(session),
+                signals=signals,
+                events=events,
+                audits=audits,
             ).handle(
                 CurateLearningSignalCommand(
                     signal_id=signal_id,
@@ -181,6 +186,27 @@ async def curate_learning_signal(
                     correlation_id=correlation_id,
                 )
             )
+            if signal.quality_status is LearningSignalQuality.CURATED:
+                await CreateAutomaticDatasetForCuratedSignalHandler(
+                    signals=signals,
+                    datasets=SqlAlchemyLearningDatasetRepository(session),
+                    ai_decisions=SqlAlchemyAIDecisionRepository(session),
+                    human_decisions=SqlAlchemyHumanDecisionRepository(session),
+                    feature_packages=SqlAlchemyFeaturePackageRepository(session),
+                    outcomes=SqlAlchemyOutcomeRepository(session),
+                    snapshots=SqlAlchemyPGORSnapshotRepository(session),
+                    interventions=SqlAlchemyInterventionRepository(session),
+                    provider_results=SqlAlchemyProviderResultRepository(session),
+                    events=events,
+                    audits=audits,
+                ).handle(
+                    CreateAutomaticDatasetForCuratedSignalCommand(
+                        signal_id=signal.id,
+                        actor_id=context.actor_id,
+                        request_id=request_id,
+                        correlation_id=correlation_id,
+                    )
+                )
     except LearningCurationError as exc:
         code = str(exc)
         http_status = (
@@ -191,6 +217,11 @@ async def curate_learning_signal(
         raise HTTPException(
             status_code=http_status,
             detail={"code": code},
+        ) from exc
+    except LearningDatasetError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": str(exc)},
         ) from exc
     return LearningSignalResponse(data=_signal_data(signal))
 
