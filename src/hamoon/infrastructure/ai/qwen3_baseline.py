@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
-from typing import Final
+from typing import Final, cast
 from uuid import UUID
 
 from hamoon.infrastructure.ai.contracts import AITaskClass
@@ -76,9 +76,14 @@ def encode_qwen3_lora_manifest(
 def decode_qwen3_lora_manifest(
     content: bytes,
 ) -> Qwen3LoRAArtifactManifest:
-    raw = json.loads(content.decode("utf-8"))
-    if not isinstance(raw, dict):
+    raw_value = cast(object, json.loads(content.decode("utf-8")))
+    if not isinstance(raw_value, dict):
         raise ValueError("QWEN3_ARTIFACT_MANIFEST_INVALID")
+    raw = cast(dict[str, object], raw_value)
+
+    adapter_files_value = raw.get("adapter_files", ())
+    if not isinstance(adapter_files_value, (list, tuple)):
+        raise ValueError("QWEN3_ARTIFACT_FILES_INVALID")
 
     manifest = Qwen3LoRAArtifactManifest(
         format_version=str(raw.get("format_version", "")),
@@ -96,8 +101,8 @@ def decode_qwen3_lora_manifest(
             raw.get("training_dataset_manifest_digest", "")
         ),
         adapter_files=tuple(
-            str(value)
-            for value in raw.get("adapter_files", ())
+            value
+            for value in adapter_files_value
             if isinstance(value, str)
         ),
     )
