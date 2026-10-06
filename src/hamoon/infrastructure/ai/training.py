@@ -14,6 +14,7 @@ from hamoon.domains.learning.domain.entities import (
 from hamoon.infrastructure.ai.contracts import AITaskClass
 from hamoon.infrastructure.ai.native_model import (
     NativeModelArtifact,
+    NativeModelArtifactError,
     NativeModelExample,
     load_artifact,
     write_artifact,
@@ -155,7 +156,7 @@ def train_native_model(
                 root=Path(model_root).resolve(),
                 digest=base_artifact_sha256,
             )
-        except Exception as exc:
+        except NativeModelArtifactError as exc:
             raise NativeModelTrainingError(
                 "BASE_NATIVE_MODEL_ARTIFACT_INVALID"
             ) from exc
