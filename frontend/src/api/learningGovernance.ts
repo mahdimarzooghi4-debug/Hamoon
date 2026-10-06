@@ -93,6 +93,29 @@ export interface ModelVersionCatalogItem {
   deployed_at: string | null;
 }
 
+export type InternalTrainingRunStatus = "RUNNING" | "SUCCEEDED" | "FAILED";
+
+export interface InternalTrainingRun {
+  id: string;
+  task_class: "DIAGNOSIS" | "PRESCRIPTION" | "OUTCOME_INTERPRETATION";
+  dataset_version_id: string;
+  dataset_manifest_digest: string;
+  training_pipeline_version: string;
+  model_key: string;
+  model_version: string;
+  concrete_model_id: string;
+  parent_model_version_id: string | null;
+  status: InternalTrainingRunStatus;
+  artifact_sha256: string | null;
+  artifact_size_bytes: number | null;
+  candidate_model_version_id: string | null;
+  error_code: string | null;
+  created_by: string;
+  created_at: string;
+  started_at: string;
+  completed_at: string | null;
+}
+
 export type PromptPolicyStatus = "DRAFT" | "APPROVED" | "ACTIVE" | "RETIRED";
 
 export interface PromptPolicyVersionCatalogItem {
@@ -244,19 +267,18 @@ export async function exportLearningDataset(
   return response.data;
 }
 
-export async function registerInternalModelCandidate(input: {
+export async function executeInternalTrainingRun(input: {
   taskClass: "DIAGNOSIS" | "PRESCRIPTION" | "OUTCOME_INTERPRETATION";
   datasetVersionId: string;
   modelKey: string;
   version: string;
   modelId: string;
-  artifactSha256: string;
   trainingPipelineVersion: string;
   baseModelVersionId?: string;
   limitations?: string;
-}): Promise<ModelVersionCatalogItem> {
-  const response = await requestJson<DataResponse<ModelVersionCatalogItem>>(
-    "/api/v1/admin/ai/internal-model-candidates",
+}): Promise<InternalTrainingRun> {
+  const response = await requestJson<DataResponse<InternalTrainingRun>>(
+    "/api/v1/admin/ai/internal-training-runs",
     {
       method: "POST",
       body: JSON.stringify({
@@ -265,12 +287,20 @@ export async function registerInternalModelCandidate(input: {
         model_key: input.modelKey,
         version: input.version,
         model_id: input.modelId,
-        artifact_sha256: input.artifactSha256,
         training_pipeline_version: input.trainingPipelineVersion,
         base_model_version_id: input.baseModelVersionId || null,
         limitations: input.limitations || null,
       }),
     },
+  );
+  return response.data;
+}
+
+export async function listInternalTrainingRuns(
+  limit = 100,
+): Promise<InternalTrainingRun[]> {
+  const response = await requestJson<DataResponse<InternalTrainingRun[]>>(
+    `/api/v1/admin/ai/internal-training-runs?limit=${limit}`,
   );
   return response.data;
 }
