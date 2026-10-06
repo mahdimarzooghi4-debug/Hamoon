@@ -140,28 +140,27 @@ def _scalar_similarity(left: JsonValue, right: JsonValue) -> float:
     return 0.0
 
 
+def _comparable_flattened(value: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    return {
+        key: item
+        for key, item in _flatten(cast(JsonValue, value)).items()
+        if not (isinstance(item, str) and _UUID_RE.fullmatch(item))
+    }
+
+
 def example_similarity(
     *,
     features: dict[str, JsonValue],
     example_input: dict[str, JsonValue],
 ) -> float:
-    request_flat = {
-        key: value
-        for key, value in _flatten(cast(JsonValue, features)).items()
-        if not (isinstance(value, str) and _UUID_RE.fullmatch(value))
-    }
-    example_flat = {
-        key: value
-        for key, value in _flatten(cast(JsonValue, example_input)).items()
-        if not (isinstance(value, str) and _UUID_RE.fullmatch(value))
-    }
-    if not request_flat:
-        return 0.0
-    total = 0.0
-    for key, value in request_flat.items():
-        if key not in example_flat:
-            continue
-        total += _scalar_similarity(value, example_flat[key])
+    request_flat = _comparable_flattened(features)
+    example_flat = _comparable_flattened(example_input)
+    if not request_flat or not set(request_flat).issubset(example_flat):
+        return -math.inf
+    total = sum(
+        _scalar_similarity(value, example_flat[key])
+        for key, value in request_flat.items()
+    )
     return total / len(request_flat)
 
 
@@ -209,11 +208,13 @@ def infer_from_artifact(
             features=features,
             example_input=example.input,
         )
+        if score <= 0.0:
+            continue
         if score > best_score:
             best = example
             best_score = score
     if best is None:
-        raise NativeModelArtifactError("NATIVE_MODEL_NO_TRAINING_EXAMPLES")
+        raise NativeModelArtifactError("NATIVE_MODEL_NO_APPLICABLE_TRAINING_EXAMPLE")
 
     target = copy.deepcopy(best.target)
     if task_class is AITaskClass.PRESCRIPTION:
