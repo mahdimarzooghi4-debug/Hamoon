@@ -171,7 +171,7 @@ def test_concrete_gemma4_runtime_is_pinned_local_only_and_qwen_is_retired() -> N
         in baseline
     )
     assert "local_files_only=True" in runtime
-    assert "AutoModelForCausalLM.from_pretrained" in runtime
+    assert "AutoModelForMultimodalLM.from_pretrained" in runtime
     assert "PeftModel.from_pretrained" in runtime
     assert "GEMMA4_TRAINING_CONFIGURATION_REQUIRED" in runtime
     assert "GEMMA4_GENERATION_CONFIGURATION_REQUIRED" in runtime
