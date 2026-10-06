@@ -6,11 +6,22 @@ from hamoon.app.observability.json_logging import configure_structured_logging
 from hamoon.app.observability.metrics import MetricsMiddleware, metrics_endpoint
 from hamoon.app.observability.request_context import RequestContextMiddleware
 from hamoon.app.observability.telemetry import configure_telemetry
+from hamoon.infrastructure.ai.artifact_store import (
+    build_internal_model_artifact_store,
+)
+from hamoon.infrastructure.ai.internal_model import (
+    configure_internal_model_runtime,
+)
 from hamoon.infrastructure.db.session import engine
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    configure_internal_model_runtime(
+        artifact_store=build_internal_model_artifact_store(settings),
+        trainers={},
+        executors={},
+    )
 
     if settings.structured_logging:
         configure_structured_logging(

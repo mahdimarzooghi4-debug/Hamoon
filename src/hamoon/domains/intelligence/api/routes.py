@@ -41,13 +41,15 @@ from hamoon.domains.intelligence.api.schemas import (
     GenerateDiagnosisData,
     GenerateDiagnosisRequest,
     GenerateDiagnosisResponse,
+    ExecuteInternalTrainingRunRequest,
+    InternalTrainingRunData,
+    InternalTrainingRunListResponse,
+    InternalTrainingRunResponse,
     ReviewDiagnosisData,
     PromptPolicyVersionCatalogData,
     PromptPolicyVersionCatalogResponse,
     ReviewDiagnosisResponse,
     StructuredDiagnosisReviewRequest,
-    RegisterInternalModelCandidateRequest,
-    RegisterInternalModelCandidateResponse,
 )
 from hamoon.domains.intelligence.application.diagnosis_commands import (
     GenerateDiagnosisCommand,
@@ -67,7 +69,10 @@ from hamoon.domains.intelligence.domain.errors import (
     DiagnosisVersionConflictError,
     InvalidDiagnosisReviewError,
 )
-from hamoon.domains.intelligence.domain.registry import ResolvedAIRoute
+from hamoon.domains.intelligence.domain.registry import (
+    InternalTrainingRunState,
+    ResolvedAIRoute,
+)
 from hamoon.domains.intelligence.infrastructure.repositories import (
     SqlAlchemyAIDecisionRepository,
     SqlAlchemyAIRuntimeRegistryRepository,
@@ -97,6 +102,12 @@ from hamoon.infrastructure.ai.diagnosis_runtime import (
     local_fake_diagnosis_policy,
 )
 from hamoon.infrastructure.ai.gateway import ProviderAIGateway
+from hamoon.infrastructure.ai.internal_model import (
+    InternalModelRuntimeError,
+    InternalTrainingExample,
+    InternalTrainingRequest,
+    get_internal_model_runtime,
+)
 from hamoon.infrastructure.ai.providers.fake import FakeAIProvider
 from hamoon.infrastructure.ai.production_factory import (
     InternalModelRuntimeConfigurationError,
@@ -108,6 +119,29 @@ from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
 from hamoon.shared.contracts.records import AuditRecord, DomainEventRecord
 
 router = APIRouter(tags=["intelligence"])
+
+
+def _training_run_data(run: InternalTrainingRunState) -> InternalTrainingRunData:
+    return InternalTrainingRunData(
+        id=run.id,
+        task_class=run.task_class,
+        dataset_version_id=run.dataset_version_id,
+        dataset_manifest_digest=run.dataset_manifest_digest,
+        training_pipeline_version=run.training_pipeline_version,
+        model_key=run.model_key,
+        model_version=run.model_version,
+        concrete_model_id=run.concrete_model_id,
+        parent_model_version_id=run.parent_model_version_id,
+        status=run.status.value,
+        artifact_sha256=run.artifact_sha256,
+        artifact_size_bytes=run.artifact_size_bytes,
+        candidate_model_version_id=run.candidate_model_version_id,
+        error_code=run.error_code,
+        created_by=run.created_by,
+        created_at=run.created_at,
+        started_at=run.started_at,
+        completed_at=run.completed_at,
+    )
 
 
 def _local_ai_client(settings: Settings) -> GatewayDiagnosisAIClient:
@@ -671,23 +705,24 @@ async def get_ai_decision_trace(
 
 
 @router.post(
-    "/api/v1/admin/ai/internal-model-candidates",
-    response_model=RegisterInternalModelCandidateResponse,
+    "/api/v1/admin/ai/internal-training-runs",
+    response_model=InternalTrainingRunResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def register_internal_model_candidate(
-    body: RegisterInternalModelCandidateRequest,
+async def execute_internal_training_run(
+    body: ExecuteInternalTrainingRunRequest,
     context: Annotated[
         AuthorizationContext,
         Depends(require_roles(Role.ADMIN)),
     ],
     session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> RegisterInternalModelCandidateResponse:
+) -> InternalTrainingRunResponse:
     datasets = SqlAlchemyLearningDatasetRepository(session)
     repository = SqlAlchemyAIRuntimeRegistryRepository(session)
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
-    now = datetime.now(UTC)
+    started_at = datetime.now(UTC)
+    parent_artifact_sha256: str | None = None
 
     try:
         async with session.begin():
@@ -708,46 +743,80 @@ async def register_internal_model_candidate(
                     detail={"code": "TRAINING_DATASET_PURPOSE_MISMATCH"},
                 )
 
-            candidate = await repository.register_internal_model_candidate(
+            items = await datasets.list_items(dataset.id)
+            if not items:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={"code": "TRAINING_DATASET_EMPTY"},
+                )
+
+            if body.base_model_version_id is not None:
+                parent = await repository.get_internal_model_parent(
+                    model_version_id=body.base_model_version_id,
+                    task_class=body.task_class,
+                    model_key=body.model_key,
+                    concrete_model_id=body.model_id,
+                )
+                parent_artifact_sha256 = parent.artifact_sha256
+
+            training_run = await repository.create_internal_training_run(
                 task_class=body.task_class,
-                model_key=body.model_key,
-                version=body.version,
-                concrete_model_id=body.model_id,
-                artifact_sha256=body.artifact_sha256,
-                training_dataset_version_id=dataset.id,
-                training_dataset_manifest_digest=dataset.manifest_digest,
+                dataset_version_id=dataset.id,
+                dataset_manifest_digest=dataset.manifest_digest,
                 training_pipeline_version=body.training_pipeline_version,
+                model_key=body.model_key,
+                model_version=body.version,
+                concrete_model_id=body.model_id,
                 parent_model_version_id=body.base_model_version_id,
-                limitations=body.limitations,
+                created_by=context.actor_id,
+                started_at=started_at,
+            )
+            event_id = uuid4()
+            await SqlAlchemyDomainEventRecorder(session).record(
+                DomainEventRecord(
+                    event_id=event_id,
+                    event_type="InternalTrainingRunStarted",
+                    event_version=1,
+                    aggregate_type="INTERNAL_TRAINING_RUN",
+                    aggregate_id=training_run.id,
+                    aggregate_version=1,
+                    actor_id=context.actor_id,
+                    occurred_at=started_at,
+                    recorded_at=started_at,
+                    correlation_id=correlation_id,
+                    causation_id=None,
+                    payload={
+                        "training_run_id": str(training_run.id),
+                        "task_class": body.task_class.value,
+                        "dataset_version_id": str(dataset.id),
+                        "dataset_manifest_digest": dataset.manifest_digest,
+                        "training_pipeline_version": body.training_pipeline_version,
+                        "model_key": body.model_key,
+                        "model_version": body.version,
+                    },
+                )
             )
             await SqlAlchemyAuditRecorder(session).record(
                 AuditRecord(
                     id=uuid4(),
                     actor_id=context.actor_id,
-                    action="ai.internal_model.candidate.register",
-                    resource_type="AI_MODEL_VERSION",
-                    resource_id=candidate.id,
+                    action="ai.internal_training.start",
+                    resource_type="INTERNAL_TRAINING_RUN",
+                    resource_id=training_run.id,
                     request_id=request_id,
                     correlation_id=correlation_id,
-                    created_at=now,
-                    purpose="AI_MODEL_GOVERNANCE",
+                    created_at=started_at,
+                    purpose="AI_MODEL_TRAINING",
                     metadata={
-                        "task_class": body.task_class.value,
+                        "event_id": str(event_id),
                         "dataset_version_id": str(dataset.id),
-                        "training_dataset_manifest_digest": dataset.manifest_digest,
+                        "dataset_manifest_digest": dataset.manifest_digest,
                         "training_pipeline_version": body.training_pipeline_version,
-                        "model_key": candidate.model_key,
-                        "model_version": candidate.version,
-                        "artifact_sha256": candidate.artifact_sha256,
-                        "parent_model_version_id": (
-                            str(candidate.parent_model_version_id)
-                            if candidate.parent_model_version_id is not None
-                            else None
-                        ),
-                        "provider_code": candidate.provider_code,
                     },
                 )
             )
+    except HTTPException:
+        raise
     except LookupError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -759,30 +828,210 @@ async def register_internal_model_candidate(
             detail={"code": str(exc)},
         ) from exc
 
-    return RegisterInternalModelCandidateResponse(
-        data=AIModelVersionCatalogData(
-            id=candidate.id,
-            ai_model_id=candidate.ai_model_id,
-            model_key=candidate.model_key,
-            purpose=candidate.purpose,
-            provider_id=candidate.provider_id,
-            provider_code=candidate.provider_code,
-            provider_status=candidate.provider_status.value,
-            version=candidate.version,
-            concrete_model_id=candidate.concrete_model_id,
-            artifact_sha256=candidate.artifact_sha256,
-            parent_model_version_id=candidate.parent_model_version_id,
-            training_dataset_version_id=candidate.training_dataset_version_id,
-            training_dataset_manifest_digest=(
-                candidate.training_dataset_manifest_digest
-            ),
-            training_pipeline_version=candidate.training_pipeline_version,
-            production_evaluation_run_id=candidate.production_evaluation_run_id,
-            status=candidate.status.value,
-            limitations=candidate.limitations,
-            approved_at=candidate.approved_at,
-            deployed_at=candidate.deployed_at,
+    runtime = get_internal_model_runtime()
+    execution_error: Exception | None = None
+    training_result = None
+    if runtime is None:
+        execution_error = InternalModelRuntimeError(
+            "INTERNAL_MODEL_RUNTIME_NOT_CONFIGURED"
         )
+    else:
+        try:
+            training_result = await runtime.training_engine().train(
+                InternalTrainingRequest(
+                    task_class=body.task_class,
+                    dataset_version_id=dataset.id,
+                    dataset_manifest_digest=dataset.manifest_digest,
+                    training_pipeline_version=body.training_pipeline_version,
+                    examples=tuple(
+                        InternalTrainingExample(
+                            input_payload=dict(item.input_payload),
+                            target_payload=dict(item.target_payload),
+                        )
+                        for item in items
+                    ),
+                    parent_artifact_sha256=parent_artifact_sha256,
+                )
+            )
+        except Exception as exc:
+            execution_error = exc
+
+    if execution_error is not None:
+        error_code = (
+            str(execution_error).strip()[:150]
+            or "INTERNAL_TRAINING_EXECUTION_FAILED"
+        )
+        failed_at = datetime.now(UTC)
+        async with session.begin():
+            failed = await repository.fail_internal_training_run(
+                training_run_id=training_run.id,
+                error_code=error_code,
+                completed_at=failed_at,
+            )
+            event_id = uuid4()
+            await SqlAlchemyDomainEventRecorder(session).record(
+                DomainEventRecord(
+                    event_id=event_id,
+                    event_type="InternalTrainingRunFailed",
+                    event_version=1,
+                    aggregate_type="INTERNAL_TRAINING_RUN",
+                    aggregate_id=failed.id,
+                    aggregate_version=2,
+                    actor_id=context.actor_id,
+                    occurred_at=failed_at,
+                    recorded_at=failed_at,
+                    correlation_id=correlation_id,
+                    causation_id=None,
+                    payload={
+                        "training_run_id": str(failed.id),
+                        "error_code": error_code,
+                    },
+                )
+            )
+            await SqlAlchemyAuditRecorder(session).record(
+                AuditRecord(
+                    id=uuid4(),
+                    actor_id=context.actor_id,
+                    action="ai.internal_training.fail",
+                    resource_type="INTERNAL_TRAINING_RUN",
+                    resource_id=failed.id,
+                    request_id=request_id,
+                    correlation_id=correlation_id,
+                    created_at=failed_at,
+                    purpose="AI_MODEL_TRAINING",
+                    metadata={
+                        "event_id": str(event_id),
+                        "error_code": error_code,
+                    },
+                )
+            )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": error_code},
+        ) from execution_error
+
+    assert training_result is not None
+    completed_at = datetime.now(UTC)
+    try:
+        async with session.begin():
+            candidate = await repository.register_internal_model_candidate(
+                task_class=body.task_class,
+                model_key=body.model_key,
+                version=body.version,
+                concrete_model_id=body.model_id,
+                artifact_sha256=training_result.artifact_sha256,
+                training_dataset_version_id=dataset.id,
+                training_dataset_manifest_digest=dataset.manifest_digest,
+                training_pipeline_version=body.training_pipeline_version,
+                parent_model_version_id=body.base_model_version_id,
+                limitations=body.limitations,
+            )
+            completed = await repository.complete_internal_training_run(
+                training_run_id=training_run.id,
+                artifact_sha256=training_result.artifact_sha256,
+                artifact_size_bytes=training_result.artifact_size_bytes,
+                candidate_model_version_id=candidate.id,
+                completed_at=completed_at,
+            )
+            event_id = uuid4()
+            await SqlAlchemyDomainEventRecorder(session).record(
+                DomainEventRecord(
+                    event_id=event_id,
+                    event_type="InternalTrainingRunSucceeded",
+                    event_version=1,
+                    aggregate_type="INTERNAL_TRAINING_RUN",
+                    aggregate_id=completed.id,
+                    aggregate_version=2,
+                    actor_id=context.actor_id,
+                    occurred_at=completed_at,
+                    recorded_at=completed_at,
+                    correlation_id=correlation_id,
+                    causation_id=None,
+                    payload={
+                        "training_run_id": str(completed.id),
+                        "artifact_sha256": training_result.artifact_sha256,
+                        "artifact_size_bytes": (
+                            training_result.artifact_size_bytes
+                        ),
+                        "candidate_model_version_id": str(candidate.id),
+                    },
+                )
+            )
+            await SqlAlchemyAuditRecorder(session).record(
+                AuditRecord(
+                    id=uuid4(),
+                    actor_id=context.actor_id,
+                    action="ai.internal_training.succeed",
+                    resource_type="INTERNAL_TRAINING_RUN",
+                    resource_id=completed.id,
+                    request_id=request_id,
+                    correlation_id=correlation_id,
+                    created_at=completed_at,
+                    purpose="AI_MODEL_TRAINING",
+                    metadata={
+                        "event_id": str(event_id),
+                        "artifact_sha256": training_result.artifact_sha256,
+                        "artifact_size_bytes": (
+                            training_result.artifact_size_bytes
+                        ),
+                        "candidate_model_version_id": str(candidate.id),
+                    },
+                )
+            )
+    except (LookupError, ValueError) as exc:
+        error_code = str(exc).strip()[:150] or "MODEL_CANDIDATE_REGISTRATION_FAILED"
+        failed_at = datetime.now(UTC)
+        async with session.begin():
+            await repository.fail_internal_training_run(
+                training_run_id=training_run.id,
+                error_code=error_code,
+                completed_at=failed_at,
+            )
+        raise HTTPException(
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+                if isinstance(exc, LookupError)
+                else status.HTTP_422_UNPROCESSABLE_ENTITY
+            ),
+            detail={"code": error_code},
+        ) from exc
+
+    return InternalTrainingRunResponse(data=_training_run_data(completed))
+
+
+@router.get(
+    "/api/v1/admin/ai/internal-training-runs",
+    response_model=InternalTrainingRunListResponse,
+)
+async def list_internal_training_runs(
+    _context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.ADMIN, Role.SECURITY_AUDITOR)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    limit: int = 100,
+) -> InternalTrainingRunListResponse:
+    if limit < 1 or limit > 500:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "INVALID_LIMIT"},
+        )
+    runs = await SqlAlchemyAIRuntimeRegistryRepository(
+        session
+    ).list_internal_training_runs(limit=limit)
+    return InternalTrainingRunListResponse(
+        data=[_training_run_data(run) for run in runs]
+    )
+
+
+@router.post(
+    "/api/v1/admin/ai/internal-model-candidates",
+    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+)
+async def register_internal_model_candidate() -> None:
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail={"code": "INTERNAL_TRAINING_RUN_REQUIRED"},
     )
 
 

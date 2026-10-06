@@ -15,6 +15,7 @@ from hamoon.domains.intelligence.domain.entities import FeaturePackage
 from hamoon.domains.intelligence.domain.registry import (
     AIModelVersionCatalogItem,
     EvaluationRunState,
+    InternalTrainingRunState,
     ResolvedAIRoute,
     RoutingPolicyDraft,
     RoutingPromotionResult,
@@ -148,6 +149,45 @@ class AIRuntimeRegistryRepository(Protocol):
         parent_model_version_id: UUID | None,
         limitations: str | None,
     ) -> AIModelVersionCatalogItem: ...
+
+    async def create_internal_training_run(
+        self,
+        *,
+        task_class: AITaskClass,
+        dataset_version_id: UUID,
+        dataset_manifest_digest: str,
+        training_pipeline_version: str,
+        model_key: str,
+        model_version: str,
+        concrete_model_id: str,
+        parent_model_version_id: UUID | None,
+        created_by: UUID,
+        started_at: datetime,
+    ) -> InternalTrainingRunState: ...
+
+    async def complete_internal_training_run(
+        self,
+        *,
+        training_run_id: UUID,
+        artifact_sha256: str,
+        artifact_size_bytes: int,
+        candidate_model_version_id: UUID,
+        completed_at: datetime,
+    ) -> InternalTrainingRunState: ...
+
+    async def fail_internal_training_run(
+        self,
+        *,
+        training_run_id: UUID,
+        error_code: str,
+        completed_at: datetime,
+    ) -> InternalTrainingRunState: ...
+
+    async def list_internal_training_runs(
+        self,
+        *,
+        limit: int = 100,
+    ) -> list[InternalTrainingRunState]: ...
 
     async def get_evaluation_run(
         self,

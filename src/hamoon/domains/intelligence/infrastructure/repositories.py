@@ -23,6 +23,8 @@ from hamoon.domains.intelligence.domain.registry import (
     AIModelVersionStatus,
     AIProviderStatus,
     EvaluationStatus,
+    InternalTrainingRunState,
+    InternalTrainingRunStatus,
     AIModelVersionCatalogItem,
     EvaluationRunState,
     PromptPolicyVersionCatalogItem,
@@ -42,6 +44,7 @@ from hamoon.domains.intelligence.infrastructure.models import (
     FeatureValueModel,
     HumanDecisionModel,
     LearningSignalModel,
+    InternalTrainingRunModel,
     EvaluationMetricModel,
     AIModelModel,
     AIModelVersionModel,
@@ -941,6 +944,132 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             approved_at=candidate.approved_at,
             deployed_at=candidate.deployed_at,
         )
+
+    @staticmethod
+    def _training_run(
+        model: InternalTrainingRunModel,
+    ) -> InternalTrainingRunState:
+        return InternalTrainingRunState(
+            id=model.id,
+            task_class=model.task_class,
+            dataset_version_id=model.dataset_version_id,
+            dataset_manifest_digest=model.dataset_manifest_digest,
+            training_pipeline_version=model.training_pipeline_version,
+            model_key=model.model_key,
+            model_version=model.model_version,
+            concrete_model_id=model.concrete_model_id,
+            parent_model_version_id=model.parent_model_version_id,
+            status=model.status,
+            artifact_sha256=model.artifact_sha256,
+            artifact_size_bytes=model.artifact_size_bytes,
+            candidate_model_version_id=model.candidate_model_version_id,
+            error_code=model.error_code,
+            created_by=model.created_by,
+            created_at=model.created_at,
+            started_at=model.started_at,
+            completed_at=model.completed_at,
+        )
+
+    async def create_internal_training_run(
+        self,
+        *,
+        task_class: AITaskClass,
+        dataset_version_id: UUID,
+        dataset_manifest_digest: str,
+        training_pipeline_version: str,
+        model_key: str,
+        model_version: str,
+        concrete_model_id: str,
+        parent_model_version_id: UUID | None,
+        created_by: UUID,
+        started_at: datetime,
+    ) -> InternalTrainingRunState:
+        run = InternalTrainingRunModel(
+            id=uuid4(),
+            task_class=task_class,
+            dataset_version_id=dataset_version_id,
+            dataset_manifest_digest=dataset_manifest_digest,
+            training_pipeline_version=training_pipeline_version,
+            model_key=model_key.strip(),
+            model_version=model_version.strip(),
+            concrete_model_id=concrete_model_id.strip(),
+            parent_model_version_id=parent_model_version_id,
+            status=InternalTrainingRunStatus.RUNNING,
+            artifact_sha256=None,
+            artifact_size_bytes=None,
+            candidate_model_version_id=None,
+            error_code=None,
+            created_by=created_by,
+            created_at=started_at,
+            started_at=started_at,
+            completed_at=None,
+        )
+        self._session.add(run)
+        return self._training_run(run)
+
+    async def complete_internal_training_run(
+        self,
+        *,
+        training_run_id: UUID,
+        artifact_sha256: str,
+        artifact_size_bytes: int,
+        candidate_model_version_id: UUID,
+        completed_at: datetime,
+    ) -> InternalTrainingRunState:
+        result = await self._session.execute(
+            select(InternalTrainingRunModel)
+            .where(InternalTrainingRunModel.id == training_run_id)
+            .with_for_update()
+        )
+        run = result.scalar_one_or_none()
+        if run is None:
+            raise LookupError("INTERNAL_TRAINING_RUN_NOT_FOUND")
+        if run.status is not InternalTrainingRunStatus.RUNNING:
+            raise ValueError("INTERNAL_TRAINING_RUN_NOT_RUNNING")
+        run.status = InternalTrainingRunStatus.SUCCEEDED
+        run.artifact_sha256 = artifact_sha256
+        run.artifact_size_bytes = artifact_size_bytes
+        run.candidate_model_version_id = candidate_model_version_id
+        run.error_code = None
+        run.completed_at = completed_at
+        return self._training_run(run)
+
+    async def fail_internal_training_run(
+        self,
+        *,
+        training_run_id: UUID,
+        error_code: str,
+        completed_at: datetime,
+    ) -> InternalTrainingRunState:
+        result = await self._session.execute(
+            select(InternalTrainingRunModel)
+            .where(InternalTrainingRunModel.id == training_run_id)
+            .with_for_update()
+        )
+        run = result.scalar_one_or_none()
+        if run is None:
+            raise LookupError("INTERNAL_TRAINING_RUN_NOT_FOUND")
+        if run.status is not InternalTrainingRunStatus.RUNNING:
+            raise ValueError("INTERNAL_TRAINING_RUN_NOT_RUNNING")
+        run.status = InternalTrainingRunStatus.FAILED
+        run.error_code = error_code.strip()[:150] or "INTERNAL_TRAINING_FAILED"
+        run.completed_at = completed_at
+        return self._training_run(run)
+
+    async def list_internal_training_runs(
+        self,
+        *,
+        limit: int = 100,
+    ) -> list[InternalTrainingRunState]:
+        result = await self._session.execute(
+            select(InternalTrainingRunModel)
+            .order_by(InternalTrainingRunModel.created_at.desc())
+            .limit(limit)
+        )
+        return [
+            self._training_run(model)
+            for model in result.scalars().all()
+        ]
 
     async def list_prompt_policy_versions(
         self,

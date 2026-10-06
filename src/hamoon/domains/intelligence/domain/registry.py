@@ -37,6 +37,12 @@ class EvaluationStatus(StrEnum):
     PASSED = "PASSED"
     FAILED = "FAILED"
 
+
+class InternalTrainingRunStatus(StrEnum):
+    RUNNING = "RUNNING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+
 @dataclass(frozen=True, slots=True)
 class ResolvedAIRoute:
     routing_policy: AIRoutingPolicy
@@ -47,6 +53,28 @@ class ResolvedAIRoute:
     @property
     def task_class(self) -> AITaskClass:
         return self.routing_policy.task_class
+
+@dataclass(frozen=True, slots=True)
+class InternalTrainingRunState:
+    id: UUID
+    task_class: AITaskClass
+    dataset_version_id: UUID
+    dataset_manifest_digest: str
+    training_pipeline_version: str
+    model_key: str
+    model_version: str
+    concrete_model_id: str
+    parent_model_version_id: UUID | None
+    status: InternalTrainingRunStatus
+    artifact_sha256: str | None
+    artifact_size_bytes: int | None
+    candidate_model_version_id: UUID | None
+    error_code: str | None
+    created_by: UUID
+    created_at: datetime
+    started_at: datetime
+    completed_at: datetime | None
+
 
 @dataclass(frozen=True, slots=True)
 class EvaluationRunState:

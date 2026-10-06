@@ -15,15 +15,16 @@ import {
   createReviewedDecisionDataset,
   createRoutingPolicy,
   curateLearningSignal,
+  executeInternalTrainingRun,
   exportLearningDataset,
   listEvaluations,
+  listInternalTrainingRuns,
   listLearningDatasets,
   listLearningSignals,
   listModelVersions,
   listPromptPolicyVersions,
   listRoutingPolicies,
   promoteRoutingPolicy,
-  registerInternalModelCandidate,
   type DatasetExport,
   type DatasetStatus,
   type EvaluationRun,
@@ -31,6 +32,8 @@ import {
   type LearningDataset,
   type LearningSignal,
   type LearningSignalQuality,
+  type InternalTrainingRun,
+  type InternalTrainingRunStatus,
   type ModelVersionCatalogItem,
   type PromptPolicyVersionCatalogItem,
   type RoutingPolicy,
@@ -54,6 +57,7 @@ type TrainableTask =
 type AdminData = {
   signals: LearningSignal[];
   datasets: LearningDataset[];
+  trainingRuns: InternalTrainingRun[];
   models: ModelVersionCatalogItem[];
   prompts: PromptPolicyVersionCatalogItem[];
   evaluations: EvaluationRun[];
@@ -77,6 +81,12 @@ const datasetStatusLabels: Record<DatasetStatus, string> = {
   DRAFT: "پیش‌نویس",
   APPROVED: "تأییدشده",
   RETIRED: "بازنشسته",
+};
+
+const trainingRunStatusLabels: Record<InternalTrainingRunStatus, string> = {
+  RUNNING: "در حال آموزش",
+  SUCCEEDED: "موفق",
+  FAILED: "ناموفق",
 };
 
 const evaluationStatusLabels: Record<EvaluationStatus, string> = {
@@ -125,6 +135,14 @@ function datasetTone(
   if (status === "APPROVED") return "success";
   if (status === "DRAFT") return "warning";
   return "neutral";
+}
+
+function trainingRunTone(
+  status: InternalTrainingRunStatus,
+): "accent" | "success" | "danger" {
+  if (status === "SUCCEEDED") return "success";
+  if (status === "FAILED") return "danger";
+  return "accent";
 }
 
 function evaluationTone(
@@ -195,7 +213,6 @@ export function LearningGovernancePage() {
   const [trainingModelKey, setTrainingModelKey] = useState("");
   const [trainingVersion, setTrainingVersion] = useState("");
   const [trainingModelId, setTrainingModelId] = useState("");
-  const [trainingArtifactSha256, setTrainingArtifactSha256] = useState("");
   const [trainingPipelineVersion, setTrainingPipelineVersion] = useState("");
   const [trainingBaseModelVersionId, setTrainingBaseModelVersionId] =
     useState("");
@@ -224,10 +241,18 @@ export function LearningGovernancePage() {
   const load = useCallback(async () => {
     setActionError(null);
     try {
-      const [signals, datasets, models, prompts, evaluations, routes] =
-        await Promise.all([
+      const [
+        signals,
+        datasets,
+        trainingRuns,
+        models,
+        prompts,
+        evaluations,
+        routes,
+      ] = await Promise.all([
           listLearningSignals(),
           listLearningDatasets(),
+          listInternalTrainingRuns(),
           listModelVersions(),
           listPromptPolicyVersions(),
           listEvaluations(),
@@ -237,6 +262,7 @@ export function LearningGovernancePage() {
         kind: "ready",
         signals,
         datasets,
+        trainingRuns,
         models,
         prompts,
         evaluations,
@@ -520,12 +546,11 @@ export function LearningGovernancePage() {
     );
   }
 
-  async function submitInternalModelCandidate(event: FormEvent<HTMLFormElement>) {
+  async function submitInternalTrainingRun(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const dataset = ready?.datasets.find(
       (item) => item.id === trainingDatasetId,
     );
-    const artifactDigest = trainingArtifactSha256.trim().toLowerCase();
     if (
       !dataset ||
       dataset.status !== "APPROVED" ||
@@ -535,36 +560,32 @@ export function LearningGovernancePage() {
       !trainingModelKey.trim() ||
       !trainingVersion.trim() ||
       !trainingModelId.trim() ||
-      !/^[0-9a-f]{64}$/.test(artifactDigest) ||
       !trainingPipelineVersion.trim()
     ) {
       setActionError(
-        "Dataset تأییدشده، digest معتبر artifact و نسخه pipeline داخلی الزامی است.",
+        "Dataset تأییدشده، مشخصات مدل و نسخه pipeline داخلی الزامی است.",
       );
       return;
     }
     await runAction(
-      "register-internal-model",
+      "execute-internal-training",
       async () => {
-        await registerInternalModelCandidate({
+        await executeInternalTrainingRun({
           taskClass: dataset.purpose as TrainableTask,
           datasetVersionId: dataset.id,
           modelKey: trainingModelKey.trim(),
           version: trainingVersion.trim(),
           modelId: trainingModelId.trim(),
-          artifactSha256: artifactDigest,
           trainingPipelineVersion: trainingPipelineVersion.trim(),
           baseModelVersionId: trainingBaseModelVersionId || undefined,
           limitations: trainingLimitations.trim(),
         });
         setTrainingVersion("");
-        setTrainingModelId("");
-        setTrainingArtifactSha256("");
         setTrainingPipelineVersion("");
         setTrainingBaseModelVersionId("");
         setTrainingLimitations("");
       },
-      "metadata مدل داخلی به‌صورت CANDIDATE ثبت شد؛ هیچ آموزش یا Promotion اجرا نشد.",
+      "Training Run داخلی اجرا شد؛ در صورت موفقیت artifact immutable و CANDIDATE ساخته شد.",
     );
   }
 
@@ -1101,17 +1122,17 @@ export function LearningGovernancePage() {
       <Panel className="admin-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">APPROVED Dataset → Internal Model Candidate</span>
-            <h2>ثبت artifact مدل داخلی هامون</h2>
+            <span className="eyebrow">APPROVED Dataset → Internal Training → Candidate</span>
+            <h2>Training Engine داخلی هامون</h2>
           </div>
-          <Badge tone="success">بدون API / بدون اجرای Training</Badge>
+          <Badge tone="success">IN_PROCESS / بدون AI API</Badge>
         </div>
         <p>
-          این مرحله فقط metadata و lineage یک artifact داخلیِ از قبل تولیدشده
-          توسط pipeline مصوب را ثبت می‌کند. هامون در این نسخه هیچ الگوریتم
-          Training یا مدل مشخصی را انتخاب و اجرا نمی‌کند.
+          Training فقط با trainer ثبت‌شده داخل خود Hamoon اجرا می‌شود. artifact
+          با SHA-256 در storage خصوصی و immutable ذخیره می‌شود و فقط خروجی
+          Training Run موفق می‌تواند CANDIDATE بسازد.
         </p>
-        <form className="evaluation-builder" onSubmit={submitInternalModelCandidate}>
+        <form className="evaluation-builder" onSubmit={submitInternalTrainingRun}>
           <div className="admin-form-grid admin-form-grid--four">
             <label>
               <span>Dataset APPROVED</span>
@@ -1160,16 +1181,6 @@ export function LearningGovernancePage() {
               />
             </label>
             <label>
-              <span>Artifact SHA-256</span>
-              <input
-                dir="ltr"
-                maxLength={64}
-                placeholder="64 hex chars"
-                value={trainingArtifactSha256}
-                onChange={(event) => setTrainingArtifactSha256(event.target.value)}
-              />
-            </label>
-            <label>
               <span>Training pipeline version</span>
               <input
                 maxLength={150}
@@ -1213,14 +1224,40 @@ export function LearningGovernancePage() {
           </label>
           <div className="dataset-invariants">
             <span>
-              این فرم فقط lineage را ثبت می‌کند؛ تولید artifact، الگوریتم
-              Training و اجرای مدل در این مرحله خارج از دامنه و غیرقابل اجراست.
+              Training Run هیچ Promotion خودکاری انجام نمی‌دهد؛ CANDIDATE بعد
+              از ساخت artifact همچنان باید از Evaluation و Human Promotion عبور کند.
             </span>
           </div>
-          <Button disabled={busy === "register-internal-model"} type="submit">
-            ثبت CANDIDATE
+          <Button disabled={busy === "execute-internal-training"} type="submit">
+            اجرای Training Run
           </Button>
         </form>
+
+        <div className="dataset-list">
+          {readyData.trainingRuns.map((run) => (
+            <article className="dataset-card" key={run.id}>
+              <div>
+                <strong>
+                  {run.model_key} / {run.model_version}
+                </strong>
+                <span>
+                  {run.task_class} • pipeline {run.training_pipeline_version}
+                </span>
+                <span className="digest-value">
+                  artifact: {run.artifact_sha256 ?? "—"}
+                </span>
+                {run.error_code ? (
+                  <span className="ltr-value">
+                    error: {run.error_code}
+                  </span>
+                ) : null}
+              </div>
+              <Badge tone={trainingRunTone(run.status)}>
+                {trainingRunStatusLabels[run.status]}
+              </Badge>
+            </article>
+          ))}
+        </div>
 
         <div className="dataset-list">
           {readyData.models.map((model) => (

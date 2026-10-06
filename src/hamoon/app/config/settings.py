@@ -88,6 +88,15 @@ class Settings(BaseSettings):
         "application/pdf,image/jpeg,image/png,text/plain"
     )
 
+    internal_model_artifact_storage_backend: str = "local"
+    internal_model_artifact_local_root: str = ".hamoon/internal-model-artifacts"
+    internal_model_artifact_s3_endpoint: str = "http://localhost:9000"
+    internal_model_artifact_s3_access_key: str = "minio"
+    internal_model_artifact_s3_secret_key: str = "minio12345"
+    internal_model_artifact_s3_bucket: str = "hamoon-internal-model-artifacts"
+    internal_model_artifact_s3_region: str = "us-east-1"
+    internal_model_artifact_s3_request_timeout_seconds: float = 10.0
+
     oidc_issuer_url: str = "http://localhost:8081/realms/hamoon-local"
     oidc_audience: str = "hamoon-api"
     oidc_jwks_url: str | None = None
@@ -109,6 +118,11 @@ class Settings(BaseSettings):
         scanner_backend = self.evidence_scanner_backend.strip().lower()
         if scanner_backend not in {"local", "http"}:
             raise ValueError("EVIDENCE_SCANNER_BACKEND_INVALID")
+        artifact_backend = self.internal_model_artifact_storage_backend.strip().lower()
+        if artifact_backend not in {"local", "s3"}:
+            raise ValueError("INTERNAL_MODEL_ARTIFACT_STORAGE_BACKEND_INVALID")
+        if self.internal_model_artifact_s3_request_timeout_seconds <= 0:
+            raise ValueError("INTERNAL_MODEL_ARTIFACT_STORAGE_TIMEOUT_INVALID")
         if self.evidence_scanner_timeout_seconds <= 0:
             raise ValueError("EVIDENCE_SCANNER_TIMEOUT_INVALID")
 
@@ -188,6 +202,23 @@ class Settings(BaseSettings):
             or self.evidence_signing_secret == "hamoon-local-evidence-secret"
         ):
             errors.append("PRODUCTION_EVIDENCE_SIGNING_SECRET_REQUIRED")
+
+        if artifact_backend != "s3":
+            errors.append("PRODUCTION_INTERNAL_MODEL_ARTIFACT_STORAGE_REQUIRED")
+        if not _is_remote_https(self.internal_model_artifact_s3_endpoint):
+            errors.append(
+                "PRODUCTION_INTERNAL_MODEL_ARTIFACT_S3_HTTPS_REQUIRED"
+            )
+        if (
+            not self.internal_model_artifact_s3_access_key.strip()
+            or self.internal_model_artifact_s3_access_key == "minio"
+            or len(self.internal_model_artifact_s3_secret_key) < 16
+            or self.internal_model_artifact_s3_secret_key == "minio12345"
+            or not self.internal_model_artifact_s3_bucket.strip()
+        ):
+            errors.append(
+                "PRODUCTION_INTERNAL_MODEL_ARTIFACT_S3_CREDENTIALS_REQUIRED"
+            )
         if scanner_backend != "http":
             errors.append("PRODUCTION_EVIDENCE_SCANNER_REQUIRED")
         if (
