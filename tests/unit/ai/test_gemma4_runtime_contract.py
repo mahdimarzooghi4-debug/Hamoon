@@ -157,3 +157,15 @@ def test_gemma4_adapter_artifact_is_deterministic_safetensors_bundle(
     assert (
         extracted_dir / "adapter_model.safetensors"
     ).read_bytes() == b"safe-weights"
+
+
+def test_gemma4_runtime_uses_official_multimodal_loader() -> None:
+    runtime = Path(
+        "src/hamoon/infrastructure/ai/gemma4_runtime.py"
+    ).read_text(encoding="utf-8")
+    dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
+
+    assert "AutoModelForMultimodalLM.from_pretrained" in runtime
+    assert "AutoModelForCausalLM.from_pretrained" not in runtime
+    assert "requirements/internal-ai-gemma4.txt" in dockerfile
+    assert "uv pip install" in dockerfile
