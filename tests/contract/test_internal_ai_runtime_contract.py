@@ -71,3 +71,33 @@ def test_runtime_unavailability_creates_human_fallback_work_items() -> None:
         assert "EnsureWorkItemHandler" in source
         assert "WorkItemType.AI_FALLBACK" in source
         assert "HTTP_503_SERVICE_UNAVAILABLE" in source
+
+
+def test_api_based_self_hosted_runtime_cannot_reenter_production_surface() -> None:
+    forbidden_markers = (
+        "sovereign_ai_endpoint",
+        "sovereign_ai_token",
+        "SelfHostedAIProvider",
+        "providers.self_hosted",
+        "SELF_HOSTED",
+    )
+    production_paths = (
+        "src/hamoon/infrastructure/ai/production_factory.py",
+        "src/hamoon/infrastructure/ai/outcome_factory.py",
+        "src/hamoon/domains/intelligence/api/routes.py",
+        "src/hamoon/domains/prescription/api/routes.py",
+        "src/hamoon/domains/outcome/api/intelligence_routes.py",
+    )
+
+    for path in production_paths:
+        source = Path(path).read_text(encoding="utf-8")
+        for marker in forbidden_markers:
+            assert marker not in source
+
+    for obsolete_path in (
+        "src/hamoon/infrastructure/ai/providers/self_hosted.py",
+        ".github/workflows/sovereign-ai-integration.yml",
+        "scripts/execute_sovereign_ai_verification.py",
+        "scripts/verify_sovereign_ai_integration.py",
+    ):
+        assert not Path(obsolete_path).exists()
