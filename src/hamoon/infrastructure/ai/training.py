@@ -21,6 +21,44 @@ _UUID_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
     r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
+_CASE_REF_RE = re.compile(
+    r"^[a-z_]+:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+
+
+def _contains_case_identity(value: str) -> bool:
+    return bool(_UUID_RE.fullmatch(value) or _CASE_REF_RE.fullmatch(value))
+
+
+def _sanitize_list(values: list[JsonValue]) -> list[JsonValue]:
+    sanitized: list[JsonValue] = []
+    for value in values:
+        if isinstance(value, str) and _contains_case_identity(value):
+            continue
+        if isinstance(value, dict):
+            sanitized.append(_sanitize_mapping(value))
+        elif isinstance(value, list):
+            sanitized.append(_sanitize_list(value))
+        else:
+            sanitized.append(copy.deepcopy(value))
+    return sanitized
+
+
+def _sanitize_mapping(
+    values: dict[str, JsonValue],
+) -> dict[str, JsonValue]:
+    sanitized: dict[str, JsonValue] = {}
+    for key, value in values.items():
+        if isinstance(value, str) and _contains_case_identity(value):
+            continue
+        if isinstance(value, dict):
+            sanitized[key] = _sanitize_mapping(value)
+        elif isinstance(value, list):
+            sanitized[key] = _sanitize_list(value)
+        else:
+            sanitized[key] = copy.deepcopy(value)
+    return sanitized
 
 
 class NativeModelTrainingError(RuntimeError):
@@ -32,12 +70,8 @@ def _sanitized_example(
     task_class: AITaskClass,
     item: LearningDatasetItem,
 ) -> NativeModelExample:
-    input_payload = {
-        key: value
-        for key, value in item.input_payload.items()
-        if not (isinstance(value, str) and _UUID_RE.fullmatch(value))
-    }
-    target_payload = copy.deepcopy(item.target_payload)
+    input_payload = _sanitize_mapping(item.input_payload)
+    target_payload = _sanitize_mapping(item.target_payload)
     if task_class is AITaskClass.PRESCRIPTION:
         raw_items = target_payload.get("items")
         if isinstance(raw_items, list):
