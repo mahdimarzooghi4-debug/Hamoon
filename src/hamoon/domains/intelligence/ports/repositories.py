@@ -134,7 +134,7 @@ class AIRuntimeRegistryRepository(Protocol):
         task_class: AITaskClass,
     ) -> ResolvedAIRoute | None: ...
 
-    async def register_native_model_candidate(
+    async def register_internal_model_candidate(
         self,
         *,
         task_class: AITaskClass,
@@ -142,6 +142,8 @@ class AIRuntimeRegistryRepository(Protocol):
         version: str,
         concrete_model_id: str,
         artifact_sha256: str,
+        training_dataset_manifest_digest: str,
+        training_pipeline_version: str,
         parent_model_version_id: UUID | None,
         limitations: str | None,
     ) -> AIModelVersionCatalogItem: ...
