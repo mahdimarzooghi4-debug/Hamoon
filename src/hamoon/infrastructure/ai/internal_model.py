@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol
 from uuid import UUID
 
@@ -40,6 +40,7 @@ class InternalTrainingRequest:
     training_pipeline_version: str
     examples: tuple[InternalTrainingExample, ...]
     parent_artifact_sha256: str | None = None
+    parent_artifact: bytes | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,13 +131,28 @@ class InternalTrainingEngine:
                 "PARENT_MODEL_ARTIFACT_DIGEST_INVALID"
             )
 
+        effective_request = request
+        if request.parent_artifact_sha256 is not None:
+            parent_digest = request.parent_artifact_sha256.strip().lower()
+            parent_artifact = await self._artifact_store.read(
+                artifact_sha256=parent_digest,
+            )
+            if hashlib.sha256(parent_artifact).hexdigest() != parent_digest:
+                raise InternalModelRuntimeError(
+                    "PARENT_MODEL_ARTIFACT_DIGEST_MISMATCH"
+                )
+            effective_request = replace(
+                request,
+                parent_artifact=parent_artifact,
+            )
+
         trainer = self._trainers.get(pipeline_version)
         if trainer is None or trainer.pipeline_version != pipeline_version:
             raise InternalModelRuntimeError(
                 "INTERNAL_TRAINER_NOT_REGISTERED"
             )
 
-        artifact = await trainer.train(request)
+        artifact = await trainer.train(effective_request)
         if not artifact:
             raise InternalModelRuntimeError("INTERNAL_TRAINER_EMPTY_ARTIFACT")
 
