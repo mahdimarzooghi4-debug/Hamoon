@@ -420,6 +420,7 @@ async def approve_learning_dataset(
         async with session.begin():
             dataset = await ApproveDatasetHandler(
                 datasets=repository,
+                signals=SqlAlchemyLearningSignalRepository(session),
                 events=SqlAlchemyDomainEventRecorder(session),
                 audits=SqlAlchemyAuditRecorder(session),
             ).handle(
