@@ -667,10 +667,13 @@ class SqlAlchemyAIRuntimeRegistryRepository:
                 AIProviderModel.status == AIProviderStatus.ACTIVE,
                 AIProviderModel.code == INTERNAL_MODEL_PROVIDER_CODE,
                 AIModelVersionModel.artifact_sha256.is_not(None),
+                AIModelVersionModel.training_dataset_version_id.is_not(None),
                 AIModelVersionModel.training_dataset_manifest_digest.is_not(None),
                 AIModelVersionModel.training_pipeline_version.is_not(None),
                 AIModelVersionModel.production_evaluation_run_id
                 == EvaluationRunModel.id,
+                AIModelVersionModel.training_dataset_version_id
+                == EvaluationRunModel.dataset_version_id,
                 AIModelVersionModel.training_dataset_manifest_digest
                 == EvaluationRunModel.dataset_manifest_digest,
                 PromptPolicyVersionModel.status == PromptPolicyVersionStatus.ACTIVE,
@@ -744,6 +747,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
                 concrete_model_id=version.concrete_model_id,
                 artifact_sha256=version.artifact_sha256,
                 parent_model_version_id=version.parent_model_version_id,
+                training_dataset_version_id=version.training_dataset_version_id,
                 training_dataset_manifest_digest=version.training_dataset_manifest_digest,
                 training_pipeline_version=version.training_pipeline_version,
                 production_evaluation_run_id=version.production_evaluation_run_id,
@@ -816,6 +820,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             concrete_model_id=version.concrete_model_id,
             artifact_sha256=version.artifact_sha256,
             parent_model_version_id=version.parent_model_version_id,
+            training_dataset_version_id=version.training_dataset_version_id,
             training_dataset_manifest_digest=version.training_dataset_manifest_digest,
             training_pipeline_version=version.training_pipeline_version,
             production_evaluation_run_id=version.production_evaluation_run_id,
@@ -833,6 +838,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         version: str,
         concrete_model_id: str,
         artifact_sha256: str,
+        training_dataset_version_id: UUID,
         training_dataset_manifest_digest: str,
         training_pipeline_version: str,
         parent_model_version_id: UUID | None,
@@ -907,6 +913,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             version=clean_version,
             concrete_model_id=clean_model_id,
             artifact_sha256=clean_digest,
+            training_dataset_version_id=training_dataset_version_id,
             training_dataset_manifest_digest=clean_dataset_digest,
             training_pipeline_version=clean_pipeline_version,
             parent_model_version_id=parent_model_version_id,
@@ -929,6 +936,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             concrete_model_id=candidate.concrete_model_id,
             artifact_sha256=candidate.artifact_sha256,
             parent_model_version_id=candidate.parent_model_version_id,
+            training_dataset_version_id=candidate.training_dataset_version_id,
             training_dataset_manifest_digest=candidate.training_dataset_manifest_digest,
             training_pipeline_version=candidate.training_pipeline_version,
             production_evaluation_run_id=candidate.production_evaluation_run_id,
@@ -1056,7 +1064,10 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             or not (model_version.training_pipeline_version or "").strip()
         ):
             raise ValueError("EVALUATION_MODEL_TRAINING_LINEAGE_REQUIRED")
-        if model_version.training_dataset_manifest_digest != dataset_manifest_digest:
+        if (
+            model_version.training_dataset_version_id != dataset_version_id
+            or model_version.training_dataset_manifest_digest != dataset_manifest_digest
+        ):
             raise ValueError("EVALUATION_DATASET_LINEAGE_MISMATCH")
         if model_version.status not in {
             AIModelVersionStatus.CANDIDATE,
@@ -1333,7 +1344,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         if evaluation.model_version_id != model_version.id:
             raise ValueError("EVALUATION_MODEL_VERSION_MISMATCH")
         if (
-            evaluation.dataset_manifest_digest
+            evaluation.dataset_version_id != model_version.training_dataset_version_id
+            or evaluation.dataset_manifest_digest
             != model_version.training_dataset_manifest_digest
         ):
             raise ValueError("EVALUATION_DATASET_LINEAGE_MISMATCH")

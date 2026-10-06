@@ -50,6 +50,7 @@ def test_model_registry_requires_versioned_training_and_evaluation_lineage() -> 
     ).read_text(encoding="utf-8")
 
     assert "artifact_sha256" in models
+    assert "training_dataset_version_id" in models
     assert "training_dataset_manifest_digest" in models
     assert "training_pipeline_version" in models
     assert "production_evaluation_run_id" in models
@@ -63,7 +64,9 @@ def test_model_registry_requires_versioned_training_and_evaluation_lineage() -> 
     assert "MODEL_TRAINING_LINEAGE_REQUIRED" in repository
     assert "EVALUATION_DATASET_LINEAGE_MISMATCH" in repository
     assert (
-        "training_dataset_manifest_digest" in repository
+        "training_dataset_version_id" in repository
+        and "dataset_version_id" in repository
+        and "training_dataset_manifest_digest" in repository
         and "dataset_manifest_digest" in repository
     )
     assert "EVALUATION_ATTESTATION_REQUIRED" in repository
