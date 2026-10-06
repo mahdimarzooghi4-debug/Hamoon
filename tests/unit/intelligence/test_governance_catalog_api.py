@@ -52,7 +52,7 @@ class Registry:
                 model_key="outcome-model",
                 purpose="OUTCOME_INTERPRETATION",
                 provider_id=PROVIDER_ID,
-                provider_code="HAMOON_NATIVE",
+                provider_code="INTERNAL_MODEL",
                 provider_status=AIProviderStatus.ACTIVE,
                 version="v2",
                 concrete_model_id="model-v2",
@@ -159,7 +159,7 @@ async def test_admin_governance_catalog_read_endpoints(
     )
 
     assert models.data[0].status == AIModelVersionStatus.CANDIDATE.value
-    assert models.data[0].provider_code == "HAMOON_NATIVE"
+    assert models.data[0].provider_code == "INTERNAL_MODEL"
     assert models.data[0].artifact_sha256 == "c" * 64
     assert prompts.data[0].status == PromptPolicyVersionStatus.ACTIVE.value
     assert evaluations.data[0].status == EvaluationStatus.PASSED.value
