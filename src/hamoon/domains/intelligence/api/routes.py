@@ -642,6 +642,7 @@ async def get_ai_decision_trace(
             pgor_snapshot_id=trace.pgor_snapshot_id,
             feature_package_id=trace.feature_package_id,
             ai_decision_id=trace.ai_decision_id,
+            model_artifact_sha256=decision.model_artifact_sha256,
             human_decision_id=trace.human_decision_id,
             prescription_id=trace.prescription_id,
             intervention_id=trace.intervention_id,
