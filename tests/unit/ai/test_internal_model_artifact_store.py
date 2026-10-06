@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -17,8 +18,6 @@ async def test_internal_model_artifact_store_is_digest_addressed_and_idempotent(
         LocalEvidenceStorage(tmp_path)
     )
     content = b"internal-model-artifact"
-    import hashlib
-
     digest = hashlib.sha256(content).hexdigest()
 
     first = await store.put(
