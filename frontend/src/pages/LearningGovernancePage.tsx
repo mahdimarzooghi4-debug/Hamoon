@@ -195,6 +195,8 @@ export function LearningGovernancePage() {
   const [trainingModelKey, setTrainingModelKey] = useState("");
   const [trainingVersion, setTrainingVersion] = useState("");
   const [trainingModelId, setTrainingModelId] = useState("");
+  const [trainingBaseModelVersionId, setTrainingBaseModelVersionId] =
+    useState("");
   const [trainingLimitations, setTrainingLimitations] = useState("");
 
   const [evaluationDatasetId, setEvaluationDatasetId] = useState("");
@@ -318,6 +320,19 @@ export function LearningGovernancePage() {
       ),
     [approvedDatasets],
   );
+
+  const growthBaseModels = useMemo(() => {
+    const dataset = ready?.datasets.find(
+      (item) => item.id === trainingDatasetId,
+    );
+    if (!ready || !dataset) return [];
+    return ready.models.filter(
+      (item) =>
+        item.provider_code === "HAMOON_NATIVE" &&
+        item.artifact_sha256 !== null &&
+        item.purpose === dataset.purpose,
+    );
+  }, [ready, trainingDatasetId]);
 
   const eligibleModels = useMemo(
     () =>
@@ -530,10 +545,12 @@ export function LearningGovernancePage() {
           modelKey: trainingModelKey.trim(),
           version: trainingVersion.trim(),
           modelId: trainingModelId.trim(),
+          baseModelVersionId: trainingBaseModelVersionId || undefined,
           limitations: trainingLimitations.trim(),
         });
         setTrainingVersion("");
         setTrainingModelId("");
+        setTrainingBaseModelVersionId("");
         setTrainingLimitations("");
       },
       "مدل بومی از Dataset تأییدشده آموزش دید و فقط به‌صورت CANDIDATE ثبت شد.",
@@ -1089,7 +1106,10 @@ export function LearningGovernancePage() {
               <span>Dataset APPROVED</span>
               <select
                 value={trainingDatasetId}
-                onChange={(event) => setTrainingDatasetId(event.target.value)}
+                onChange={(event) => {
+                  setTrainingDatasetId(event.target.value);
+                  setTrainingBaseModelVersionId("");
+                }}
               >
                 <option value="">انتخاب کنید</option>
                 {trainableDatasets.map((item) => (
@@ -1126,6 +1146,30 @@ export function LearningGovernancePage() {
                 onChange={(event) => setTrainingModelId(event.target.value)}
               />
             </label>
+            <label>
+              <span>نسخه والد برای ادامه یادگیری</span>
+              <select
+                value={trainingBaseModelVersionId}
+                onChange={(event) => {
+                  const parentId = event.target.value;
+                  setTrainingBaseModelVersionId(parentId);
+                  const parent = growthBaseModels.find(
+                    (item) => item.id === parentId,
+                  );
+                  if (parent) {
+                    setTrainingModelKey(parent.model_key);
+                    setTrainingModelId(parent.concrete_model_id);
+                  }
+                }}
+              >
+                <option value="">شروع مدل جدید</option>
+                {growthBaseModels.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.model_key} / {item.version} — {item.status}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <label className="admin-field-wide">
             <span>محدودیت‌های نسخه</span>
@@ -1135,6 +1179,12 @@ export function LearningGovernancePage() {
               onChange={(event) => setTrainingLimitations(event.target.value)}
             />
           </label>
+          <div className="dataset-invariants">
+            <span>
+              بدون نسخه والد: مدل جدید ساخته می‌شود؛ با نسخه والد: نمونه‌های
+              آموخته‌شده قبلی حفظ و Dataset جدید به آن افزوده می‌شود.
+            </span>
+          </div>
           <Button disabled={busy === "train-native-model"} type="submit">
             آموزش و ثبت CANDIDATE
           </Button>
@@ -1153,6 +1203,11 @@ export function LearningGovernancePage() {
                 <span className="digest-value">
                   artifact: {model.artifact_sha256 ?? "legacy / بدون artifact"}
                 </span>
+                {model.parent_model_version_id ? (
+                  <span className="ltr-value">
+                    parent: {shortId(model.parent_model_version_id)}
+                  </span>
+                ) : null}
               </div>
               <Badge
                 tone={
