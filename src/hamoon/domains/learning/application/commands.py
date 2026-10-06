@@ -17,6 +17,14 @@ class CurateLearningSignalCommand:
 
 
 @dataclass(frozen=True, slots=True)
+class CreateAutomaticDatasetForCuratedSignalCommand:
+    signal_id: UUID
+    actor_id: UUID
+    request_id: str
+    correlation_id: str
+
+
+@dataclass(frozen=True, slots=True)
 class CreateOutcomeDatasetCommand:
     dataset_key: str
     version: str
