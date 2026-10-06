@@ -97,6 +97,10 @@ class Settings(BaseSettings):
     internal_model_artifact_s3_region: str = "us-east-1"
     internal_model_artifact_s3_request_timeout_seconds: float = 10.0
 
+    gemma4_base_checkpoint_root: str | None = None
+    gemma4_training_config_json: str | None = None
+    gemma4_generation_config_json: str | None = None
+
     oidc_issuer_url: str = "http://localhost:8081/realms/hamoon-local"
     oidc_audience: str = "hamoon-api"
     oidc_jwks_url: str | None = None
