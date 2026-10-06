@@ -390,8 +390,6 @@ def _extract_adapter_artifact(
             for name in _REQUIRED_ADAPTER_FILES:
                 (destination / name).write_bytes(archive.read(name))
     except (zipfile.BadZipFile, KeyError, ValueError) as exc:
-        if isinstance(exc, Gemma4RuntimeError):
-            raise
         raise Gemma4RuntimeError(
             "GEMMA4_ADAPTER_ARTIFACT_INVALID"
         ) from exc
