@@ -52,7 +52,13 @@ def test_model_registry_requires_versioned_training_and_evaluation_lineage() -> 
     assert "artifact_sha256" in models
     assert "training_dataset_manifest_digest" in models
     assert "training_pipeline_version" in models
+    assert "production_evaluation_run_id" in models
 
+    assert "model_version.production_evaluation_run_id = evaluation.id" in repository
+    assert (
+        "AIModelVersionModel.production_evaluation_run_id" in repository
+        and "== EvaluationRunModel.id" in repository
+    )
     assert "MODEL_ARTIFACT_DIGEST_REQUIRED" in repository
     assert "MODEL_TRAINING_LINEAGE_REQUIRED" in repository
     assert "EVALUATION_ATTESTATION_REQUIRED" in repository

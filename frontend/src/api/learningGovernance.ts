@@ -85,6 +85,7 @@ export interface ModelVersionCatalogItem {
   parent_model_version_id: string | null;
   training_dataset_manifest_digest: string | null;
   training_pipeline_version: string | null;
+  production_evaluation_run_id: string | null;
   status: ModelVersionStatus;
   limitations: string | null;
   approved_at: string | null;
