@@ -128,6 +128,10 @@ class AIDecisionModel(Base):
     )
     provider_code: Mapped[str] = mapped_column(String(100), nullable=False)
     model_id: Mapped[str] = mapped_column(String(250), nullable=False)
+    model_artifact_sha256: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
     model_alias: Mapped[str] = mapped_column(String(150), nullable=False)
     routing_policy_id: Mapped[UUID] = mapped_column(nullable=False)
     routing_policy_version: Mapped[str] = mapped_column(String(100), nullable=False)
