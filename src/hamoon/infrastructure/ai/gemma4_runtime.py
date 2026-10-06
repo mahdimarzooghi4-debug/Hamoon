@@ -468,25 +468,25 @@ class Gemma4LoRATrainer(InternalModelTrainer):
                 model = peft.get_peft_model(model, lora_config)
 
             encoded_examples = [
-            self._encode_example(
-                torch=torch,
-                processor=processor,
-                task_class=request.task_class,
-                example=example,
-                max_sequence_length=config.max_sequence_length,
-            )
-            for example in request.examples
-        ]
+                self._encode_example(
+                    torch=torch,
+                    processor=processor,
+                    task_class=request.task_class,
+                    example=example,
+                    max_sequence_length=config.max_sequence_length,
+                )
+                for example in request.examples
+            ]
 
-        class _Dataset(torch.utils.data.Dataset):  # type: ignore[misc]
-            def __len__(self) -> int:
-                return len(encoded_examples)
+            class _Dataset(torch.utils.data.Dataset):  # type: ignore[misc]
+                def __len__(self) -> int:
+                    return len(encoded_examples)
 
-            def __getitem__(self, index: int) -> dict[str, Any]:
-                return encoded_examples[index]
+                def __getitem__(self, index: int) -> dict[str, Any]:
+                    return encoded_examples[index]
 
             with TemporaryDirectory(prefix="hamoon-gemma4-train-") as tmp:
-                    args = dict(config.training_arguments)
+                args = dict(config.training_arguments)
                 args.update(
                     {
                         "output_dir": str(Path(tmp) / "trainer-output"),
