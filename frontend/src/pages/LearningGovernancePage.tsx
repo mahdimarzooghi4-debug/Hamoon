@@ -23,7 +23,7 @@ import {
   listPromptPolicyVersions,
   listRoutingPolicies,
   promoteRoutingPolicy,
-  trainNativeModel,
+  registerInternalModelCandidate,
   type DatasetExport,
   type DatasetStatus,
   type EvaluationRun,
@@ -195,6 +195,8 @@ export function LearningGovernancePage() {
   const [trainingModelKey, setTrainingModelKey] = useState("");
   const [trainingVersion, setTrainingVersion] = useState("");
   const [trainingModelId, setTrainingModelId] = useState("");
+  const [trainingArtifactSha256, setTrainingArtifactSha256] = useState("");
+  const [trainingPipelineVersion, setTrainingPipelineVersion] = useState("");
   const [trainingBaseModelVersionId, setTrainingBaseModelVersionId] =
     useState("");
   const [trainingLimitations, setTrainingLimitations] = useState("");
@@ -328,7 +330,7 @@ export function LearningGovernancePage() {
     if (!ready || !dataset) return [];
     return ready.models.filter(
       (item) =>
-        item.provider_code === "HAMOON_NATIVE" &&
+        item.provider_code === "INTERNAL_MODEL" &&
         item.provider_status === "ACTIVE" &&
         item.artifact_sha256 !== null &&
         (item.status === "APPROVED" || item.status === "PRODUCTION") &&
@@ -341,7 +343,7 @@ export function LearningGovernancePage() {
       ready?.models.filter(
         (item) =>
           item.provider_status === "ACTIVE" &&
-          item.provider_code === "HAMOON_NATIVE" &&
+          item.provider_code === "INTERNAL_MODEL" &&
           item.artifact_sha256 !== null &&
           (item.status === "CANDIDATE" || item.status === "APPROVED") &&
           item.purpose === "OUTCOME_INTERPRETATION",
@@ -518,11 +520,12 @@ export function LearningGovernancePage() {
     );
   }
 
-  async function submitNativeTraining(event: FormEvent<HTMLFormElement>) {
+  async function submitInternalModelCandidate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const dataset = ready?.datasets.find(
       (item) => item.id === trainingDatasetId,
     );
+    const artifactDigest = trainingArtifactSha256.trim().toLowerCase();
     if (
       !dataset ||
       dataset.status !== "APPROVED" ||
@@ -531,31 +534,37 @@ export function LearningGovernancePage() {
       ) ||
       !trainingModelKey.trim() ||
       !trainingVersion.trim() ||
-      !trainingModelId.trim()
+      !trainingModelId.trim() ||
+      !/^[0-9a-f]{64}$/.test(artifactDigest) ||
+      !trainingPipelineVersion.trim()
     ) {
       setActionError(
-        "Dataset تأییدشده و مشخصات نسخه مدل بومی برای آموزش الزامی است.",
+        "Dataset تأییدشده، digest معتبر artifact و نسخه pipeline داخلی الزامی است.",
       );
       return;
     }
     await runAction(
-      "train-native-model",
+      "register-internal-model",
       async () => {
-        await trainNativeModel({
+        await registerInternalModelCandidate({
           taskClass: dataset.purpose as TrainableTask,
           datasetVersionId: dataset.id,
           modelKey: trainingModelKey.trim(),
           version: trainingVersion.trim(),
           modelId: trainingModelId.trim(),
+          artifactSha256: artifactDigest,
+          trainingPipelineVersion: trainingPipelineVersion.trim(),
           baseModelVersionId: trainingBaseModelVersionId || undefined,
           limitations: trainingLimitations.trim(),
         });
         setTrainingVersion("");
         setTrainingModelId("");
+        setTrainingArtifactSha256("");
+        setTrainingPipelineVersion("");
         setTrainingBaseModelVersionId("");
         setTrainingLimitations("");
       },
-      "مدل بومی از Dataset تأییدشده آموزش دید و فقط به‌صورت CANDIDATE ثبت شد.",
+      "metadata مدل داخلی به‌صورت CANDIDATE ثبت شد؛ هیچ آموزش یا Promotion اجرا نشد.",
     );
   }
 
@@ -1092,17 +1101,17 @@ export function LearningGovernancePage() {
       <Panel className="admin-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">APPROVED Dataset → Native Training</span>
-            <h2>آموزش مدل بومی هامون</h2>
+            <span className="eyebrow">APPROVED Dataset → Internal Model Candidate</span>
+            <h2>ثبت artifact مدل داخلی هامون</h2>
           </div>
-          <Badge tone="success">بدون API / بدون شبکه</Badge>
+          <Badge tone="success">بدون API / بدون اجرای Training</Badge>
         </div>
         <p>
-          آموزش داخل خود هامون انجام می‌شود و یک artifact محلی immutable با
-          SHA-256 می‌سازد. خروجی فقط CANDIDATE است و تا Evaluation و Promotion
-          صریح انسانی وارد Production نمی‌شود.
+          این مرحله فقط metadata و lineage یک artifact داخلیِ از قبل تولیدشده
+          توسط pipeline مصوب را ثبت می‌کند. هامون در این نسخه هیچ الگوریتم
+          Training یا مدل مشخصی را انتخاب و اجرا نمی‌کند.
         </p>
-        <form className="evaluation-builder" onSubmit={submitNativeTraining}>
+        <form className="evaluation-builder" onSubmit={submitInternalModelCandidate}>
           <div className="admin-form-grid admin-form-grid--four">
             <label>
               <span>Dataset APPROVED</span>
@@ -1151,7 +1160,26 @@ export function LearningGovernancePage() {
               />
             </label>
             <label>
-              <span>نسخه والد برای ادامه یادگیری</span>
+              <span>Artifact SHA-256</span>
+              <input
+                dir="ltr"
+                maxLength={64}
+                placeholder="64 hex chars"
+                value={trainingArtifactSha256}
+                onChange={(event) => setTrainingArtifactSha256(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Training pipeline version</span>
+              <input
+                maxLength={150}
+                placeholder="نسخه pipeline مصوب"
+                value={trainingPipelineVersion}
+                onChange={(event) => setTrainingPipelineVersion(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>نسخه والد lineage</span>
               <select
                 value={trainingBaseModelVersionId}
                 onChange={(event) => {
@@ -1185,12 +1213,12 @@ export function LearningGovernancePage() {
           </label>
           <div className="dataset-invariants">
             <span>
-              بدون نسخه والد: مدل جدید ساخته می‌شود؛ با نسخه والد: نمونه‌های
-              آموخته‌شده قبلی حفظ و Dataset جدید به آن افزوده می‌شود.
+              این فرم فقط lineage را ثبت می‌کند؛ تولید artifact، الگوریتم
+              Training و اجرای مدل در این مرحله خارج از دامنه و غیرقابل اجراست.
             </span>
           </div>
-          <Button disabled={busy === "train-native-model"} type="submit">
-            آموزش و ثبت CANDIDATE
+          <Button disabled={busy === "register-internal-model"} type="submit">
+            ثبت CANDIDATE
           </Button>
         </form>
 
@@ -1205,7 +1233,13 @@ export function LearningGovernancePage() {
                   {model.provider_code} • {model.purpose} • {model.status}
                 </span>
                 <span className="digest-value">
-                  artifact: {model.artifact_sha256 ?? "legacy / بدون artifact"}
+                  artifact: {model.artifact_sha256 ?? "بدون artifact"}
+                </span>
+                <span className="digest-value">
+                  training dataset: {model.training_dataset_manifest_digest ?? "—"}
+                </span>
+                <span>
+                  pipeline: {model.training_pipeline_version ?? "—"}
                 </span>
                 {model.parent_model_version_id ? (
                   <span className="ltr-value">
@@ -1215,14 +1249,14 @@ export function LearningGovernancePage() {
               </div>
               <Badge
                 tone={
-                  model.provider_code === "HAMOON_NATIVE" &&
+                  model.provider_code === "INTERNAL_MODEL" &&
                   model.artifact_sha256
                     ? "success"
                     : "warning"
                 }
               >
-                {model.provider_code === "HAMOON_NATIVE"
-                  ? "بومی هامون"
+                {model.provider_code === "INTERNAL_MODEL"
+                  ? "مدل داخلی هامون"
                   : "غیرقابل Promotion تولیدی"}
               </Badge>
             </article>

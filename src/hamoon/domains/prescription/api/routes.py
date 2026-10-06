@@ -23,6 +23,8 @@ from hamoon.domains.intelligence.infrastructure.repositories import (
     SqlAlchemyHumanDecisionRepository,
     SqlAlchemyLearningSignalRepository,
 )
+from hamoon.domains.operations.application.handlers import EnsureWorkItemHandler
+from hamoon.domains.operations.domain.entities import WorkItemType
 from hamoon.domains.operations.infrastructure.repositories import (
     SqlAlchemyWorkItemRepository,
 )
@@ -66,8 +68,8 @@ from hamoon.infrastructure.ai.prescription_runtime import (
 )
 from hamoon.infrastructure.ai.providers.fake import FakeAIProvider
 from hamoon.infrastructure.ai.production_factory import (
-    NativeAIRuntimeConfigurationError,
-    build_native_gateway,
+    InternalModelRuntimeConfigurationError,
+    build_internal_model_gateway,
 )
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
@@ -91,17 +93,10 @@ async def _resolve_ai_client(
         AITaskClass.PRESCRIPTION
     )
     if route is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"code": "AI_ROUTING_POLICY_NOT_FOUND"},
+        raise InternalModelRuntimeConfigurationError(
+            "INTERNAL_MODEL_PRODUCTION_ROUTE_NOT_FOUND"
         )
-    try:
-        gateway = build_native_gateway(settings=settings, route=route)
-    except NativeAIRuntimeConfigurationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"code": str(exc)},
-        ) from exc
+    gateway = build_internal_model_gateway(settings=settings, route=route)
     return GatewayPrescriptionAIClient(
         gateway=gateway,
         routing_policy=route.routing_policy,
@@ -170,6 +165,28 @@ async def generate_prescription(
                 prepared=prepared,
                 result=result,
             )
+    except InternalModelRuntimeConfigurationError as exc:
+        async with session.begin():
+            await EnsureWorkItemHandler(
+                work_items=SqlAlchemyWorkItemRepository(session),
+                events=SqlAlchemyDomainEventRecorder(session),
+                audits=SqlAlchemyAuditRecorder(session),
+            ).handle(
+                household_id=household_id,
+                work_type=WorkItemType.AI_FALLBACK,
+                resource_type="DIAGNOSIS",
+                resource_id=body.diagnosis_id,
+                title="بررسی انسانی به‌دلیل عدم دسترسی مدل داخلی",
+                reason=str(exc),
+                priority=80,
+                actor_id=context.actor_id,
+                request_id=request_id,
+                correlation_id=correlation_id,
+            )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": str(exc)},
+        ) from exc
     except PrescriptionGenerationError as exc:
         code = str(exc)
         raise HTTPException(

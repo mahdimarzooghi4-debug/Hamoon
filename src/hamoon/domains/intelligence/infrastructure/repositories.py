@@ -32,7 +32,7 @@ from hamoon.domains.intelligence.domain.registry import (
     RoutingPolicyDraft,
     RoutingPolicyStatus,
     RoutingPromotionResult,
-    HAMOON_NATIVE_PROVIDER_CODE,
+    INTERNAL_MODEL_PROVIDER_CODE,
 )
 from hamoon.domains.intelligence.infrastructure.models import (
     AIDecisionModel,
@@ -665,8 +665,10 @@ class SqlAlchemyAIRuntimeRegistryRepository:
                 ModelRoutingPolicyModel.status == RoutingPolicyStatus.ACTIVE,
                 AIModelVersionModel.status == AIModelVersionStatus.PRODUCTION,
                 AIProviderModel.status == AIProviderStatus.ACTIVE,
-                AIProviderModel.code == HAMOON_NATIVE_PROVIDER_CODE,
+                AIProviderModel.code == INTERNAL_MODEL_PROVIDER_CODE,
                 AIModelVersionModel.artifact_sha256.is_not(None),
+                AIModelVersionModel.training_dataset_manifest_digest.is_not(None),
+                AIModelVersionModel.training_pipeline_version.is_not(None),
                 PromptPolicyVersionModel.status == PromptPolicyVersionStatus.ACTIVE,
                 EvaluationRunModel.status == EvaluationStatus.PASSED,
                 EvaluationRunModel.passed.is_(True),
@@ -738,6 +740,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
                 concrete_model_id=version.concrete_model_id,
                 artifact_sha256=version.artifact_sha256,
                 parent_model_version_id=version.parent_model_version_id,
+                training_dataset_manifest_digest=version.training_dataset_manifest_digest,
+                training_pipeline_version=version.training_pipeline_version,
                 status=version.status,
                 limitations=version.limitations,
                 approved_at=version.approved_at,
@@ -746,7 +750,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             for version, model, provider in result.all()
         ]
 
-    async def get_native_growth_base(
+    async def get_internal_model_parent(
         self,
         *,
         model_version_id: UUID,
@@ -775,10 +779,10 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             raise LookupError("BASE_MODEL_VERSION_NOT_FOUND")
         version, model, provider = row
         if (
-            provider.code != HAMOON_NATIVE_PROVIDER_CODE
+            provider.code != INTERNAL_MODEL_PROVIDER_CODE
             or provider.status is not AIProviderStatus.ACTIVE
         ):
-            raise ValueError("BASE_MODEL_MUST_BE_HAMOON_NATIVE")
+            raise ValueError("BASE_MODEL_MUST_BE_INTERNAL_MODEL")
         if model.model_key != model_key.strip():
             raise ValueError("BASE_MODEL_KEY_MISMATCH")
         if model.purpose != task_class.value:
@@ -807,13 +811,15 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             concrete_model_id=version.concrete_model_id,
             artifact_sha256=version.artifact_sha256,
             parent_model_version_id=version.parent_model_version_id,
+            training_dataset_manifest_digest=version.training_dataset_manifest_digest,
+            training_pipeline_version=version.training_pipeline_version,
             status=version.status,
             limitations=version.limitations,
             approved_at=version.approved_at,
             deployed_at=version.deployed_at,
         )
 
-    async def register_native_model_candidate(
+    async def register_internal_model_candidate(
         self,
         *,
         task_class: AITaskClass,
@@ -821,6 +827,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         version: str,
         concrete_model_id: str,
         artifact_sha256: str,
+        training_dataset_manifest_digest: str,
+        training_pipeline_version: str,
         parent_model_version_id: UUID | None,
         limitations: str | None,
     ) -> AIModelVersionCatalogItem:
@@ -828,20 +836,29 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         clean_version = version.strip()
         clean_model_id = concrete_model_id.strip()
         clean_digest = artifact_sha256.strip().lower()
-        if not clean_key or not clean_version or not clean_model_id:
+        clean_dataset_digest = training_dataset_manifest_digest.strip().lower()
+        clean_pipeline_version = training_pipeline_version.strip()
+        if (
+            not clean_key
+            or not clean_version
+            or not clean_model_id
+            or not clean_pipeline_version
+        ):
             raise ValueError("MODEL_CANDIDATE_METADATA_REQUIRED")
         if re.fullmatch(r"[0-9a-f]{64}", clean_digest) is None:
             raise ValueError("MODEL_ARTIFACT_DIGEST_INVALID")
+        if re.fullmatch(r"[0-9a-f]{64}", clean_dataset_digest) is None:
+            raise ValueError("TRAINING_DATASET_DIGEST_INVALID")
 
         provider_result = await self._session.execute(
             select(AIProviderModel).where(
-                AIProviderModel.code == HAMOON_NATIVE_PROVIDER_CODE,
+                AIProviderModel.code == INTERNAL_MODEL_PROVIDER_CODE,
                 AIProviderModel.status == AIProviderStatus.ACTIVE,
             )
         )
         provider = provider_result.scalar_one_or_none()
         if provider is None:
-            raise ValueError("HAMOON_NATIVE_PROVIDER_NOT_ACTIVE")
+            raise ValueError("INTERNAL_MODEL_PROVIDER_NOT_ACTIVE")
 
         model_result = await self._session.execute(
             select(AIModelModel).where(AIModelModel.model_key == clean_key)
@@ -862,7 +879,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
                 raise ValueError("MODEL_KEY_PURPOSE_MISMATCH")
 
         if parent_model_version_id is not None:
-            await self.get_native_growth_base(
+            await self.get_internal_model_parent(
                 model_version_id=parent_model_version_id,
                 task_class=task_class,
                 model_key=clean_key,
@@ -884,6 +901,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             version=clean_version,
             concrete_model_id=clean_model_id,
             artifact_sha256=clean_digest,
+            training_dataset_manifest_digest=clean_dataset_digest,
+            training_pipeline_version=clean_pipeline_version,
             parent_model_version_id=parent_model_version_id,
             status=AIModelVersionStatus.CANDIDATE,
             limitations=limitations.strip() if limitations else None,
@@ -904,6 +923,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             concrete_model_id=candidate.concrete_model_id,
             artifact_sha256=candidate.artifact_sha256,
             parent_model_version_id=candidate.parent_model_version_id,
+            training_dataset_manifest_digest=candidate.training_dataset_manifest_digest,
+            training_pipeline_version=candidate.training_pipeline_version,
             status=candidate.status,
             limitations=candidate.limitations,
             approved_at=candidate.approved_at,
@@ -1009,9 +1030,9 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             raise LookupError("AI_PROVIDER_NOT_FOUND")
         if (
             provider.status is not AIProviderStatus.ACTIVE
-            or provider.code != HAMOON_NATIVE_PROVIDER_CODE
+            or provider.code != INTERNAL_MODEL_PROVIDER_CODE
         ):
-            raise ValueError("EVALUATION_REQUIRES_HAMOON_NATIVE_MODEL")
+            raise ValueError("EVALUATION_REQUIRES_INTERNAL_MODEL")
         if model.purpose != task_class.value:
             raise ValueError("EVALUATION_MODEL_PURPOSE_MISMATCH")
         if (
@@ -1019,6 +1040,15 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             or re.fullmatch(r"[0-9a-f]{64}", model_version.artifact_sha256) is None
         ):
             raise ValueError("EVALUATION_MODEL_ARTIFACT_REQUIRED")
+        if (
+            model_version.training_dataset_manifest_digest is None
+            or re.fullmatch(
+                r"[0-9a-f]{64}",
+                model_version.training_dataset_manifest_digest,
+            ) is None
+            or not (model_version.training_pipeline_version or "").strip()
+        ):
+            raise ValueError("EVALUATION_MODEL_TRAINING_LINEAGE_REQUIRED")
         if model_version.status not in {
             AIModelVersionStatus.CANDIDATE,
             AIModelVersionStatus.APPROVED,
@@ -1261,13 +1291,22 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         routing, model_version, provider, prompt, evaluation = row
         if provider.status != AIProviderStatus.ACTIVE:
             raise ValueError("AI_PROVIDER_NOT_ACTIVE")
-        if provider.code != HAMOON_NATIVE_PROVIDER_CODE:
+        if provider.code != INTERNAL_MODEL_PROVIDER_CODE:
             raise ValueError("EXTERNAL_AI_PROVIDER_PRODUCTION_FORBIDDEN")
         if (
             model_version.artifact_sha256 is None
             or re.fullmatch(r"[0-9a-f]{64}", model_version.artifact_sha256) is None
         ):
             raise ValueError("MODEL_ARTIFACT_DIGEST_REQUIRED")
+        if (
+            model_version.training_dataset_manifest_digest is None
+            or re.fullmatch(
+                r"[0-9a-f]{64}",
+                model_version.training_dataset_manifest_digest,
+            ) is None
+            or not (model_version.training_pipeline_version or "").strip()
+        ):
+            raise ValueError("MODEL_TRAINING_LINEAGE_REQUIRED")
         if prompt.status != PromptPolicyVersionStatus.ACTIVE:
             raise ValueError("PROMPT_POLICY_NOT_ACTIVE")
         if evaluation.status != EvaluationStatus.PASSED or not evaluation.passed:

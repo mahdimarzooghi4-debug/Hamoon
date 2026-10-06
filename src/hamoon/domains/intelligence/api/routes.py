@@ -46,8 +46,8 @@ from hamoon.domains.intelligence.api.schemas import (
     PromptPolicyVersionCatalogResponse,
     ReviewDiagnosisResponse,
     StructuredDiagnosisReviewRequest,
-    TrainNativeModelRequest,
-    TrainNativeModelResponse,
+    RegisterInternalModelCandidateRequest,
+    RegisterInternalModelCandidateResponse,
 )
 from hamoon.domains.intelligence.application.diagnosis_commands import (
     GenerateDiagnosisCommand,
@@ -81,6 +81,8 @@ from hamoon.domains.learning.domain.entities import DatasetVersionStatus
 from hamoon.domains.learning.infrastructure.repositories import (
     SqlAlchemyLearningDatasetRepository,
 )
+from hamoon.domains.operations.application.handlers import EnsureWorkItemHandler
+from hamoon.domains.operations.domain.entities import WorkItemType
 from hamoon.domains.operations.infrastructure.repositories import (
     SqlAlchemyWorkItemRepository,
 )
@@ -95,14 +97,10 @@ from hamoon.infrastructure.ai.diagnosis_runtime import (
     local_fake_diagnosis_policy,
 )
 from hamoon.infrastructure.ai.gateway import ProviderAIGateway
-from hamoon.infrastructure.ai.training import (
-    NativeModelTrainingError,
-    train_native_model,
-)
 from hamoon.infrastructure.ai.providers.fake import FakeAIProvider
 from hamoon.infrastructure.ai.production_factory import (
-    NativeAIRuntimeConfigurationError,
-    build_native_gateway,
+    InternalModelRuntimeConfigurationError,
+    build_internal_model_gateway,
 )
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
@@ -129,13 +127,7 @@ def _production_ai_client(
     settings: Settings,
     route: ResolvedAIRoute,
 ) -> GatewayDiagnosisAIClient:
-    try:
-        gateway = build_native_gateway(settings=settings, route=route)
-    except NativeAIRuntimeConfigurationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"code": str(exc)},
-        ) from exc
+    gateway = build_internal_model_gateway(settings=settings, route=route)
     return GatewayDiagnosisAIClient(
         gateway=gateway,
         routing_policy=route.routing_policy,
@@ -155,9 +147,8 @@ async def _resolve_diagnosis_ai_client(
         AITaskClass.DIAGNOSIS
     )
     if route is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"code": "AI_ROUTING_POLICY_NOT_FOUND"},
+        raise InternalModelRuntimeConfigurationError(
+            "INTERNAL_MODEL_PRODUCTION_ROUTE_NOT_FOUND"
         )
     return _production_ai_client(settings=settings, route=route)
 
@@ -224,6 +215,28 @@ async def generate_diagnosis(
                 prepared=prepared,
                 result=result,
             )
+    except InternalModelRuntimeConfigurationError as exc:
+        async with session.begin():
+            await EnsureWorkItemHandler(
+                work_items=SqlAlchemyWorkItemRepository(session),
+                events=SqlAlchemyDomainEventRecorder(session),
+                audits=SqlAlchemyAuditRecorder(session),
+            ).handle(
+                household_id=household_id,
+                work_type=WorkItemType.AI_FALLBACK,
+                resource_type="PGOR_SNAPSHOT",
+                resource_id=body.pgor_snapshot_id,
+                title="بررسی انسانی به‌دلیل عدم دسترسی مدل داخلی",
+                reason=str(exc),
+                priority=80,
+                actor_id=context.actor_id,
+                request_id=request_id,
+                correlation_id=correlation_id,
+            )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": str(exc)},
+        ) from exc
     except DiagnosisGenerationError as exc:
         code = str(exc)
         raise HTTPException(
@@ -658,22 +671,24 @@ async def get_ai_decision_trace(
 
 
 @router.post(
-    "/api/v1/admin/ai/native-models/train",
-    response_model=TrainNativeModelResponse,
+    "/api/v1/admin/ai/internal-model-candidates",
+    response_model=RegisterInternalModelCandidateResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def train_native_ai_model(
-    body: TrainNativeModelRequest,
+async def register_internal_model_candidate(
+    body: RegisterInternalModelCandidateRequest,
     context: Annotated[
         AuthorizationContext,
         Depends(require_roles(Role.ADMIN)),
     ],
     session: Annotated[AsyncSession, Depends(get_db_session)],
-    settings: Annotated[Settings, Depends(get_settings)],
-) -> TrainNativeModelResponse:
+) -> RegisterInternalModelCandidateResponse:
     datasets = SqlAlchemyLearningDatasetRepository(session)
     repository = SqlAlchemyAIRuntimeRegistryRepository(session)
-    base_artifact_sha256: str | None = None
+    request_id = current_request_id() or "unknown"
+    correlation_id = current_correlation_id() or request_id
+    now = datetime.now(UTC)
+
     try:
         async with session.begin():
             dataset = await datasets.get(body.dataset_version_id)
@@ -687,15 +702,51 @@ async def train_native_ai_model(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail={"code": "TRAINING_DATASET_NOT_APPROVED"},
                 )
-            items = await datasets.list_items(dataset.id)
-            if body.base_model_version_id is not None:
-                base = await repository.get_native_growth_base(
-                    model_version_id=body.base_model_version_id,
-                    task_class=body.task_class,
-                    model_key=body.model_key,
-                    concrete_model_id=body.model_id,
+            if dataset.purpose != body.task_class.value:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={"code": "TRAINING_DATASET_PURPOSE_MISMATCH"},
                 )
-                base_artifact_sha256 = base.artifact_sha256
+
+            candidate = await repository.register_internal_model_candidate(
+                task_class=body.task_class,
+                model_key=body.model_key,
+                version=body.version,
+                concrete_model_id=body.model_id,
+                artifact_sha256=body.artifact_sha256,
+                training_dataset_manifest_digest=dataset.manifest_digest,
+                training_pipeline_version=body.training_pipeline_version,
+                parent_model_version_id=body.base_model_version_id,
+                limitations=body.limitations,
+            )
+            await SqlAlchemyAuditRecorder(session).record(
+                AuditRecord(
+                    id=uuid4(),
+                    actor_id=context.actor_id,
+                    action="ai.internal_model.candidate.register",
+                    resource_type="AI_MODEL_VERSION",
+                    resource_id=candidate.id,
+                    request_id=request_id,
+                    correlation_id=correlation_id,
+                    created_at=now,
+                    purpose="AI_MODEL_GOVERNANCE",
+                    metadata={
+                        "task_class": body.task_class.value,
+                        "dataset_version_id": str(dataset.id),
+                        "training_dataset_manifest_digest": dataset.manifest_digest,
+                        "training_pipeline_version": body.training_pipeline_version,
+                        "model_key": candidate.model_key,
+                        "model_version": candidate.version,
+                        "artifact_sha256": candidate.artifact_sha256,
+                        "parent_model_version_id": (
+                            str(candidate.parent_model_version_id)
+                            if candidate.parent_model_version_id is not None
+                            else None
+                        ),
+                        "provider_code": candidate.provider_code,
+                    },
+                )
+            )
     except LookupError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -707,70 +758,7 @@ async def train_native_ai_model(
             detail={"code": str(exc)},
         ) from exc
 
-    try:
-        _artifact, digest = train_native_model(
-            model_root=settings.ai_model_root,
-            task_class=body.task_class,
-            model_id=body.model_id,
-            dataset=dataset,
-            items=items,
-            base_artifact_sha256=base_artifact_sha256,
-        )
-    except NativeModelTrainingError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"code": str(exc)},
-        ) from exc
-
-    now = datetime.now(UTC)
-    request_id = current_request_id() or "unknown"
-    correlation_id = current_correlation_id() or request_id
-    try:
-        async with session.begin():
-            candidate = await repository.register_native_model_candidate(
-                task_class=body.task_class,
-                model_key=body.model_key,
-                version=body.version,
-                concrete_model_id=body.model_id,
-                artifact_sha256=digest,
-                parent_model_version_id=body.base_model_version_id,
-                limitations=body.limitations,
-            )
-            await SqlAlchemyAuditRecorder(session).record(
-                AuditRecord(
-                    id=uuid4(),
-                    actor_id=context.actor_id,
-                    action="ai.native_model.train",
-                    resource_type="AI_MODEL_VERSION",
-                    resource_id=candidate.id,
-                    request_id=request_id,
-                    correlation_id=correlation_id,
-                    created_at=now,
-                    purpose="AI_MODEL_TRAINING",
-                    metadata={
-                        "task_class": body.task_class.value,
-                        "dataset_version_id": str(dataset.id),
-                        "dataset_manifest_digest": dataset.manifest_digest,
-                        "model_key": candidate.model_key,
-                        "model_version": candidate.version,
-                        "artifact_sha256": digest,
-                        "parent_model_version_id": (
-                            str(candidate.parent_model_version_id)
-                            if candidate.parent_model_version_id is not None
-                            else None
-                        ),
-                        "parent_artifact_sha256": base_artifact_sha256,
-                        "provider_code": candidate.provider_code,
-                    },
-                )
-            )
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"code": str(exc)},
-        ) from exc
-
-    return TrainNativeModelResponse(
+    return RegisterInternalModelCandidateResponse(
         data=AIModelVersionCatalogData(
             id=candidate.id,
             ai_model_id=candidate.ai_model_id,
@@ -783,6 +771,10 @@ async def train_native_ai_model(
             concrete_model_id=candidate.concrete_model_id,
             artifact_sha256=candidate.artifact_sha256,
             parent_model_version_id=candidate.parent_model_version_id,
+            training_dataset_manifest_digest=(
+                candidate.training_dataset_manifest_digest
+            ),
+            training_pipeline_version=candidate.training_pipeline_version,
             status=candidate.status.value,
             limitations=candidate.limitations,
             approved_at=candidate.approved_at,
@@ -817,6 +809,8 @@ async def list_ai_model_versions(
                 concrete_model_id=item.concrete_model_id,
                 artifact_sha256=item.artifact_sha256,
                 parent_model_version_id=item.parent_model_version_id,
+                training_dataset_manifest_digest=item.training_dataset_manifest_digest,
+                training_pipeline_version=item.training_pipeline_version,
                 status=item.status.value,
                 limitations=item.limitations,
                 approved_at=item.approved_at,
