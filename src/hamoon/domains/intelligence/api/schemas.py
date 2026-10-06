@@ -231,6 +231,7 @@ class AIModelVersionCatalogData(BaseModel):
     concrete_model_id: str
     artifact_sha256: str | None
     parent_model_version_id: UUID | None
+    training_dataset_version_id: UUID | None = None
     training_dataset_manifest_digest: str | None = None
     training_pipeline_version: str | None = None
     production_evaluation_run_id: UUID | None = None
