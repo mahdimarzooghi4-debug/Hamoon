@@ -669,6 +669,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
                 AIModelVersionModel.artifact_sha256.is_not(None),
                 AIModelVersionModel.training_dataset_manifest_digest.is_not(None),
                 AIModelVersionModel.training_pipeline_version.is_not(None),
+                AIModelVersionModel.production_evaluation_run_id
+                == EvaluationRunModel.id,
                 PromptPolicyVersionModel.status == PromptPolicyVersionStatus.ACTIVE,
                 EvaluationRunModel.status == EvaluationStatus.PASSED,
                 EvaluationRunModel.passed.is_(True),
@@ -742,6 +744,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
                 parent_model_version_id=version.parent_model_version_id,
                 training_dataset_manifest_digest=version.training_dataset_manifest_digest,
                 training_pipeline_version=version.training_pipeline_version,
+                production_evaluation_run_id=version.production_evaluation_run_id,
                 status=version.status,
                 limitations=version.limitations,
                 approved_at=version.approved_at,
@@ -813,6 +816,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             parent_model_version_id=version.parent_model_version_id,
             training_dataset_manifest_digest=version.training_dataset_manifest_digest,
             training_pipeline_version=version.training_pipeline_version,
+            production_evaluation_run_id=version.production_evaluation_run_id,
             status=version.status,
             limitations=version.limitations,
             approved_at=version.approved_at,
@@ -925,6 +929,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             parent_model_version_id=candidate.parent_model_version_id,
             training_dataset_manifest_digest=candidate.training_dataset_manifest_digest,
             training_pipeline_version=candidate.training_pipeline_version,
+            production_evaluation_run_id=candidate.production_evaluation_run_id,
             status=candidate.status,
             limitations=candidate.limitations,
             approved_at=candidate.approved_at,
@@ -1344,6 +1349,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         )
 
         model_version.status = AIModelVersionStatus.PRODUCTION
+        model_version.production_evaluation_run_id = evaluation.id
         model_version.approved_at = activated_at
         model_version.deployed_at = activated_at
         routing.status = RoutingPolicyStatus.ACTIVE
