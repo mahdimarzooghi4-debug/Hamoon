@@ -589,6 +589,7 @@ async def get_ai_decision(
             status=decision.status,
             provider_code=decision.provider_code,
             model_id=decision.model_id,
+            model_artifact_sha256=decision.model_artifact_sha256,
             model_alias=decision.model_alias,
             routing_policy_id=decision.routing_policy_id,
             routing_policy_version=decision.routing_policy_version,
