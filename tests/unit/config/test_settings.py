@@ -42,6 +42,22 @@ def _production_settings(**overrides: object) -> Settings:
             "model-artifact-production-secret"
         ),
         "internal_model_artifact_s3_bucket": "hamoon-model-artifacts",
+        "gemma4_base_checkpoint_root": "/models/gemma-4-12b-it",
+        "gemma4_training_config_json": (
+            '{"max_sequence_length":2048,"dtype":"bfloat16",'
+            '"device_map":"auto","lora_r":16,"lora_alpha":32,'
+            '"lora_dropout":0.05,"lora_bias":"none",'
+            '"target_modules":["q_proj","k_proj","v_proj","o_proj"],'
+            '"training_arguments":{"learning_rate":0.0001,'
+            '"num_train_epochs":1,"per_device_train_batch_size":1,'
+            '"gradient_accumulation_steps":8,"weight_decay":0.0,'
+            '"warmup_ratio":0.0,"lr_scheduler_type":"cosine",'
+            '"optim":"adamw_torch","max_grad_norm":1.0,"seed":42,'
+            '"gradient_checkpointing":true}}'
+        ),
+        "gemma4_generation_config_json": (
+            '{"max_new_tokens":512,"do_sample":false}'
+        ),
     }
     values.update(overrides)
     return Settings(_env_file=None, **values)
@@ -182,6 +198,21 @@ def test_production_configuration_accepts_remote_secure_dependencies() -> None:
             "internal_model_artifact_s3_secret_key",
             "minio12345",
             "PRODUCTION_INTERNAL_MODEL_ARTIFACT_S3_CREDENTIALS_REQUIRED",
+        ),
+        (
+            "gemma4_base_checkpoint_root",
+            "",
+            "PRODUCTION_GEMMA4_BASE_CHECKPOINT_REQUIRED",
+        ),
+        (
+            "gemma4_training_config_json",
+            "",
+            "PRODUCTION_GEMMA4_TRAINING_CONFIG_REQUIRED",
+        ),
+        (
+            "gemma4_generation_config_json",
+            "",
+            "PRODUCTION_GEMMA4_GENERATION_CONFIG_REQUIRED",
         ),
         (
             "evidence_scanner_backend",
