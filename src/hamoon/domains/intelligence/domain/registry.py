@@ -105,6 +105,7 @@ class AIModelVersionCatalogItem:
     approved_at: datetime | None
     deployed_at: datetime | None
     parent_model_version_id: UUID | None = None
+    training_dataset_version_id: UUID | None = None
     training_dataset_manifest_digest: str | None = None
     training_pipeline_version: str | None = None
     production_evaluation_run_id: UUID | None = None
