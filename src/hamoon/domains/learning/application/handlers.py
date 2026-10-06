@@ -24,6 +24,7 @@ from hamoon.domains.intelligence.ports.repositories import (
 from hamoon.domains.intervention.ports.repositories import InterventionRepository
 from hamoon.domains.learning.application.commands import (
     ApproveDatasetCommand,
+    CreateAutomaticDatasetForCuratedSignalCommand,
     CreateEvaluationRunCommand,
     CreateOutcomeDatasetCommand,
     CreateReviewedDecisionDatasetCommand,
@@ -573,6 +574,129 @@ class CreateReviewedDecisionDatasetHandler:
             )
         )
         return dataset, tuple(items)
+
+
+
+AUTO_CURATED_SIGNAL_SELECTION_POLICY_VERSION = "curated-signal-event-v1"
+
+_AUTO_REVIEWED_DATASET_TASK_BY_SIGNAL = {
+    LearningSignalType.DIAGNOSIS_CONFIRMED: AITaskClass.DIAGNOSIS,
+    LearningSignalType.DIAGNOSIS_MODIFIED: AITaskClass.DIAGNOSIS,
+    LearningSignalType.DIAGNOSIS_REPLACED: AITaskClass.DIAGNOSIS,
+    LearningSignalType.PRESCRIPTION_CONFIRMED: AITaskClass.PRESCRIPTION,
+    LearningSignalType.PRESCRIPTION_MODIFIED: AITaskClass.PRESCRIPTION,
+    LearningSignalType.PRESCRIPTION_REPLACED: AITaskClass.PRESCRIPTION,
+}
+
+_AUTO_DATASET_KEY_BY_TASK = {
+    AITaskClass.DIAGNOSIS: "hamoon.auto.diagnosis.learning",
+    AITaskClass.PRESCRIPTION: "hamoon.auto.prescription.learning",
+    AITaskClass.OUTCOME_INTERPRETATION: "hamoon.auto.outcome.learning",
+}
+
+
+class CreateAutomaticDatasetForCuratedSignalHandler:
+    def __init__(
+        self,
+        *,
+        signals: LearningSignalRepository,
+        datasets: LearningDatasetRepository,
+        ai_decisions: AIDecisionRepository,
+        human_decisions: HumanDecisionRepository,
+        feature_packages: FeaturePackageRepository,
+        outcomes: OutcomeRepository,
+        snapshots: PGORSnapshotRepository,
+        interventions: InterventionRepository,
+        provider_results: ProviderResultRepository,
+        events: DomainEventRecorder,
+        audits: AuditRecorder,
+    ) -> None:
+        self._signals = signals
+        self._datasets = datasets
+        self._ai_decisions = ai_decisions
+        self._human_decisions = human_decisions
+        self._feature_packages = feature_packages
+        self._outcomes = outcomes
+        self._snapshots = snapshots
+        self._interventions = interventions
+        self._provider_results = provider_results
+        self._events = events
+        self._audits = audits
+
+    async def handle(
+        self,
+        command: CreateAutomaticDatasetForCuratedSignalCommand,
+    ) -> tuple[LearningDatasetVersion, tuple[LearningDatasetItem, ...]] | None:
+        signal = await self._signals.get(command.signal_id)
+        if signal is None:
+            raise LearningDatasetError("LEARNING_SIGNAL_NOT_FOUND")
+        if signal.quality_status is not LearningSignalQuality.CURATED:
+            raise LearningDatasetError("LEARNING_SIGNAL_NOT_CURATED")
+
+        if signal.signal_type is LearningSignalType.OUTCOME_OBSERVED:
+            task_class = AITaskClass.OUTCOME_INTERPRETATION
+        else:
+            task_class = _AUTO_REVIEWED_DATASET_TASK_BY_SIGNAL.get(
+                signal.signal_type
+            )
+            if task_class is None:
+                return None
+
+        dataset_key = _AUTO_DATASET_KEY_BY_TASK[task_class]
+        version = f"signal-{signal.id}"
+
+        existing = await self._datasets.get_by_key_version(
+            dataset_key=dataset_key,
+            version=version,
+        )
+        if existing is not None:
+            items = tuple(await self._datasets.list_items(existing.id))
+            return existing, items
+
+        if task_class is AITaskClass.OUTCOME_INTERPRETATION:
+            return await CreateOutcomeDatasetHandler(
+                signals=self._signals,
+                datasets=self._datasets,
+                outcomes=self._outcomes,
+                snapshots=self._snapshots,
+                interventions=self._interventions,
+                provider_results=self._provider_results,
+                events=self._events,
+                audits=self._audits,
+            ).handle(
+                CreateOutcomeDatasetCommand(
+                    dataset_key=dataset_key,
+                    version=version,
+                    selection_policy_version=(
+                        AUTO_CURATED_SIGNAL_SELECTION_POLICY_VERSION
+                    ),
+                    signal_ids=(signal.id,),
+                    actor_id=command.actor_id,
+                    request_id=command.request_id,
+                    correlation_id=command.correlation_id,
+                )
+            )
+
+        return await CreateReviewedDecisionDatasetHandler(
+            signals=self._signals,
+            datasets=self._datasets,
+            ai_decisions=self._ai_decisions,
+            human_decisions=self._human_decisions,
+            feature_packages=self._feature_packages,
+            events=self._events,
+            audits=self._audits,
+        ).handle(
+            CreateReviewedDecisionDatasetCommand(
+                task_class=task_class,
+                dataset_key=dataset_key,
+                version=version,
+                selection_policy_version=AUTO_CURATED_SIGNAL_SELECTION_POLICY_VERSION,
+                signal_ids=(signal.id,),
+                actor_id=command.actor_id,
+                request_id=command.request_id,
+                correlation_id=command.correlation_id,
+            )
+        )
 
 
 class ApproveDatasetHandler:
