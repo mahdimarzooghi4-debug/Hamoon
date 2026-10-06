@@ -53,9 +53,12 @@ training pipeline version
 evaluation evidence
 ```
 
-Artifact در این مرحله یک artifact داخلی immutable و versioned است که با digest و lineage
-رجیستری شناسایی می‌شود. فرمت serialization، خانواده مدل و محل فیزیکی ذخیره‌سازی هنوز انتخاب
-نشده‌اند و نباید از روی implementation حدس زده شوند.
+Artifact یک artifact داخلی immutable و versioned است که با digest و lineage رجیستری
+شناسایی می‌شود. baseline مصوب برای اولین implementation وزن‌دار:
+`Qwen/Qwen3-4B-Instruct-2507` با revision ثابت
+`cdbee75f17c01a7cc42f958dc650907174af0554` است. روش آموزش baseline،
+Supervised Fine-Tuning با LoRA و artifact format برابر
+`HAMOON_QWEN3_PEFT_SAFETENSORS_V1` است.
 
 هیچ Model Version بدون lineage کامل نمی‌تواند وارد Production شود.
 
@@ -116,13 +119,22 @@ Dataset Approval همچنان انسانی است و Promotion به Production �
 - fail-safe در نبود Production Model یا executor concrete؛
 - ایجاد `AI_FALLBACK` Human Work Item هنگام unavailable بودن AI Production.
 
-عمداً در این مرحله پیاده نمی‌شوند:
+تصمیم baseline این مرحله:
 
-- مدل مشخص مانند Llama/Qwen/Mistral یا هر خانواده دیگر؛
-- Training algorithm؛
-- concrete trainer/model family و training algorithm؛
-- concrete in-process executor implementation و inference algorithm؛
-- threshold یا hyperparameter؛
+- model family: `Qwen3`؛
+- model: `Qwen/Qwen3-4B-Instruct-2507`؛
+- immutable upstream revision:
+  `cdbee75f17c01a7cc42f958dc650907174af0554`؛
+- training method: `SFT_LORA`؛
+- adapter serialization: PEFT Safetensors؛
+- Hamoon artifact format: `HAMOON_QWEN3_PEFT_SAFETENSORS_V1`؛
+- pipeline identity: `qwen3-4b-instruct-2507-sft-lora-v1`.
+
+عمداً هنوز پیاده/تعیین نمی‌شوند:
+
+- concrete Qwen3 trainer/executor runtime implementation؛
+- training hyperparameter values؛
+- hardware sizing/resource isolation؛
 - concrete production S3 provider/credentials و bucket deployment؛
 - internal/external inference API.
 
@@ -203,9 +215,10 @@ Curated Dataset
 Execution boundary تصویب شده است: مدل فقط به‌صورت `IN_PROCESS` داخل خود Hamoon اجرا می‌شود
 و هیچ API/endpoint/token یا inference service جداگانه مجاز نیست.
 
-مواردی که هنوز تصمیم جداگانه می‌خواهند: model family، artifact serialization format،
-training method، concrete trainer/executor implementation، production artifact-store binding،
-resource isolation و evaluation policy جزئی.
+model family، upstream revision، training method و artifact format برای baseline v1 تصویب
+شده‌اند. موارد باز: concrete trainer/executor implementation، training hyperparameters،
+resource isolation/hardware sizing، production artifact-store deployment و evaluation policy
+جزئی.
 
 هسته Training/Execution این تصمیم‌ها را hard-code نمی‌کند. Dataset تأییدشده از طریق Training
 Run وارد engine می‌شود؛ artifact خروجی در storage خصوصی immutable ثبت می‌شود و همان Run در
