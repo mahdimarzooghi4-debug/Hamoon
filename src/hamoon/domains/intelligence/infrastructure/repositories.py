@@ -671,6 +671,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
                 AIModelVersionModel.training_pipeline_version.is_not(None),
                 AIModelVersionModel.production_evaluation_run_id
                 == EvaluationRunModel.id,
+                AIModelVersionModel.training_dataset_manifest_digest
+                == EvaluationRunModel.dataset_manifest_digest,
                 PromptPolicyVersionModel.status == PromptPolicyVersionStatus.ACTIVE,
                 EvaluationRunModel.status == EvaluationStatus.PASSED,
                 EvaluationRunModel.passed.is_(True),
@@ -1054,6 +1056,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             or not (model_version.training_pipeline_version or "").strip()
         ):
             raise ValueError("EVALUATION_MODEL_TRAINING_LINEAGE_REQUIRED")
+        if model_version.training_dataset_manifest_digest != dataset_manifest_digest:
+            raise ValueError("EVALUATION_DATASET_LINEAGE_MISMATCH")
         if model_version.status not in {
             AIModelVersionStatus.CANDIDATE,
             AIModelVersionStatus.APPROVED,
@@ -1328,6 +1332,11 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             raise ValueError("EVALUATION_STRUCTURAL_GATE_NOT_PASSED")
         if evaluation.model_version_id != model_version.id:
             raise ValueError("EVALUATION_MODEL_VERSION_MISMATCH")
+        if (
+            evaluation.dataset_manifest_digest
+            != model_version.training_dataset_manifest_digest
+        ):
+            raise ValueError("EVALUATION_DATASET_LINEAGE_MISMATCH")
         if evaluation.prompt_policy_version_id != prompt.id:
             raise ValueError("EVALUATION_PROMPT_VERSION_MISMATCH")
         if model_version.status not in {
