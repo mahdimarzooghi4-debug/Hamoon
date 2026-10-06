@@ -84,6 +84,10 @@ def decode_qwen3_lora_manifest(
     adapter_files_value = raw.get("adapter_files", ())
     if not isinstance(adapter_files_value, (list, tuple)):
         raise ValueError("QWEN3_ARTIFACT_FILES_INVALID")
+    adapter_files = cast(
+        list[object] | tuple[object, ...],
+        adapter_files_value,
+    )
 
     manifest = Qwen3LoRAArtifactManifest(
         format_version=str(raw.get("format_version", "")),
@@ -102,7 +106,7 @@ def decode_qwen3_lora_manifest(
         ),
         adapter_files=tuple(
             value
-            for value in adapter_files_value
+            for value in adapter_files
             if isinstance(value, str)
         ),
     )
