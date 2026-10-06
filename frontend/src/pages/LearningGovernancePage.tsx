@@ -1234,6 +1234,32 @@ export function LearningGovernancePage() {
         </form>
 
         <div className="dataset-list">
+          {readyData.trainingRuns.map((run) => (
+            <article className="dataset-card" key={run.id}>
+              <div>
+                <strong>
+                  {run.model_key} / {run.model_version}
+                </strong>
+                <span>
+                  {run.task_class} • pipeline {run.training_pipeline_version}
+                </span>
+                <span className="digest-value">
+                  artifact: {run.artifact_sha256 ?? "—"}
+                </span>
+                {run.error_code ? (
+                  <span className="ltr-value">
+                    error: {run.error_code}
+                  </span>
+                ) : null}
+              </div>
+              <Badge tone={trainingRunTone(run.status)}>
+                {trainingRunStatusLabels[run.status]}
+              </Badge>
+            </article>
+          ))}
+        </div>
+
+        <div className="dataset-list">
           {readyData.models.map((model) => (
             <article className="dataset-card" key={model.id}>
               <div>
