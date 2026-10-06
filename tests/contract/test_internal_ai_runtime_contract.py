@@ -147,3 +147,43 @@ def test_api_based_self_hosted_runtime_cannot_reenter_production_surface() -> No
         "scripts/verify_sovereign_ai_integration.py",
     ):
         assert not Path(obsolete_path).exists()
+
+
+def test_concrete_gemma4_runtime_is_pinned_local_only_and_qwen_is_retired() -> None:
+    baseline = Path(
+        "src/hamoon/infrastructure/ai/gemma4_baseline.py"
+    ).read_text(encoding="utf-8")
+    runtime = Path(
+        "src/hamoon/infrastructure/ai/gemma4_runtime.py"
+    ).read_text(encoding="utf-8")
+    main = Path("src/hamoon/app/main.py").read_text(encoding="utf-8")
+    requirements = Path(
+        "requirements/internal-ai-gemma4.txt"
+    ).read_text(encoding="utf-8")
+
+    assert 'GEMMA4_BASELINE_MODEL_ID: Final = "google/gemma-4-12B-it"' in baseline
+    assert (
+        "707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7"
+        in baseline
+    )
+    assert (
+        "5a84cb313260ac447237b890387116dfa8682e49a6b44bc585ae8353abbff18d"
+        in baseline
+    )
+    assert "local_files_only=True" in runtime
+    assert "AutoModelForCausalLM.from_pretrained" in runtime
+    assert "PeftModel.from_pretrained" in runtime
+    assert "GEMMA4_TRAINING_CONFIGURATION_REQUIRED" in runtime
+    assert "GEMMA4_GENERATION_CONFIGURATION_REQUIRED" in runtime
+    assert "Gemma4LoRATrainer" in main
+    assert "Gemma4LoRAExecutor" in main
+    assert "transformers==5.18.0" in requirements
+    assert "peft==0.21.2" in requirements
+    assert "torch==2.14.1" in requirements
+
+    assert not Path(
+        "src/hamoon/infrastructure/ai/qwen3_baseline.py"
+    ).exists()
+    assert not Path(
+        "tests/unit/ai/test_qwen3_baseline_contract.py"
+    ).exists()

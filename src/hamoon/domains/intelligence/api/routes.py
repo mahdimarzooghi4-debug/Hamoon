@@ -102,6 +102,10 @@ from hamoon.infrastructure.ai.diagnosis_runtime import (
     local_fake_diagnosis_policy,
 )
 from hamoon.infrastructure.ai.gateway import ProviderAIGateway
+from hamoon.infrastructure.ai.gemma4_baseline import (
+    GEMMA4_BASELINE_PIPELINE_VERSION,
+    GEMMA4_CONCRETE_MODEL_ID,
+)
 from hamoon.infrastructure.ai.internal_model import (
     InternalModelRuntimeError,
     InternalTrainingExample,
@@ -723,6 +727,17 @@ async def execute_internal_training_run(
     correlation_id = current_correlation_id() or request_id
     started_at = datetime.now(UTC)
     parent_artifact_sha256: str | None = None
+
+    if body.training_pipeline_version != GEMMA4_BASELINE_PIPELINE_VERSION:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "TRAINING_PIPELINE_NOT_APPROVED"},
+        )
+    if body.model_id != GEMMA4_CONCRETE_MODEL_ID:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "CONCRETE_MODEL_NOT_APPROVED"},
+        )
 
     try:
         async with session.begin():

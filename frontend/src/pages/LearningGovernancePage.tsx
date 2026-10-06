@@ -210,10 +210,16 @@ export function LearningGovernancePage() {
   const [exportPreview, setExportPreview] = useState<DatasetExport | null>(null);
 
   const [trainingDatasetId, setTrainingDatasetId] = useState("");
-  const [trainingModelKey, setTrainingModelKey] = useState("");
+  const [trainingModelKey, setTrainingModelKey] = useState(
+    "hamoon.gemma4.12b",
+  );
   const [trainingVersion, setTrainingVersion] = useState("");
-  const [trainingModelId, setTrainingModelId] = useState("");
-  const [trainingPipelineVersion, setTrainingPipelineVersion] = useState("");
+  const [trainingModelId, setTrainingModelId] = useState(
+    "google/gemma-4-12B-it@707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7",
+  );
+  const [trainingPipelineVersion, setTrainingPipelineVersion] = useState(
+    "gemma4-12b-it-sft-lora-v1",
+  );
   const [trainingBaseModelVersionId, setTrainingBaseModelVersionId] =
     useState("");
   const [trainingLimitations, setTrainingLimitations] = useState("");
@@ -1173,9 +1179,8 @@ export function LearningGovernancePage() {
             <label>
               <span>Model ID</span>
               <input
-                disabled={Boolean(trainingBaseModelVersionId)}
+                disabled
                 maxLength={250}
-                placeholder="hamoon-native-outcome-v1"
                 value={trainingModelId}
                 onChange={(event) => setTrainingModelId(event.target.value)}
               />
@@ -1183,8 +1188,8 @@ export function LearningGovernancePage() {
             <label>
               <span>Training pipeline version</span>
               <input
+                disabled
                 maxLength={150}
-                placeholder="نسخه pipeline مصوب"
                 value={trainingPipelineVersion}
                 onChange={(event) => setTrainingPipelineVersion(event.target.value)}
               />

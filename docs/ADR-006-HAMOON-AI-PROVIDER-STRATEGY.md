@@ -55,10 +55,11 @@ evaluation evidence
 
 Artifact یک artifact داخلی immutable و versioned است که با digest و lineage رجیستری
 شناسایی می‌شود. baseline مصوب برای اولین implementation وزن‌دار:
-`Qwen/Qwen3-4B-Instruct-2507` با revision ثابت
-`cdbee75f17c01a7cc42f958dc650907174af0554` است. روش آموزش baseline،
-Supervised Fine-Tuning با LoRA و artifact format برابر
-`HAMOON_QWEN3_PEFT_SAFETENSORS_V1` است.
+`google/gemma-4-12B-it` با revision ثابت
+`707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7` و SHA-256 وزن
+`5a84cb313260ac447237b890387116dfa8682e49a6b44bc585ae8353abbff18d`
+است. روش آموزش baseline، Supervised Fine-Tuning با LoRA/PEFT و serialization وزن adapter
+به‌صورت Safetensors است.
 
 هیچ Model Version بدون lineage کامل نمی‌تواند وارد Production شود.
 
@@ -121,22 +122,28 @@ Dataset Approval همچنان انسانی است و Promotion به Production �
 
 تصمیم baseline این مرحله:
 
-- model family: `Qwen3`؛
-- model: `Qwen/Qwen3-4B-Instruct-2507`؛
+- model family: `Gemma 4`؛
+- model: `google/gemma-4-12B-it`؛
 - immutable upstream revision:
-  `cdbee75f17c01a7cc42f958dc650907174af0554`؛
-- training method: `SFT_LORA`؛
-- adapter serialization: PEFT Safetensors؛
-- Hamoon artifact format: `HAMOON_QWEN3_PEFT_SAFETENSORS_V1`؛
-- pipeline identity: `qwen3-4b-instruct-2507-sft-lora-v1`.
+  `707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7`؛
+- pinned model weight SHA-256:
+  `5a84cb313260ac447237b890387116dfa8682e49a6b44bc585ae8353abbff18d`؛
+- training method: `SFT_LORA` با PEFT؛
+- adapter serialization: Safetensors؛
+- Hamoon artifact format: `HAMOON_GEMMA4_PEFT_SAFETENSORS_V1`؛
+- pipeline identity: `gemma4-12b-it-sft-lora-v1`؛
+- concrete execution: Transformers/PyTorch/PEFT به‌صورت `IN_PROCESS` و
+  `local_files_only=True`؛
+- base checkpoint از filesystem خصوصی/mounted artifact storage خوانده می‌شود و قبل از load
+  revision و SHA-256 آن verify می‌شود؛ هیچ download شبکه‌ای در runtime انجام نمی‌شود.
 
-عمداً هنوز پیاده/تعیین نمی‌شوند:
+مقادیر زیر عمداً hard-code نشده‌اند و باید از configuration صریح تأمین شوند:
 
-- concrete Qwen3 trainer/executor runtime implementation؛
-- training hyperparameter values؛
+- LoRA rank/alpha/dropout/target modules/bias؛
+- optimizer، learning rate، epoch، batch/accumulation، scheduler و سایر TrainingArguments؛
+- generation arguments مانند `max_new_tokens`؛
 - hardware sizing/resource isolation؛
-- concrete production S3 provider/credentials و bucket deployment؛
-- internal/external inference API.
+- concrete production S3 provider/credentials و bucket deployment.
 
 هسته execution/training اکنون وجود دارد، اما تا زمانی که concrete trainer، executor و
 artifact-store binding مصوب در process ثبت نشده باشند، Production همچنان fail-closed است و
@@ -215,14 +222,15 @@ Curated Dataset
 Execution boundary تصویب شده است: مدل فقط به‌صورت `IN_PROCESS` داخل خود Hamoon اجرا می‌شود
 و هیچ API/endpoint/token یا inference service جداگانه مجاز نیست.
 
-model family، upstream revision، training method و artifact format برای baseline v1 تصویب
-شده‌اند. موارد باز: concrete trainer/executor implementation، training hyperparameters،
-resource isolation/hardware sizing، production artifact-store deployment و evaluation policy
-جزئی.
+model family، upstream revision، training method، artifact format و concrete
+trainer/executor برای baseline v1 تصویب و پیاده شده‌اند. موارد باز: مقادیر hyperparameter،
+resource isolation/hardware sizing، provisioning checkpoint خصوصی، production artifact-store
+deployment و evaluation policy جزئی.
 
-هسته Training/Execution این تصمیم‌ها را hard-code نمی‌کند. Dataset تأییدشده از طریق Training
-Run وارد engine می‌شود؛ artifact خروجی در storage خصوصی immutable ثبت می‌شود و همان Run در
-صورت موفقیت Candidate lineage را می‌سازد. Training هیچ Promotion خودکاری انجام نمی‌دهد.
+Dataset تأییدشده از طریق Training Run وارد Gemma 4 trainer می‌شود؛ adapter خروجی در storage
+خصوصی immutable ثبت می‌شود و همان Run در صورت موفقیت Candidate lineage را می‌سازد. Training
+هیچ Promotion خودکاری انجام نمی‌دهد. Executor فقط checkpoint محلیِ digest-pinned و adapter
+داخلی را load می‌کند و هیچ network model fallback ندارد.
 
-تا تصویب و ثبت صریح trainer/executor مشخص، Production route وجود Model Candidate را کافی
-نمی‌داند و fail-closed باقی می‌ماند.
+تا زمانی که checkpoint و config کامل runtime provision نشده باشد، مسیر AI fail-closed باقی
+می‌ماند و Human Work Item ایجاد می‌شود.
