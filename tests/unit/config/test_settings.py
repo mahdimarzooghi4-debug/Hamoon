@@ -35,6 +35,13 @@ def _production_settings(**overrides: object) -> Settings:
         "evidence_scanner_endpoint": "https://scanner.example.com/v1/scan",
         "evidence_scanner_token": "s" * 32,
         "evidence_signing_secret": "production-evidence-signing-secret-32-bytes",
+        "internal_model_artifact_storage_backend": "s3",
+        "internal_model_artifact_s3_endpoint": "https://models.example.com",
+        "internal_model_artifact_s3_access_key": "model-artifact-access-key",
+        "internal_model_artifact_s3_secret_key": (
+            "model-artifact-production-secret"
+        ),
+        "internal_model_artifact_s3_bucket": "hamoon-model-artifacts",
     }
     values.update(overrides)
     return Settings(_env_file=None, **values)
@@ -45,6 +52,7 @@ def test_production_configuration_accepts_remote_secure_dependencies() -> None:
 
     assert settings.environment == "production"
     assert settings.evidence_storage_backend == "s3"
+    assert settings.internal_model_artifact_storage_backend == "s3"
 
 
 @pytest.mark.parametrize(
@@ -156,6 +164,26 @@ def test_production_configuration_accepts_remote_secure_dependencies() -> None:
             "PRODUCTION_EVIDENCE_SIGNING_SECRET_REQUIRED",
         ),
         (
+            "internal_model_artifact_storage_backend",
+            "local",
+            "PRODUCTION_INTERNAL_MODEL_ARTIFACT_STORAGE_REQUIRED",
+        ),
+        (
+            "internal_model_artifact_s3_endpoint",
+            "http://models.example.com",
+            "PRODUCTION_INTERNAL_MODEL_ARTIFACT_S3_HTTPS_REQUIRED",
+        ),
+        (
+            "internal_model_artifact_s3_access_key",
+            "minio",
+            "PRODUCTION_INTERNAL_MODEL_ARTIFACT_S3_CREDENTIALS_REQUIRED",
+        ),
+        (
+            "internal_model_artifact_s3_secret_key",
+            "minio12345",
+            "PRODUCTION_INTERNAL_MODEL_ARTIFACT_S3_CREDENTIALS_REQUIRED",
+        ),
+        (
             "evidence_scanner_backend",
             "local",
             "PRODUCTION_EVIDENCE_SCANNER_REQUIRED",
@@ -186,6 +214,7 @@ def test_local_configuration_keeps_developer_defaults() -> None:
 
     assert settings.environment == "local"
     assert settings.evidence_storage_backend == "local"
+    assert settings.internal_model_artifact_storage_backend == "local"
 
 
 def test_unknown_evidence_storage_backend_is_rejected_in_all_environments() -> None:
@@ -197,3 +226,14 @@ def test_unknown_evidence_storage_backend_is_rejected_in_all_environments() -> N
 def test_unknown_evidence_scanner_backend_is_rejected_in_all_environments() -> None:
     with pytest.raises(ValidationError, match="EVIDENCE_SCANNER_BACKEND_INVALID"):
         Settings(_env_file=None, evidence_scanner_backend="magic")
+
+
+def test_unknown_internal_model_artifact_storage_backend_is_rejected() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="INTERNAL_MODEL_ARTIFACT_STORAGE_BACKEND_INVALID",
+    ):
+        Settings(
+            _env_file=None,
+            internal_model_artifact_storage_backend="database",
+        )
