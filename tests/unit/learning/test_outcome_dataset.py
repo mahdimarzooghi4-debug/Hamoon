@@ -15,8 +15,15 @@ from hamoon.domains.intervention.domain.entities import (
     InterventionStatus,
     InterventionType,
 )
-from hamoon.domains.learning.application.commands import CreateOutcomeDatasetCommand
-from hamoon.domains.learning.application.handlers import CreateOutcomeDatasetHandler
+from hamoon.domains.learning.application.commands import (
+    CreateAutomaticDatasetForCuratedSignalCommand,
+    CreateOutcomeDatasetCommand,
+)
+from hamoon.domains.learning.application.handlers import (
+    AUTO_CURATED_SIGNAL_SELECTION_POLICY_VERSION,
+    CreateAutomaticDatasetForCuratedSignalHandler,
+    CreateOutcomeDatasetHandler,
+)
 from hamoon.domains.learning.domain.entities import DatasetVersionStatus
 from hamoon.domains.learning.domain.errors import LearningDatasetError
 from hamoon.domains.outcome.domain.entities import (
@@ -105,7 +112,13 @@ class Datasets:
         self.dataset = None
         self.items = ()
 
-    async def get_by_key_version(self, **kwargs):
+    async def get_by_key_version(self, *, dataset_key, version):
+        if (
+            self.dataset is not None
+            and self.dataset.dataset_key == dataset_key
+            and self.dataset.version == version
+        ):
+            return self.dataset
         return None
 
     async def add(self, dataset, items):
@@ -293,3 +306,78 @@ async def test_outcome_dataset_requires_final_human_review_provenance() -> None:
         match="REVIEWED_OUTCOME_REQUIRED",
     ):
         await _create_dataset(outcomes=Outcomes(outcome))
+
+
+@pytest.mark.asyncio
+async def test_curated_outcome_signal_auto_creates_draft_dataset_idempotently() -> None:
+    datasets = Datasets()
+    handler = CreateAutomaticDatasetForCuratedSignalHandler(
+        signals=Signals(),
+        datasets=datasets,
+        ai_decisions=object(),
+        human_decisions=object(),
+        feature_packages=object(),
+        outcomes=Outcomes(),
+        snapshots=Snapshots(),
+        interventions=Interventions(),
+        provider_results=Results(),
+        events=Recorder(),
+        audits=Recorder(),
+    )
+    command = CreateAutomaticDatasetForCuratedSignalCommand(
+        signal_id=SIGNAL,
+        actor_id=ACTOR,
+        request_id="req-auto",
+        correlation_id="corr-auto",
+    )
+
+    first = await handler.handle(command)
+    second = await handler.handle(command)
+
+    assert first is not None
+    assert second is not None
+    first_dataset, first_items = first
+    second_dataset, second_items = second
+    assert first_dataset.id == second_dataset.id
+    assert first_dataset.status is DatasetVersionStatus.DRAFT
+    assert first_dataset.dataset_key == "hamoon.auto.outcome.learning"
+    assert first_dataset.version == f"signal-{SIGNAL}"
+    assert (
+        first_dataset.selection_policy_version
+        == AUTO_CURATED_SIGNAL_SELECTION_POLICY_VERSION
+    )
+    assert len(first_items) == 1
+    assert second_items == first_items
+
+
+@pytest.mark.asyncio
+async def test_curated_signal_without_dataset_policy_is_not_auto_datasetized() -> None:
+    signal = replace(
+        _signal(),
+        signal_type=LearningSignalType.PROVIDER_SELECTED,
+        outcome_id=None,
+    )
+    datasets = Datasets()
+    result = await CreateAutomaticDatasetForCuratedSignalHandler(
+        signals=Signals(signal),
+        datasets=datasets,
+        ai_decisions=object(),
+        human_decisions=object(),
+        feature_packages=object(),
+        outcomes=Outcomes(),
+        snapshots=Snapshots(),
+        interventions=Interventions(),
+        provider_results=Results(),
+        events=Recorder(),
+        audits=Recorder(),
+    ).handle(
+        CreateAutomaticDatasetForCuratedSignalCommand(
+            signal_id=signal.id,
+            actor_id=ACTOR,
+            request_id="req-auto-unsupported",
+            correlation_id="corr-auto-unsupported",
+        )
+    )
+
+    assert result is None
+    assert datasets.dataset is None
