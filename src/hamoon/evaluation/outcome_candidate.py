@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue
 
 from hamoon.evaluation.outcome import (
     OutcomeEvaluationCase,
@@ -22,7 +22,7 @@ from hamoon.infrastructure.ai.contracts import (
     ProviderStructuredRequest,
 )
 from hamoon.infrastructure.ai.outcome_runtime import OUTCOME_INTERPRETATION_V1_SCHEMA
-from hamoon.infrastructure.ai.providers.openai import OpenAIProvider
+from hamoon.infrastructure.ai.providers.native import HamoonNativeAIProvider
 
 
 class OutcomeCandidateEvaluationBundle(BaseModel):
@@ -44,10 +44,48 @@ def _load_object(path: Path) -> dict[str, object]:
     return cast(dict[str, object], raw)
 
 
+def _runtime_features(case: OutcomeEvaluationCase) -> dict[str, JsonValue]:
+    source = case.input
+    pre = source.get("pre_pgor")
+    post = source.get("post_pgor")
+    delta = source.get("delta")
+    if not isinstance(pre, dict) or not isinstance(post, dict) or not isinstance(delta, dict):
+        raise ValueError("Outcome evaluation case PGOR blocks are invalid.")
+
+    def value(block: dict[str, JsonValue], key: str) -> JsonValue:
+        if key not in block:
+            raise ValueError(f"Outcome evaluation case missing {key}.")
+        return block[key]
+
+    return {
+        "pgor.pre.P": value(pre, "p"),
+        "pgor.pre.G": value(pre, "g"),
+        "pgor.pre.O": value(pre, "o"),
+        "pgor.pre.R": value(pre, "r"),
+        "pgor.pre.E": value(pre, "e"),
+        "pgor.post.P": value(post, "p"),
+        "pgor.post.G": value(post, "g"),
+        "pgor.post.O": value(post, "o"),
+        "pgor.post.R": value(post, "r"),
+        "pgor.post.E": value(post, "e"),
+        "pgor.delta.P": value(delta, "p"),
+        "pgor.delta.G": value(delta, "g"),
+        "pgor.delta.O": value(delta, "o"),
+        "pgor.delta.R": value(delta, "r"),
+        "pgor.delta.E": value(delta, "e"),
+        "intervention.type": source.get("intervention_type"),
+        "intervention.target_variable": source.get("target_pgor_variable"),
+        "provider_result.type": source.get("provider_result_type"),
+        "provider_result.status": source.get("provider_result_status"),
+        "outcome.methodology_version": source.get("methodology_version"),
+        "policy.causal_claim_allowed": source.get("causal_claim_allowed"),
+    }
+
+
 async def run_candidate_evaluation(
     *,
-    api_key: str,
-    base_url: str,
+    model_root: str,
+    model_artifact_sha256: str,
     model_id: str,
     model_alias: str,
     prompt_policy_version: str,
@@ -57,11 +95,7 @@ async def run_candidate_evaluation(
     cases: list[OutcomeEvaluationCase],
     policy: OutcomeEvaluationPolicy,
 ) -> tuple[OutcomeCandidateEvaluationBundle, OutcomeEvaluationReport]:
-    provider = OpenAIProvider(
-        api_key=api_key,
-        base_url=base_url,
-        timeout_seconds=90.0,
-    )
+    provider = HamoonNativeAIProvider(model_root=model_root)
     outputs: list[OutcomeEvaluationOutput] = []
     for case in cases:
         response = await provider.generate_structured(
@@ -71,11 +105,12 @@ async def run_candidate_evaluation(
                 model_alias=model_alias,
                 prompt_policy_version=prompt_policy_version,
                 output_schema_version=output_schema_version,
-                feature_schema_version="outcome-learning-input-v1",
+                feature_schema_version="outcome-input-v1",
                 instructions=instructions,
                 output_schema=OUTCOME_INTERPRETATION_V1_SCHEMA,
-                features=case.input,
+                features=_runtime_features(case),
                 correlation_id=f"eval:{dataset_version}:{case.case_id}",
+                model_artifact_sha256=model_artifact_sha256,
             )
         )
         outputs.append(
@@ -86,7 +121,7 @@ async def run_candidate_evaluation(
         )
 
     bundle = OutcomeCandidateEvaluationBundle(
-        provider_code="OPENAI",
+        provider_code="HAMOON_NATIVE",
         model_id=model_id,
         model_alias=model_alias,
         prompt_policy_version=prompt_policy_version,
@@ -106,7 +141,7 @@ async def run_candidate_evaluation(
 
 async def _async_main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run a Hamoon outcome candidate against an exported curated dataset."
+        description="Run a native Hamoon outcome candidate against an evaluation dataset."
     )
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--policy", type=Path, required=True)
@@ -117,15 +152,18 @@ async def _async_main() -> int:
     parser.add_argument("--model-alias", default="hamoon.outcome.v1")
     parser.add_argument("--prompt-policy-version", default="outcome-prompt-v1")
     parser.add_argument("--output-schema-version", default="outcome-interpretation-v1")
+    parser.add_argument("--model-artifact-sha256", required=True)
     parser.add_argument(
-        "--base-url",
-        default=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        "--model-root",
+        default=os.getenv("HAMOON_AI_MODEL_ROOT"),
     )
     args = parser.parse_args()
 
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is required for candidate evaluation.")
+    if not args.model_root:
+        raise RuntimeError(
+            "HAMOON_AI_MODEL_ROOT or --model-root is required "
+            "for native candidate evaluation."
+        )
 
     dataset = _load_object(args.dataset)
     policy = OutcomeEvaluationPolicy.model_validate(_load_object(args.policy))
@@ -142,8 +180,8 @@ async def _async_main() -> int:
         raise ValueError("Outcome evaluation instructions must not be empty.")
 
     bundle, report = await run_candidate_evaluation(
-        api_key=api_key,
-        base_url=args.base_url,
+        model_root=args.model_root,
+        model_artifact_sha256=args.model_artifact_sha256,
         model_id=args.model_id,
         model_alias=args.model_alias,
         prompt_policy_version=args.prompt_policy_version,
