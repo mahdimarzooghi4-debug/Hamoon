@@ -1108,7 +1108,10 @@ export function LearningGovernancePage() {
               <span>Dataset APPROVED</span>
               <select
                 value={trainingDatasetId}
-                onChange={(event) => setTrainingDatasetId(event.target.value)}
+                onChange={(event) => {
+                  setTrainingDatasetId(event.target.value);
+                  setTrainingBaseModelVersionId("");
+                }}
               >
                 <option value="">انتخاب کنید</option>
                 {trainableDatasets.map((item) => (
@@ -1121,6 +1124,7 @@ export function LearningGovernancePage() {
             <label>
               <span>Model key</span>
               <input
+                disabled={Boolean(trainingBaseModelVersionId)}
                 maxLength={150}
                 placeholder="hamoon.outcome.native"
                 value={trainingModelKey}
@@ -1139,6 +1143,7 @@ export function LearningGovernancePage() {
             <label>
               <span>Model ID</span>
               <input
+                disabled={Boolean(trainingBaseModelVersionId)}
                 maxLength={250}
                 placeholder="hamoon-native-outcome-v1"
                 value={trainingModelId}
