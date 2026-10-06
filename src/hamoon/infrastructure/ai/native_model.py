@@ -192,22 +192,26 @@ def infer_from_artifact(
 
     best: NativeModelExample | None = None
     best_score = -math.inf
-    current_bottlenecks = {
-        value
-        for value in features.get("pgor.bottleneck_variables", [])
-        if isinstance(value, str)
-    } if isinstance(features.get("pgor.bottleneck_variables"), list) else set()
+    raw_bottlenecks = features.get("pgor.bottleneck_variables")
+    current_bottlenecks: set[str] = set()
+    if isinstance(raw_bottlenecks, list):
+        current_bottlenecks = {
+            value
+            for value in raw_bottlenecks
+            if isinstance(value, str)
+        }
     for example in artifact.examples:
         if task_class is AITaskClass.PRESCRIPTION and current_bottlenecks:
             raw_items = example.target.get("items")
             if not isinstance(raw_items, list):
                 continue
-            target_variables = {
-                item.get("target_variable")
-                for item in raw_items
-                if isinstance(item, dict)
-                and isinstance(item.get("target_variable"), str)
-            }
+            target_variables: set[str] = set()
+            for item in raw_items:
+                if not isinstance(item, dict):
+                    continue
+                variable = item.get("target_variable")
+                if isinstance(variable, str):
+                    target_variables.add(variable)
             if not target_variables or not target_variables.issubset(
                 current_bottlenecks
             ):
@@ -264,7 +268,7 @@ def infer_from_artifact(
                 if name in features
             ]
             summary = "Observed PGOR change: " + ", ".join(deltas)
-        refs = [
+        refs: list[JsonValue] = [
             key
             for key in (
                 "pgor.delta.P",
@@ -280,14 +284,17 @@ def infer_from_artifact(
             if key in features
         ]
         if not refs:
-            refs = sorted(features)[:1]
-        return {
-            "schema_version": "outcome-interpretation-v1",
-            "classification": classification,
-            "observed_change_summary": summary,
-            "causal_claim": False,
-            "supporting_feature_refs": refs,
-            "review_flags": ["HUMAN_REVIEW_REQUIRED"],
-        }
+            refs = cast(list[JsonValue], sorted(features)[:1])
+        return cast(
+            dict[str, JsonValue],
+            {
+                "schema_version": "outcome-interpretation-v1",
+                "classification": classification,
+                "observed_change_summary": summary,
+                "causal_claim": False,
+                "supporting_feature_refs": refs,
+                "review_flags": cast(list[JsonValue], ["HUMAN_REVIEW_REQUIRED"]),
+            },
+        )
 
     return target
