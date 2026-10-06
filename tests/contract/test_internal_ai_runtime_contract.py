@@ -61,6 +61,11 @@ def test_model_registry_requires_versioned_training_and_evaluation_lineage() -> 
     )
     assert "MODEL_ARTIFACT_DIGEST_REQUIRED" in repository
     assert "MODEL_TRAINING_LINEAGE_REQUIRED" in repository
+    assert "EVALUATION_DATASET_LINEAGE_MISMATCH" in repository
+    assert (
+        "training_dataset_manifest_digest" in repository
+        and "dataset_manifest_digest" in repository
+    )
     assert "EVALUATION_ATTESTATION_REQUIRED" in repository
     assert "EvaluationStatus.PASSED" in repository
     assert "RoutingPolicyStatus.DRAFT" in repository
