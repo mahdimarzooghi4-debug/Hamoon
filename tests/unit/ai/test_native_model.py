@@ -11,7 +11,6 @@ from hamoon.infrastructure.ai.contracts import (
 )
 from hamoon.infrastructure.ai.native_model import (
     NativeModelArtifact,
-    NativeModelArtifactError,
     NativeModelExample,
     write_artifact,
 )
