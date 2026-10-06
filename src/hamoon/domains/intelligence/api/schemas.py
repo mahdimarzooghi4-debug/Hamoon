@@ -203,6 +203,46 @@ class DiagnosisHistoryResponse(BaseModel):
     data: list[DiagnosisHistoryEntryData]
 
 
+class ExecuteInternalTrainingRunRequest(BaseModel):
+    task_class: AITaskClass
+    dataset_version_id: UUID
+    base_model_version_id: UUID | None = None
+    model_key: str = Field(min_length=1, max_length=150)
+    version: str = Field(min_length=1, max_length=100)
+    model_id: str = Field(min_length=1, max_length=250)
+    training_pipeline_version: str = Field(min_length=1, max_length=150)
+    limitations: str | None = Field(default=None, max_length=2000)
+
+
+class InternalTrainingRunData(BaseModel):
+    id: UUID
+    task_class: AITaskClass
+    dataset_version_id: UUID
+    dataset_manifest_digest: str
+    training_pipeline_version: str
+    model_key: str
+    model_version: str
+    concrete_model_id: str
+    parent_model_version_id: UUID | None
+    status: str
+    artifact_sha256: str | None
+    artifact_size_bytes: int | None
+    candidate_model_version_id: UUID | None
+    error_code: str | None
+    created_by: UUID
+    created_at: datetime
+    started_at: datetime
+    completed_at: datetime | None
+
+
+class InternalTrainingRunResponse(BaseModel):
+    data: InternalTrainingRunData
+
+
+class InternalTrainingRunListResponse(BaseModel):
+    data: list[InternalTrainingRunData]
+
+
 class RegisterInternalModelCandidateRequest(BaseModel):
     task_class: AITaskClass
     dataset_version_id: UUID
