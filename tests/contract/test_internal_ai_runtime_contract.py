@@ -17,7 +17,8 @@ def test_production_internal_model_contract_has_no_ai_api_dependency() -> None:
 
     assert 'INTERNAL_MODEL_PROVIDER_CODE = "INTERNAL_MODEL"' in registry
     assert "INTERNAL_MODEL_PROVIDER_CODE" in factory
-    assert "INTERNAL_MODEL_EXECUTOR_NOT_IMPLEMENTED" in factory
+    assert "INTERNAL_MODEL_RUNTIME_NOT_CONFIGURED" in factory
+    assert "INTERNAL_MODEL_EXECUTOR_NOT_REGISTERED" in factory
     assert "InternalModelExecutionMode.IN_PROCESS" in factory
     assert 'IN_PROCESS = "IN_PROCESS"' in contracts
     assert "InternalModelArtifactContract" in contracts
@@ -37,15 +38,41 @@ def test_production_internal_model_contract_has_no_ai_api_dependency() -> None:
         assert forbidden not in contracts
 
 
-def test_unapproved_training_and_execution_engine_is_absent() -> None:
-    for path in (
+def test_internal_training_and_execution_core_is_in_process_and_model_agnostic() -> None:
+    runtime_path = Path("src/hamoon/infrastructure/ai/internal_model.py")
+    assert runtime_path.exists()
+    runtime = runtime_path.read_text(encoding="utf-8")
+
+    for required in (
+        "class InternalModelArtifactStore(Protocol):",
+        "class InternalModelTrainer(Protocol):",
+        "class InternalModelExecutor(Protocol):",
+        "class InternalTrainingEngine:",
+        "class InternalModelProviderAdapter:",
+        "configure_internal_model_runtime",
+    ):
+        assert required in runtime
+
+    for forbidden in (
+        "httpx",
+        "requests",
+        "OpenAI",
+        "vllm",
+        "tgi",
+        "Llama",
+        "Qwen",
+        "Mistral",
+    ):
+        assert forbidden not in runtime
+
+    for obsolete_path in (
         "src/hamoon/infrastructure/ai/native_model.py",
         "src/hamoon/infrastructure/ai/training.py",
         "src/hamoon/infrastructure/ai/providers/native.py",
         "src/hamoon/evaluation/diagnosis_candidate.py",
         "src/hamoon/evaluation/outcome_candidate.py",
     ):
-        assert not Path(path).exists()
+        assert not Path(obsolete_path).exists()
 
 
 def test_model_registry_requires_versioned_training_and_evaluation_lineage() -> None:
