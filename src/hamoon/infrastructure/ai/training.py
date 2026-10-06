@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-from datetime import UTC, datetime
 from pathlib import Path
 import re
 
@@ -126,7 +125,7 @@ def train_native_model(
         output_schema_version=output_schema_version,
         training_dataset_id=str(dataset.id),
         training_dataset_manifest_digest=dataset.manifest_digest,
-        trained_at=datetime.now(UTC),
+        trained_at=dataset.approved_at or dataset.created_at,
         examples=examples,
     )
     _path, digest = write_artifact(
