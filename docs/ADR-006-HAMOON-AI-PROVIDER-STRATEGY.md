@@ -105,8 +105,11 @@ Dataset Approval همچنان انسانی است و Promotion به Production �
 - ثبت Candidate metadata و lineage نسخه‌دار؛
 - ساخت event-driven و خودکار Dataset Versionهای DRAFT از Learning Signalهای CURATED واجد policy؛
 - هسته Internal Training Engine برای اجرای trainerهای صریحاً ثبت‌شده به‌صورت in-process؛
+- Training Run نسخه‌دار با وضعیت RUNNING/SUCCEEDED/FAILED و audit/event کامل؛
+- فقط Training Run موفق حق ایجاد Model Candidate دارد؛ ثبت دستی artifact digest از API ممنوع است؛
 - هسته Internal Model Executor برای اجرای executorهای صریحاً ثبت‌شده به‌صورت in-process؛
-- artifact store contract با digest attestation و immutable artifact identity؛
+- artifact store خصوصی با آدرس‌دهی SHA-256، immutable identity و digest attestation؛
+- Production artifact store فقط S3-compatible خصوصی روی HTTPS با credential واقعی است؛
 - execution mode مصوب فقط `IN_PROCESS` داخل backend/worker خود Hamoon است؛
 - هیچ network hop، endpoint، token یا inference service برای اجرای مدل مجاز نیست؛
 - artifact از Registry lineage و digest معتبر resolve می‌شود، نه از URL یا endpoint؛
@@ -120,7 +123,7 @@ Dataset Approval همچنان انسانی است و Promotion به Production �
 - concrete trainer/model family و training algorithm؛
 - concrete in-process executor implementation و inference algorithm؛
 - threshold یا hyperparameter؛
-- production artifact-store binding؛
+- concrete production S3 provider/credentials و bucket deployment؛
 - internal/external inference API.
 
 هسته execution/training اکنون وجود دارد، اما تا زمانی که concrete trainer، executor و
@@ -204,5 +207,9 @@ Execution boundary تصویب شده است: مدل فقط به‌صورت `IN_P
 training method، concrete trainer/executor implementation، production artifact-store binding،
 resource isolation و evaluation policy جزئی.
 
-هسته Training/Execution این تصمیم‌ها را hard-code نمی‌کند. تا تصویب و ثبت صریح implementation
-مشخص، Production route وجود مدل را کافی نمی‌داند و fail-closed باقی می‌ماند.
+هسته Training/Execution این تصمیم‌ها را hard-code نمی‌کند. Dataset تأییدشده از طریق Training
+Run وارد engine می‌شود؛ artifact خروجی در storage خصوصی immutable ثبت می‌شود و همان Run در
+صورت موفقیت Candidate lineage را می‌سازد. Training هیچ Promotion خودکاری انجام نمی‌دهد.
+
+تا تصویب و ثبت صریح trainer/executor مشخص، Production route وجود Model Candidate را کافی
+نمی‌داند و fail-closed باقی می‌ماند.
