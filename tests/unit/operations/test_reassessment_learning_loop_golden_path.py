@@ -915,7 +915,7 @@ async def test_reassessment_learning_loop_golden_path() -> None:
     dataset_item = dataset_items[0]
     assert dataset_item.learning_signal_id == learning_signal.id
     assert dataset_item.target_payload["classification"] == "NO_SIGNIFICANT_CHANGE"
-    assert dataset_item.input_payload["causal_claim_allowed"] is False
+    assert dataset_item.input_payload["policy.causal_claim_allowed"] is False
     assert "Provider free-text" not in str(dataset_item.input_payload)
     assert f"human_decision:{human.id}" in dataset_item.source_refs
     assert f"ai_decision:{ai_decision.id}" in dataset_item.source_refs
