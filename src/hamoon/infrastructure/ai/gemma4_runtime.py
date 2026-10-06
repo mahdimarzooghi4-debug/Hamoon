@@ -436,17 +436,38 @@ class Gemma4LoRATrainer(InternalModelTrainer):
         )
         model.config.use_cache = False
 
-        lora_config = peft.LoraConfig(
-            r=config.lora_r,
-            lora_alpha=config.lora_alpha,
-            lora_dropout=config.lora_dropout,
-            bias=config.lora_bias,
-            target_modules=list(config.target_modules),
-            task_type=peft.TaskType.CAUSAL_LM,
-        )
-        model = peft.get_peft_model(model, lora_config)
+        parent_tmp: TemporaryDirectory[str] | None = None
+        try:
+            if request.parent_artifact is not None:
+                parent_tmp = TemporaryDirectory(
+                    prefix="hamoon-gemma4-parent-"
+                )
+                parent_dir = Path(parent_tmp.name)
+                parent_manifest = _extract_adapter_artifact(
+                    artifact=request.parent_artifact,
+                    destination=parent_dir,
+                )
+                if parent_manifest.task_class != request.task_class.value:
+                    raise Gemma4RuntimeError(
+                        "GEMMA4_PARENT_ARTIFACT_TASK_CLASS_MISMATCH"
+                    )
+                model = peft.PeftModel.from_pretrained(
+                    model,
+                    str(parent_dir),
+                    is_trainable=True,
+                )
+            else:
+                lora_config = peft.LoraConfig(
+                    r=config.lora_r,
+                    lora_alpha=config.lora_alpha,
+                    lora_dropout=config.lora_dropout,
+                    bias=config.lora_bias,
+                    target_modules=list(config.target_modules),
+                    task_type=peft.TaskType.CAUSAL_LM,
+                )
+                model = peft.get_peft_model(model, lora_config)
 
-        encoded_examples = [
+            encoded_examples = [
             self._encode_example(
                 torch=torch,
                 processor=processor,
@@ -464,47 +485,50 @@ class Gemma4LoRATrainer(InternalModelTrainer):
             def __getitem__(self, index: int) -> dict[str, Any]:
                 return encoded_examples[index]
 
-        with TemporaryDirectory(prefix="hamoon-gemma4-train-") as tmp:
-            args = dict(config.training_arguments)
-            args.update(
-                {
-                    "output_dir": str(Path(tmp) / "trainer-output"),
-                    "save_strategy": "no",
-                    "logging_strategy": "no",
-                    "report_to": [],
-                    "remove_unused_columns": False,
-                    "bf16": config.dtype == "bfloat16",
-                    "fp16": config.dtype == "float16",
-                }
-            )
-            training_args = transformers.TrainingArguments(**args)
-            trainer = transformers.Trainer(
-                model=model,
-                args=training_args,
-                train_dataset=_Dataset(),
-            )
-            trainer.train()
+            with TemporaryDirectory(prefix="hamoon-gemma4-train-") as tmp:
+                    args = dict(config.training_arguments)
+                args.update(
+                    {
+                        "output_dir": str(Path(tmp) / "trainer-output"),
+                        "save_strategy": "no",
+                        "logging_strategy": "no",
+                        "report_to": [],
+                        "remove_unused_columns": False,
+                        "bf16": config.dtype == "bfloat16",
+                        "fp16": config.dtype == "float16",
+                    }
+                )
+                training_args = transformers.TrainingArguments(**args)
+                trainer = transformers.Trainer(
+                    model=model,
+                    args=training_args,
+                    train_dataset=_Dataset(),
+                )
+                trainer.train()
 
-            adapter_dir = Path(tmp) / "adapter"
-            model.save_pretrained(
-                str(adapter_dir),
-                safe_serialization=True,
-            )
-            training_config_digest = canonical_training_config_digest(
-                config.canonical_dict()
-            )
-            manifest = build_gemma4_lora_manifest(
-                task_class=request.task_class,
-                training_dataset_version_id=request.dataset_version_id,
-                training_dataset_manifest_digest=(
-                    request.dataset_manifest_digest
-                ),
-                training_config_sha256=training_config_digest,
-            )
-            return _build_adapter_artifact(
-                adapter_dir=adapter_dir,
-                manifest=manifest,
-            )
+                adapter_dir = Path(tmp) / "adapter"
+                model.save_pretrained(
+                    str(adapter_dir),
+                    safe_serialization=True,
+                )
+                training_config_digest = canonical_training_config_digest(
+                    config.canonical_dict()
+                )
+                manifest = build_gemma4_lora_manifest(
+                    task_class=request.task_class,
+                    training_dataset_version_id=request.dataset_version_id,
+                    training_dataset_manifest_digest=(
+                        request.dataset_manifest_digest
+                    ),
+                    training_config_sha256=training_config_digest,
+                )
+                return _build_adapter_artifact(
+                    adapter_dir=adapter_dir,
+                    manifest=manifest,
+                )
+        finally:
+            if parent_tmp is not None:
+                parent_tmp.cleanup()
 
     @staticmethod
     def _encode_example(
