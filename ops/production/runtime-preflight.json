@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "contract": "HAMOON_PRODUCTION_RUNTIME_PREFLIGHT",
   "required_checks": [
     "postgresql_connectivity",
@@ -12,8 +12,17 @@
     "otlp_logs_https",
     "protected_metrics_configured",
     "internal_model_fail_safe_configured",
+    "gemma4_checkpoint_attested",
     "provider_dispatch_configured",
     "backup_policy_configured",
     "retention_policy_configured"
-  ]
+  ],
+  "internal_model_checkpoint": {
+    "model_id": "google/gemma-4-12B-it",
+    "revision": "707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7",
+    "model_sha256": "5a84cb313260ac447237b890387116dfa8682e49a6b44bc585ae8353abbff18d",
+    "tokenizer_sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f",
+    "execution_mode": "IN_PROCESS",
+    "network_model_download": false
+  }
 }

@@ -168,10 +168,54 @@ def build_deployment_request(
 
 
 
+def _internal_model_checkpoint_contract(
+    requirements: dict[str, object],
+) -> dict[str, object]:
+    raw = requirements.get("internal_model_checkpoint")
+    if not isinstance(raw, dict):
+        raise DeploymentOrchestratorError(
+            "Production internal model checkpoint contract is missing."
+        )
+    checkpoint = cast(dict[str, object], raw)
+    required_fields = {
+        "model_id",
+        "revision",
+        "model_sha256",
+        "tokenizer_sha256",
+        "execution_mode",
+        "network_model_download",
+    }
+    if set(checkpoint) != required_fields:
+        raise DeploymentOrchestratorError(
+            "Production internal model checkpoint contract fields are invalid."
+        )
+    for field in ("model_id", "revision", "model_sha256", "tokenizer_sha256", "execution_mode"):
+        value = checkpoint.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise DeploymentOrchestratorError(
+                f"Production internal model checkpoint {field} is invalid."
+            )
+    for field in ("model_sha256", "tokenizer_sha256"):
+        digest = cast(str, checkpoint[field])
+        if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
+            raise DeploymentOrchestratorError(
+                f"Production internal model checkpoint {field} is invalid."
+            )
+    if checkpoint.get("execution_mode") != "IN_PROCESS":
+        raise DeploymentOrchestratorError(
+            "Production internal model checkpoint execution_mode must be IN_PROCESS."
+        )
+    if checkpoint.get("network_model_download") is not False:
+        raise DeploymentOrchestratorError(
+            "Production internal model checkpoint network download must be disabled."
+        )
+    return dict(checkpoint)
+
+
 def _required_preflight_checks(
     requirements: dict[str, object],
 ) -> tuple[str, ...]:
-    if requirements.get("schema_version") != 1:
+    if requirements.get("schema_version") != 2:
         raise DeploymentOrchestratorError(
             "Production runtime preflight schema_version is unsupported."
         )
@@ -197,6 +241,10 @@ def _required_preflight_checks(
                 "Production runtime preflight checks must be unique."
             )
         checks.append(check)
+    if "gemma4_checkpoint_attested" not in checks:
+        raise DeploymentOrchestratorError(
+            "Production runtime preflight must attest the Gemma checkpoint."
+        )
     return tuple(checks)
 
 
@@ -214,6 +262,7 @@ def build_preflight_request(
         admission=admission,
     )
     checks = _required_preflight_checks(requirements)
+    checkpoint = _internal_model_checkpoint_contract(requirements)
     if len(requirements_sha256) != 64 or any(
         character not in "0123456789abcdef" for character in requirements_sha256
     ):
@@ -226,6 +275,7 @@ def build_preflight_request(
         "runtime_preflight": {
             "contract_sha256": requirements_sha256,
             "required_checks": list(checks),
+            "internal_model_checkpoint": checkpoint,
         },
     }
 
@@ -275,6 +325,22 @@ def _validate_preflight_receipt(
             "Production runtime preflight request metadata is missing."
         )
     runtime_preflight = cast(dict[str, object], runtime_preflight_value)
+    checkpoint_value = runtime_preflight.get("internal_model_checkpoint")
+    if not isinstance(checkpoint_value, dict):
+        raise DeploymentOrchestratorError(
+            "Production internal model checkpoint request metadata is missing."
+        )
+    checkpoint = cast(dict[str, object], checkpoint_value)
+    receipt_checkpoint = receipt.get("internal_model_checkpoint")
+    if not isinstance(receipt_checkpoint, dict):
+        raise DeploymentOrchestratorError(
+            "Production internal model checkpoint attestation is missing."
+        )
+    if cast(dict[str, object], receipt_checkpoint) != checkpoint:
+        raise DeploymentOrchestratorError(
+            "Production internal model checkpoint attestation does not match request."
+        )
+
     required_checks_value = runtime_preflight.get("required_checks")
     if not isinstance(required_checks_value, list):
         raise DeploymentOrchestratorError(

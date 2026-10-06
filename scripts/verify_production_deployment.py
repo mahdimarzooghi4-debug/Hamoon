@@ -45,8 +45,38 @@ def _require_timestamp(value: object, field: str) -> None:
     require(timestamp.tzinfo is not None, f"{field} must include timezone")
 
 
+def _checkpoint_contract(requirements: dict[str, object]) -> dict[str, object]:
+    raw = requirements.get("internal_model_checkpoint")
+    require(isinstance(raw, dict), "internal model checkpoint contract missing")
+    checkpoint = dict(raw)
+    required_fields = {
+        "model_id",
+        "revision",
+        "model_sha256",
+        "tokenizer_sha256",
+        "execution_mode",
+        "network_model_download",
+    }
+    require(set(checkpoint) == required_fields, "internal model checkpoint fields invalid")
+    for field in ("model_id", "revision", "model_sha256", "tokenizer_sha256", "execution_mode"):
+        value = checkpoint.get(field)
+        require(isinstance(value, str) and bool(value.strip()), f"checkpoint {field} invalid")
+    for field in ("model_sha256", "tokenizer_sha256"):
+        value = checkpoint.get(field)
+        require(
+            isinstance(value, str) and SHA256_RE.fullmatch(value) is not None,
+            f"checkpoint {field} invalid",
+        )
+    require(checkpoint.get("execution_mode") == "IN_PROCESS", "checkpoint execution_mode invalid")
+    require(
+        checkpoint.get("network_model_download") is False,
+        "checkpoint network model download must be disabled",
+    )
+    return checkpoint
+
+
 def _required_checks(requirements: dict[str, object]) -> list[str]:
-    require(requirements.get("schema_version") == 1, "preflight schema invalid")
+    require(requirements.get("schema_version") == 2, "preflight schema invalid")
     require(
         requirements.get("contract") == "HAMOON_PRODUCTION_RUNTIME_PREFLIGHT",
         "preflight contract invalid",
@@ -59,6 +89,10 @@ def _required_checks(requirements: dict[str, object]) -> list[str]:
         check = value.strip()
         require(check not in checks, "preflight checks must be unique")
         checks.append(check)
+    require(
+        "gemma4_checkpoint_attested" in checks,
+        "preflight Gemma checkpoint attestation check missing",
+    )
     return checks
 
 
@@ -91,6 +125,7 @@ def main() -> None:
     receipt = load_json(receipt_path)
     deployment = load_json(deployment_path)
     required_checks = _required_checks(requirements)
+    checkpoint_contract = _checkpoint_contract(requirements)
 
     require(deployment.get("schema_version") == 1, "unsupported schema_version")
     require(deployment.get("status") == "DEPLOYED", "status must be DEPLOYED")
@@ -198,6 +233,10 @@ def main() -> None:
         preflight_meta.get("required_checks") == required_checks,
         "preflight required check set mismatch",
     )
+    require(
+        preflight_meta.get("internal_model_checkpoint") == checkpoint_contract,
+        "preflight checkpoint contract mismatch",
+    )
 
     require(preflight_receipt.get("status") == "READY", "preflight status must be READY")
     for field in (
@@ -212,6 +251,10 @@ def main() -> None:
             preflight_receipt.get(field) == deployment.get(field),
             f"preflight receipt {field} mismatch",
         )
+    require(
+        preflight_receipt.get("internal_model_checkpoint") == checkpoint_contract,
+        "preflight checkpoint attestation mismatch",
+    )
     checks = preflight_receipt.get("checks")
     require(isinstance(checks, dict), "preflight receipt checks missing")
     require(set(checks) == set(required_checks), "preflight receipt check set mismatch")

@@ -20,10 +20,20 @@ CHECKS = [
     "otlp_traces_https",
     "otlp_logs_https",
     "protected_metrics_configured",
+    "gemma4_checkpoint_attested",
     "provider_dispatch_configured",
     "backup_policy_configured",
     "retention_policy_configured",
 ]
+
+CHECKPOINT = {
+    "model_id": "google/gemma-4-12B-it",
+    "revision": "707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7",
+    "model_sha256": "5a84cb313260ac447237b890387116dfa8682e49a6b44bc585ae8353abbff18d",
+    "tokenizer_sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f",
+    "execution_mode": "IN_PROCESS",
+    "network_model_download": False,
+}
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -82,9 +92,10 @@ def _chain(
     _write_json(
         requirements,
         {
-            "schema_version": 1,
+            "schema_version": 2,
             "contract": "HAMOON_PRODUCTION_RUNTIME_PREFLIGHT",
             "required_checks": CHECKS,
+            "internal_model_checkpoint": CHECKPOINT,
         },
     )
     requirements_sha256 = hashlib.sha256(requirements.read_bytes()).hexdigest()
@@ -125,6 +136,7 @@ def _chain(
             "runtime_preflight": {
                 "contract_sha256": requirements_sha256,
                 "required_checks": CHECKS,
+                "internal_model_checkpoint": CHECKPOINT,
             },
         },
     )
@@ -142,6 +154,7 @@ def _chain(
             "backend_image_id": API_IMAGE_ID,
             "frontend_image_id": WEB_IMAGE_ID,
             "checks": {check: True for check in CHECKS},
+            "internal_model_checkpoint": CHECKPOINT,
             "checked_at": "2026-10-05T12:55:00+00:00",
         },
     )
@@ -270,6 +283,27 @@ def test_production_deployment_verifier_accepts_bound_preflight_and_receipt(
     assert result.returncode == 0
     assert '"status": "valid"' in result.stdout
     assert '"preflight_id": "preflight-001"' in result.stdout
+
+
+def test_production_deployment_verifier_rejects_checkpoint_attestation_drift(
+    tmp_path: Path,
+) -> None:
+    chain = list(_chain(tmp_path))
+    preflight_receipt = chain[4]
+    deployment = chain[7]
+    value = json.loads(preflight_receipt.read_text())
+    value["internal_model_checkpoint"]["revision"] = "0" * 40
+    _write_json(preflight_receipt, value)
+    deployment_value = json.loads(deployment.read_text())
+    deployment_value["preflight_receipt_sha256"] = hashlib.sha256(
+        preflight_receipt.read_bytes()
+    ).hexdigest()
+    _write_json(deployment, deployment_value)
+
+    result = _verify(*chain)
+
+    assert result.returncode != 0
+    assert "preflight checkpoint attestation mismatch" in result.stderr
 
 
 def test_production_deployment_verifier_rejects_failed_preflight_check(

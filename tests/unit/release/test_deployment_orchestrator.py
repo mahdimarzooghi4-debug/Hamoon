@@ -21,7 +21,16 @@ TOKEN = "t" * 40
 PREFLIGHT_CHECKS = [
     "postgresql_connectivity",
     "nats_jetstream_connectivity",
+    "gemma4_checkpoint_attested",
 ]
+CHECKPOINT = {
+    "model_id": "google/gemma-4-12B-it",
+    "revision": "707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7",
+    "model_sha256": "5a84cb313260ac447237b890387116dfa8682e49a6b44bc585ae8353abbff18d",
+    "tokenizer_sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f",
+    "execution_mode": "IN_PROCESS",
+    "network_model_download": False,
+}
 
 
 def _manifest() -> dict[str, object]:
@@ -62,9 +71,10 @@ def _admission() -> dict[str, object]:
 
 def _requirements() -> dict[str, object]:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "contract": "HAMOON_PRODUCTION_RUNTIME_PREFLIGHT",
         "required_checks": PREFLIGHT_CHECKS,
+        "internal_model_checkpoint": CHECKPOINT,
     }
 
 
@@ -79,6 +89,7 @@ def _preflight_receipt() -> dict[str, object]:
         "backend_image_id": API_IMAGE_ID,
         "frontend_image_id": WEB_IMAGE_ID,
         "checks": {check: True for check in PREFLIGHT_CHECKS},
+        "internal_model_checkpoint": CHECKPOINT,
         "checked_at": "2026-10-05T12:55:00+00:00",
     }
 
@@ -262,6 +273,7 @@ def test_build_preflight_request_binds_runtime_contract() -> None:
     metadata = cast(dict[str, object], request["runtime_preflight"])
     assert metadata["contract_sha256"] == "2" * 64
     assert metadata["required_checks"] == PREFLIGHT_CHECKS
+    assert metadata["internal_model_checkpoint"] == CHECKPOINT
 
 def test_execute_production_preflight_requires_all_checks_ready() -> None:
     observed_operations: list[object] = []
@@ -307,6 +319,32 @@ def test_execute_production_preflight_rejects_failed_required_check() -> None:
             requirements_sha256="2" * 64,
             transport=httpx.MockTransport(handler),
         )
+
+def test_execute_production_preflight_rejects_checkpoint_identity_drift() -> None:
+    receipt = _preflight_receipt()
+    receipt["internal_model_checkpoint"] = {
+        **CHECKPOINT,
+        "revision": "0" * 40,
+    }
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=receipt)
+
+    with pytest.raises(
+        DeploymentOrchestratorError,
+        match="checkpoint attestation does not match request",
+    ):
+        execute_production_preflight(
+            orchestrator_endpoint="https://deploy.example.com/v1/deployments",
+            token=TOKEN,
+            repository="owner/Hamoon",
+            manifest=_manifest(),
+            admission=_admission(),
+            requirements=_requirements(),
+            requirements_sha256="2" * 64,
+            transport=httpx.MockTransport(handler),
+        )
+
 
 def test_execute_production_preflight_rejects_false_required_check() -> None:
     receipt = _preflight_receipt()
