@@ -706,10 +706,12 @@ class ApproveDatasetHandler:
         self,
         *,
         datasets: LearningDatasetRepository,
+        signals: LearningSignalRepository,
         events: DomainEventRecorder,
         audits: AuditRecorder,
     ) -> None:
         self._datasets = datasets
+        self._signals = signals
         self._events = events
         self._audits = audits
 
@@ -720,6 +722,16 @@ class ApproveDatasetHandler:
         dataset = await self._datasets.get(command.dataset_id)
         if dataset is None:
             raise LearningDatasetError("LEARNING_DATASET_NOT_FOUND")
+
+        for item in await self._datasets.list_items(dataset.id):
+            signal = await self._signals.get(item.learning_signal_id)
+            if signal is None:
+                raise LearningDatasetError("DATASET_LEARNING_SIGNAL_NOT_FOUND")
+            if signal.quality_status is not LearningSignalQuality.CURATED:
+                raise LearningDatasetError(
+                    "DATASET_LEARNING_SIGNAL_NOT_CURATED"
+                )
+
         now = datetime.now(UTC)
         try:
             approved = dataset.approve(
