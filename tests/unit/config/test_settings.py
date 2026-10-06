@@ -17,7 +17,6 @@ def _production_settings(**overrides: object) -> Settings:
         "otel_exporter_otlp_endpoint": "https://otel.internal/v1/traces",
         "otel_exporter_otlp_logs_endpoint": "https://otel.internal/v1/logs",
         "structured_logging": True,
-        "ai_model_root": "/srv/hamoon/models",
         "database_url": (
             "postgresql+asyncpg://hamoon:strong-password@db.internal:5432/hamoon"
         ),
@@ -100,11 +99,6 @@ def test_production_configuration_accepts_remote_secure_dependencies() -> None:
             "structured_logging",
             False,
             "PRODUCTION_STRUCTURED_LOGGING_REQUIRED",
-        ),
-        (
-            "ai_model_root",
-            ".hamoon/models",
-            "PRODUCTION_AI_MODEL_ROOT_REQUIRED",
         ),
         (
             "openai_api_key",
