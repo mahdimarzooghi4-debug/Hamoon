@@ -923,6 +923,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             concrete_model_id=candidate.concrete_model_id,
             artifact_sha256=candidate.artifact_sha256,
             parent_model_version_id=candidate.parent_model_version_id,
+            training_dataset_manifest_digest=candidate.training_dataset_manifest_digest,
+            training_pipeline_version=candidate.training_pipeline_version,
             status=candidate.status,
             limitations=candidate.limitations,
             approved_at=candidate.approved_at,
