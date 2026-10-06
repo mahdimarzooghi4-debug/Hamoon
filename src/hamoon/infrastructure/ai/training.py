@@ -4,6 +4,8 @@ import copy
 from pathlib import Path
 import re
 
+from pydantic import JsonValue
+
 from hamoon.domains.learning.domain.entities import (
     LearningDatasetItem,
     LearningDatasetVersion,
