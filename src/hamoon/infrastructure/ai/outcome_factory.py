@@ -12,8 +12,8 @@ from hamoon.infrastructure.ai.outcome_runtime import (
 )
 from hamoon.infrastructure.ai.providers.fake import FakeAIProvider
 from hamoon.infrastructure.ai.production_factory import (
-    NativeAIRuntimeConfigurationError,
-    build_native_gateway,
+    InternalModelRuntimeConfigurationError,
+    build_internal_model_gateway,
 )
 
 
@@ -38,8 +38,8 @@ async def build_outcome_ai_client(
     if route is None:
         raise OutcomeAIRuntimeConfigurationError("AI_ROUTING_POLICY_NOT_FOUND")
     try:
-        gateway = build_native_gateway(settings=settings, route=route)
-    except NativeAIRuntimeConfigurationError as exc:
+        gateway = build_internal_model_gateway(settings=settings, route=route)
+    except InternalModelRuntimeConfigurationError as exc:
         raise OutcomeAIRuntimeConfigurationError(str(exc)) from exc
 
     return GatewayOutcomeAIClient(
