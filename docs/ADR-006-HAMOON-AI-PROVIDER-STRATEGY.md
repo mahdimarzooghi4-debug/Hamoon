@@ -53,8 +53,9 @@ training pipeline version
 evaluation evidence
 ```
 
-این ADR درباره فرمت artifact، خانواده مدل، الگوریتم Training، executor یا محل فیزیکی ذخیره‌سازی
-آن تصمیم نمی‌گیرد.
+Artifact در این مرحله یک artifact داخلی immutable و versioned است که با digest و lineage
+رجیستری شناسایی می‌شود. فرمت serialization، خانواده مدل و محل فیزیکی ذخیره‌سازی هنوز انتخاب
+نشده‌اند و نباید از روی implementation حدس زده شوند.
 
 هیچ Model Version بدون lineage کامل نمی‌تواند وارد Production شود.
 
@@ -95,14 +96,17 @@ Promotion به Production فقط با اقدام صریح ADMIN انسانی ا�
 - نگهداری Model Registry و lineage نسخه‌دار؛
 - الزام artifact digest، training dataset digest، training pipeline version و evaluation evidence؛
 - ثبت Candidate metadata بدون اجرای Training؛
-- fail-safe در نبود Production Model یا executor مصوب؛
+- execution mode مصوب فقط `IN_PROCESS` داخل backend/worker خود Hamoon است؛
+- هیچ network hop، endpoint، token یا inference service برای اجرای مدل مجاز نیست؛
+- artifact از Registry lineage و digest معتبر resolve می‌شود، نه از URL یا endpoint؛
+- fail-safe در نبود Production Model یا executor concrete؛
 - ایجاد `AI_FALLBACK` Human Work Item هنگام unavailable بودن AI Production.
 
 عمداً در این مرحله پیاده نمی‌شوند:
 
 - مدل مشخص مانند Llama/Qwen/Mistral یا هر خانواده دیگر؛
 - Training algorithm؛
-- inference/execution algorithm؛
+- concrete in-process executor و inference/execution algorithm؛
 - threshold یا hyperparameter؛
 - Training Engine کامل؛
 - internal/external inference API.
@@ -180,8 +184,11 @@ Curated Dataset
 
 # 10. Future Decision Required
 
-ساخت Internal Training Pipeline و Internal Model Executor یک تصمیم معماری مستقل بعدی است.
-پیش از آن باید به‌صورت صریح model family، artifact contract، training method، execution
-semantics، resource isolation و evaluation policy تصویب شوند.
+Execution boundary تصویب شده است: مدل فقط به‌صورت `IN_PROCESS` داخل خود Hamoon اجرا می‌شود
+و هیچ API/endpoint/token یا inference service جداگانه مجاز نیست.
 
-تا آن زمان هیچ implementation مشخصی حق ورود به Production path را ندارد.
+مواردی که هنوز تصمیم جداگانه می‌خواهند: model family، artifact serialization format،
+training method، concrete executor implementation، resource isolation و evaluation policy
+جزئی. Training Engine نیز در این مرحله deferred باقی می‌ماند.
+
+تا تصویب این موارد، هیچ implementation مشخص مدل یا executor حق ورود به Production path را ندارد.
