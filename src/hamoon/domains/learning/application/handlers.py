@@ -690,7 +690,9 @@ class CreateAutomaticDatasetForCuratedSignalHandler:
                 task_class=task_class,
                 dataset_key=dataset_key,
                 version=version,
-                selection_policy_version=AUTO_CURATED_SIGNAL_SELECTION_POLICY_VERSION,
+                selection_policy_version=(
+                    AUTO_CURATED_SIGNAL_SELECTION_POLICY_VERSION
+                ),
                 signal_ids=(signal.id,),
                 actor_id=command.actor_id,
                 request_id=command.request_id,
