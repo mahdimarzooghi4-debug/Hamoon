@@ -21,6 +21,7 @@ from hamoon.infrastructure.ai.contracts import (
 from hamoon.infrastructure.ai.gemma4_baseline import (
     GEMMA4_BASELINE_MODEL_SHA256,
     GEMMA4_BASELINE_PIPELINE_VERSION,
+    GEMMA4_BASELINE_TOKENIZER_SHA256,
     GEMMA4_BASELINE_REVISION,
     GEMMA4_CONCRETE_MODEL_ID,
     Gemma4LoRAArtifactManifest,
@@ -39,6 +40,7 @@ from hamoon.infrastructure.ai.internal_model import (
 
 
 _REQUIRED_BASE_FILES = (
+    "chat_template.jinja",
     "config.json",
     "generation_config.json",
     "model.safetensors",
@@ -288,16 +290,93 @@ class Gemma4BaseCheckpoint:
                     "GEMMA4_BASE_CHECKPOINT_REVISION_MISMATCH"
                 )
 
-            digest = hashlib.sha256()
-            with (root / "model.safetensors").open("rb") as handle:
-                for chunk in iter(lambda: handle.read(8 * 1024 * 1024), b""):
-                    digest.update(chunk)
-            if digest.hexdigest() != GEMMA4_BASELINE_MODEL_SHA256:
+            if _file_sha256(root / "model.safetensors") != GEMMA4_BASELINE_MODEL_SHA256:
                 raise Gemma4RuntimeError(
                     "GEMMA4_BASE_CHECKPOINT_DIGEST_MISMATCH"
                 )
+            if _file_sha256(root / "tokenizer.json") != GEMMA4_BASELINE_TOKENIZER_SHA256:
+                raise Gemma4RuntimeError(
+                    "GEMMA4_BASE_CHECKPOINT_TOKENIZER_DIGEST_MISMATCH"
+                )
+            _validate_base_checkpoint_metadata(root)
             self._validated = True
             return root
+
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _json_object(path: Path) -> dict[str, object]:
+    try:
+        payload = cast(object, json.loads(path.read_text(encoding="utf-8")))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise Gemma4RuntimeError(
+            "GEMMA4_BASE_CHECKPOINT_METADATA_INVALID"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise Gemma4RuntimeError(
+            "GEMMA4_BASE_CHECKPOINT_METADATA_INVALID"
+        )
+    return cast(dict[str, object], payload)
+
+
+def _validate_base_checkpoint_metadata(root: Path) -> None:
+    config = _json_object(root / "config.json")
+    processor = _json_object(root / "processor_config.json")
+    tokenizer_config = _json_object(root / "tokenizer_config.json")
+    generation = _json_object(root / "generation_config.json")
+
+    text_config = config.get("text_config")
+    if (
+        config.get("architectures") != ["Gemma4UnifiedForConditionalGeneration"]
+        or config.get("model_type") != "gemma4_unified"
+        or not isinstance(text_config, dict)
+        or text_config.get("model_type") != "gemma4_unified_text"
+        or text_config.get("hidden_size") != 3840
+        or text_config.get("num_hidden_layers") != 48
+        or text_config.get("vocab_size") != 262144
+    ):
+        raise Gemma4RuntimeError(
+            "GEMMA4_BASE_CHECKPOINT_MODEL_METADATA_MISMATCH"
+        )
+    if processor.get("processor_class") != "Gemma4UnifiedProcessor":
+        raise Gemma4RuntimeError(
+            "GEMMA4_BASE_CHECKPOINT_PROCESSOR_METADATA_MISMATCH"
+        )
+    if (
+        tokenizer_config.get("processor_class") != "Gemma4UnifiedProcessor"
+        or tokenizer_config.get("tokenizer_class") != "GemmaTokenizer"
+    ):
+        raise Gemma4RuntimeError(
+            "GEMMA4_BASE_CHECKPOINT_TOKENIZER_METADATA_MISMATCH"
+        )
+    if (
+        generation.get("bos_token_id") != 2
+        or generation.get("pad_token_id") != 0
+        or generation.get("eos_token_id") != [1, 106, 50]
+        or generation.get("suppress_tokens") != [258883, 258882]
+    ):
+        raise Gemma4RuntimeError(
+            "GEMMA4_BASE_CHECKPOINT_GENERATION_METADATA_MISMATCH"
+        )
+    try:
+        chat_template = (root / "chat_template.jinja").read_text(
+            encoding="utf-8"
+        )
+    except (OSError, UnicodeDecodeError) as exc:
+        raise Gemma4RuntimeError(
+            "GEMMA4_BASE_CHECKPOINT_CHAT_TEMPLATE_INVALID"
+        ) from exc
+    if not chat_template.strip():
+        raise Gemma4RuntimeError(
+            "GEMMA4_BASE_CHECKPOINT_CHAT_TEMPLATE_INVALID"
+        )
 
 
 def _ml_stack() -> tuple[Any, Any, Any]:
