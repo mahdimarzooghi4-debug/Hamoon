@@ -44,6 +44,14 @@ _UUID_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
     r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
+_CASE_REF_RE = re.compile(
+    r"^[a-z_]+:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+
+
+def _case_identity(value: str) -> bool:
+    return bool(_UUID_RE.fullmatch(value) or _CASE_REF_RE.fullmatch(value))
 
 
 class NativeModelArtifactError(RuntimeError):
@@ -144,7 +152,7 @@ def _comparable_flattened(value: dict[str, JsonValue]) -> dict[str, JsonValue]:
     return {
         key: item
         for key, item in _flatten(cast(JsonValue, value)).items()
-        if not (isinstance(item, str) and _UUID_RE.fullmatch(item))
+        if not (isinstance(item, str) and _case_identity(item))
     }
 
 
