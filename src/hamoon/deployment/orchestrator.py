@@ -241,6 +241,10 @@ def _required_preflight_checks(
                 "Production runtime preflight checks must be unique."
             )
         checks.append(check)
+    if "gemma4_checkpoint_attested" not in checks:
+        raise DeploymentOrchestratorError(
+            "Production runtime preflight must attest the Gemma checkpoint."
+        )
     return tuple(checks)
 
 
