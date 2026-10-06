@@ -694,7 +694,8 @@ class Gemma4LoRAExecutor(InternalModelExecutor):
         )
         inputs = inputs.to(model.device)
         input_length = int(inputs["input_ids"].shape[-1])
-        with importlib.import_module("torch").inference_mode():
+        torch, _transformers, _peft = _ml_stack()
+        with torch.inference_mode():
             output_ids = model.generate(
                 **inputs,
                 **config.generation_kwargs,
