@@ -182,7 +182,7 @@ class Gemma4LoRATrainingConfig:
             lora_bias=lora_bias,
             target_modules=tuple(
                 cast(str, item).strip()
-                for item in target_modules
+                for item in target_modules_values
             ),
             training_arguments=normalized_args,
         )
