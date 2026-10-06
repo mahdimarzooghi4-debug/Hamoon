@@ -93,6 +93,7 @@ class DecisionTraceData(BaseModel):
     pgor_snapshot_id: UUID
     feature_package_id: UUID
     ai_decision_id: UUID
+    model_artifact_sha256: str | None
     human_decision_id: UUID | None
     prescription_id: UUID | None
     intervention_id: UUID | None
