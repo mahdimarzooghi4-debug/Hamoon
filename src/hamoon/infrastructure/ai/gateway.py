@@ -127,7 +127,7 @@ class ProviderAIGateway:
                 output_schema=output_schema,
                 features=request.features,
                 correlation_id=request.correlation_id,
-                model_artifact_sha256=routing_policy.model_artifact_sha256,
+                    model_artifact_sha256=routing_policy.model_artifact_sha256,
                 )
             )
         except Exception as exc:
