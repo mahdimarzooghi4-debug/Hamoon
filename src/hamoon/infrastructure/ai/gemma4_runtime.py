@@ -437,7 +437,7 @@ class Gemma4LoRATrainer(InternalModelTrainer):
             str(root),
             local_files_only=True,
         )
-        model = transformers.AutoModelForCausalLM.from_pretrained(
+        model = transformers.AutoModelForMultimodalLM.from_pretrained(
             str(root),
             local_files_only=True,
             dtype=dtype,
@@ -762,7 +762,7 @@ class Gemma4LoRAExecutor(InternalModelExecutor):
                     str(root),
                     local_files_only=True,
                 )
-                base_model = transformers.AutoModelForCausalLM.from_pretrained(
+                base_model = transformers.AutoModelForMultimodalLM.from_pretrained(
                     str(root),
                     local_files_only=True,
                     dtype="auto",

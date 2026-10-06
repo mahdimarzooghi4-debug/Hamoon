@@ -223,6 +223,22 @@ class Settings(BaseSettings):
             errors.append(
                 "PRODUCTION_INTERNAL_MODEL_ARTIFACT_S3_CREDENTIALS_REQUIRED"
             )
+        if (
+            self.gemma4_base_checkpoint_root is None
+            or not self.gemma4_base_checkpoint_root.strip()
+        ):
+            errors.append("PRODUCTION_GEMMA4_BASE_CHECKPOINT_REQUIRED")
+        if (
+            self.gemma4_training_config_json is None
+            or not self.gemma4_training_config_json.strip()
+        ):
+            errors.append("PRODUCTION_GEMMA4_TRAINING_CONFIG_REQUIRED")
+        if (
+            self.gemma4_generation_config_json is None
+            or not self.gemma4_generation_config_json.strip()
+        ):
+            errors.append("PRODUCTION_GEMMA4_GENERATION_CONFIG_REQUIRED")
+
         if scanner_backend != "http":
             errors.append("PRODUCTION_EVIDENCE_SCANNER_REQUIRED")
         if (
