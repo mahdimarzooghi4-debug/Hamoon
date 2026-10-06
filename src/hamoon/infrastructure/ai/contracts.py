@@ -5,6 +5,20 @@ from uuid import UUID
 from pydantic import JsonValue
 
 
+class InternalModelExecutionMode(StrEnum):
+    IN_PROCESS = "IN_PROCESS"
+
+
+@dataclass(frozen=True, slots=True)
+class InternalModelArtifactContract:
+    model_version: str
+    artifact_sha256: str
+    training_dataset_version_id: UUID
+    training_dataset_manifest_digest: str
+    training_pipeline_version: str
+    production_evaluation_run_id: UUID
+
+
 class AITaskClass(StrEnum):
     DIAGNOSIS = "DIAGNOSIS"
     PRESCRIPTION = "PRESCRIPTION"

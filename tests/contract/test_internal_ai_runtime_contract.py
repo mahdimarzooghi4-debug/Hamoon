@@ -5,6 +5,9 @@ def test_production_internal_model_contract_has_no_ai_api_dependency() -> None:
     factory = Path(
         "src/hamoon/infrastructure/ai/production_factory.py"
     ).read_text(encoding="utf-8")
+    contracts = Path(
+        "src/hamoon/infrastructure/ai/contracts.py"
+    ).read_text(encoding="utf-8")
     registry = Path(
         "src/hamoon/domains/intelligence/domain/registry.py"
     ).read_text(encoding="utf-8")
@@ -15,6 +18,9 @@ def test_production_internal_model_contract_has_no_ai_api_dependency() -> None:
     assert 'INTERNAL_MODEL_PROVIDER_CODE = "INTERNAL_MODEL"' in registry
     assert "INTERNAL_MODEL_PROVIDER_CODE" in factory
     assert "INTERNAL_MODEL_EXECUTOR_NOT_IMPLEMENTED" in factory
+    assert "InternalModelExecutionMode.IN_PROCESS" in factory
+    assert 'IN_PROCESS = "IN_PROCESS"' in contracts
+    assert "InternalModelArtifactContract" in contracts
     assert "providers.native" not in factory
 
     for forbidden in (
@@ -28,6 +34,7 @@ def test_production_internal_model_contract_has_no_ai_api_dependency() -> None:
     ):
         assert forbidden not in factory
         assert forbidden not in settings
+        assert forbidden not in contracts
 
 
 def test_unapproved_training_and_execution_engine_is_absent() -> None:
