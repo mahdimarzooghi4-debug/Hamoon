@@ -346,6 +346,15 @@ def _training_messages(
     ]
 
 
+def _require_supervised_target(
+    *,
+    sequence_length: int,
+    prompt_length: int,
+) -> None:
+    if sequence_length <= 0 or prompt_length < 0 or prompt_length >= sequence_length:
+        raise Gemma4RuntimeError("GEMMA4_TRAINING_TARGET_TRUNCATED")
+
+
 def _zip_entry(name: str, content: bytes) -> tuple[zipfile.ZipInfo, bytes]:
     info = zipfile.ZipInfo(
         filename=name,
@@ -577,6 +586,10 @@ class Gemma4LoRATrainer(InternalModelTrainer):
         prompt_length = min(
             int(prompt["input_ids"].shape[-1]),
             int(input_ids.shape[-1]),
+        )
+        _require_supervised_target(
+            sequence_length=int(input_ids.shape[-1]),
+            prompt_length=prompt_length,
         )
         labels = input_ids.clone()
         labels[:prompt_length] = -100
