@@ -41,6 +41,10 @@ from hamoon.domains.intelligence.api.schemas import (
     GenerateDiagnosisData,
     GenerateDiagnosisRequest,
     GenerateDiagnosisResponse,
+    ExecuteInternalTrainingRunRequest,
+    InternalTrainingRunData,
+    InternalTrainingRunListResponse,
+    InternalTrainingRunResponse,
     ReviewDiagnosisData,
     PromptPolicyVersionCatalogData,
     PromptPolicyVersionCatalogResponse,
@@ -67,7 +71,10 @@ from hamoon.domains.intelligence.domain.errors import (
     DiagnosisVersionConflictError,
     InvalidDiagnosisReviewError,
 )
-from hamoon.domains.intelligence.domain.registry import ResolvedAIRoute
+from hamoon.domains.intelligence.domain.registry import (
+    InternalTrainingRunState,
+    ResolvedAIRoute,
+)
 from hamoon.domains.intelligence.infrastructure.repositories import (
     SqlAlchemyAIDecisionRepository,
     SqlAlchemyAIRuntimeRegistryRepository,
@@ -97,6 +104,12 @@ from hamoon.infrastructure.ai.diagnosis_runtime import (
     local_fake_diagnosis_policy,
 )
 from hamoon.infrastructure.ai.gateway import ProviderAIGateway
+from hamoon.infrastructure.ai.internal_model import (
+    InternalModelRuntimeError,
+    InternalTrainingExample,
+    InternalTrainingRequest,
+    get_internal_model_runtime,
+)
 from hamoon.infrastructure.ai.providers.fake import FakeAIProvider
 from hamoon.infrastructure.ai.production_factory import (
     InternalModelRuntimeConfigurationError,
