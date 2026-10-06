@@ -142,6 +142,7 @@ class AIRuntimeRegistryRepository(Protocol):
         version: str,
         concrete_model_id: str,
         artifact_sha256: str,
+        parent_model_version_id: UUID | None,
         limitations: str | None,
     ) -> AIModelVersionCatalogItem: ...
 
