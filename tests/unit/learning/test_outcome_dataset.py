@@ -16,11 +16,13 @@ from hamoon.domains.intervention.domain.entities import (
     InterventionType,
 )
 from hamoon.domains.learning.application.commands import (
+    ApproveDatasetCommand,
     CreateAutomaticDatasetForCuratedSignalCommand,
     CreateOutcomeDatasetCommand,
 )
 from hamoon.domains.learning.application.handlers import (
     AUTO_CURATED_SIGNAL_SELECTION_POLICY_VERSION,
+    ApproveDatasetHandler,
     CreateAutomaticDatasetForCuratedSignalHandler,
     CreateOutcomeDatasetHandler,
 )
@@ -381,3 +383,55 @@ async def test_curated_signal_without_dataset_policy_is_not_auto_datasetized() -
 
     assert result is None
     assert datasets.dataset is None
+
+
+@pytest.mark.asyncio
+async def test_dataset_approval_rechecks_signal_is_still_curated() -> None:
+    datasets = Datasets()
+    signals = Signals()
+    dataset, _items = await CreateOutcomeDatasetHandler(
+        signals=signals,
+        datasets=datasets,
+        outcomes=Outcomes(),
+        snapshots=Snapshots(),
+        interventions=Interventions(),
+        provider_results=Results(),
+        events=Recorder(),
+        audits=Recorder(),
+    ).handle(
+        CreateOutcomeDatasetCommand(
+            dataset_key="hamoon.outcome.learning",
+            version="approval-recheck-v1",
+            selection_policy_version="outcome-selection-v1",
+            signal_ids=(SIGNAL,),
+            actor_id=ACTOR,
+            request_id="req-create",
+            correlation_id="corr-create",
+        )
+    )
+
+    signals.signal = replace(
+        signals.signal,
+        quality_status=LearningSignalQuality.EXCLUDED,
+    )
+
+    with pytest.raises(
+        LearningDatasetError,
+        match="DATASET_LEARNING_SIGNAL_NOT_CURATED",
+    ):
+        await ApproveDatasetHandler(
+            datasets=datasets,
+            signals=signals,
+            events=Recorder(),
+            audits=Recorder(),
+        ).handle(
+            ApproveDatasetCommand(
+                dataset_id=dataset.id,
+                actor_id=ACTOR,
+                request_id="req-approve",
+                correlation_id="corr-approve",
+            )
+        )
+
+    assert datasets.dataset is not None
+    assert datasets.dataset.status is DatasetVersionStatus.DRAFT
