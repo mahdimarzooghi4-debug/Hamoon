@@ -22,6 +22,7 @@ from hamoon.domains.intelligence.domain.registry import (
     AIModelVersionStatus,
     AIProviderStatus,
     EvaluationStatus,
+    InternalTrainingRunStatus,
     PromptPolicyVersionStatus,
     RoutingPolicyStatus,
 )
@@ -434,6 +435,77 @@ class AIModelVersionModel(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+
+class InternalTrainingRunModel(Base):
+    __tablename__ = "internal_training_run"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    task_class: Mapped[AITaskClass] = mapped_column(
+        Enum(AITaskClass, name="ai_task_class"),
+        nullable=False,
+        index=True,
+    )
+    dataset_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("learning_dataset_version.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    dataset_manifest_digest: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+    )
+    training_pipeline_version: Mapped[str] = mapped_column(
+        String(150),
+        nullable=False,
+    )
+    model_key: Mapped[str] = mapped_column(String(150), nullable=False)
+    model_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    concrete_model_id: Mapped[str] = mapped_column(String(250), nullable=False)
+    parent_model_version_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("ai_model_version.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    status: Mapped[InternalTrainingRunStatus] = mapped_column(
+        Enum(
+            InternalTrainingRunStatus,
+            name="internal_training_run_status",
+        ),
+        nullable=False,
+        index=True,
+    )
+    artifact_sha256: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+    artifact_size_bytes: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    candidate_model_version_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("ai_model_version.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    error_code: Mapped[str | None] = mapped_column(
+        String(150),
+        nullable=True,
+    )
+    created_by: Mapped[UUID] = mapped_column(
+        ForeignKey("actor.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
 
 class PromptPolicyModel(Base):
     __tablename__ = "prompt_policy"
