@@ -17,6 +17,11 @@ from hamoon.domains.intelligence.infrastructure.repositories import (
     SqlAlchemyDecisionTraceRepository,
     SqlAlchemyFeaturePackageRepository,
 )
+from hamoon.domains.operations.application.handlers import EnsureWorkItemHandler
+from hamoon.domains.operations.domain.entities import WorkItemType
+from hamoon.domains.operations.infrastructure.repositories import (
+    SqlAlchemyWorkItemRepository,
+)
 from hamoon.domains.intervention.infrastructure.repositories import (
     SqlAlchemyInterventionRepository,
 )
@@ -58,16 +63,10 @@ async def _resolve_ai_client(
     session: AsyncSession,
     settings: Settings,
 ) -> GatewayOutcomeAIClient:
-    try:
-        return await build_outcome_ai_client(
-            session=session,
-            settings=settings,
-        )
-    except OutcomeAIRuntimeConfigurationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"code": str(exc)},
-        ) from exc
+    return await build_outcome_ai_client(
+        session=session,
+        settings=settings,
+    )
 
 
 @router.post(
@@ -87,6 +86,7 @@ async def generate_outcome_interpretation(
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
     outcomes = SqlAlchemyOutcomeRepository(session)
+    fallback_household_id: UUID | None = None
     command = GenerateOutcomeInterpretationCommand(
         outcome_id=outcome_id,
         actor_id=context.actor_id,
@@ -106,6 +106,7 @@ async def generate_outcome_interpretation(
                 context=context,
                 household_id=outcome.household_id,
             )
+            fallback_household_id = outcome.household_id
             ai_client = await _resolve_ai_client(
                 session=session,
                 settings=settings,
@@ -137,6 +138,29 @@ async def generate_outcome_interpretation(
                 prepared=prepared,
                 result=result,
             )
+    except OutcomeAIRuntimeConfigurationError as exc:
+        if fallback_household_id is not None:
+            async with session.begin():
+                await EnsureWorkItemHandler(
+                    work_items=SqlAlchemyWorkItemRepository(session),
+                    events=SqlAlchemyDomainEventRecorder(session),
+                    audits=SqlAlchemyAuditRecorder(session),
+                ).handle(
+                    household_id=fallback_household_id,
+                    work_type=WorkItemType.AI_FALLBACK,
+                    resource_type="HAMOON_OUTCOME",
+                    resource_id=outcome_id,
+                    title="بررسی انسانی به‌دلیل عدم دسترسی مدل داخلی",
+                    reason=str(exc),
+                    priority=80,
+                    actor_id=context.actor_id,
+                    request_id=request_id,
+                    correlation_id=correlation_id,
+                )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": str(exc)},
+        ) from exc
     except OutcomeInterpretationError as exc:
         code = str(exc)
         http_status = (
