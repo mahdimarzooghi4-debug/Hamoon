@@ -142,6 +142,7 @@ class AIRuntimeRegistryRepository(Protocol):
         version: str,
         concrete_model_id: str,
         artifact_sha256: str,
+        training_dataset_version_id: UUID,
         training_dataset_manifest_digest: str,
         training_pipeline_version: str,
         parent_model_version_id: UUID | None,
