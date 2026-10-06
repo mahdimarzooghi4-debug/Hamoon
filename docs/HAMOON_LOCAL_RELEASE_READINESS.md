@@ -32,6 +32,7 @@ The local product boundary includes:
 - Supply-chain metadata for the tested artifacts: CycloneDX SBOMs, SLSA-style in-toto provenance, SHA-256 checksums, and an offline bundle verifier.
 - Provider-neutral hosted Production Deploy execution after Release Approval/Deployment Admission, using a protected GitHub Production Environment, remote HTTPS orchestrator, exact-image request binding, mandatory versioned external-runtime preflight and immutable DEPLOYED receipt evidence.
 - Synthetic external Evidence integration verification bound to Stage Admission, covering live S3-compatible PUT/HEAD/GET, conditional overwrite denial, anonymous object/bucket access denial, external scanner CLEAN response, scoped cleanup and immutable hashed evidence.
+- Native AI is now an in-process no-network runtime: reviewed/curated operational data → approved dataset → local training artifact → offline evaluation → DRAFT routing → explicit human promotion. AI decisions persist exact model artifact SHA-256 provenance.
 
 ## Intentionally deferred integrations
 
@@ -39,7 +40,7 @@ These items require environment credentials, a selected deployment platform or a
 external system and are not blockers for UI/Figma work:
 
 - Concrete hosted Production runtime provisioning, DNS/TLS ownership and the external deployment orchestrator endpoint/credential. The in-repo Production Deploy workflow and immutable deployment receipt contract are implemented.
-- Real OpenAI candidate execution or any other external AI provider call.
+- No external or internal AI API is permitted in Production. Native model artifacts are trained and executed in-process from the Hamoon-controlled model root; only the model store provisioning/mount remains deployment-specific.
 - Real provider dispatch/verification endpoints and runtime credentials. The provider-neutral dispatch adapter, Temporal ReferralWorkflow and synthetic external Provider integration verification gate are implemented in-repo.
 - Concrete Production S3-compatible Evidence endpoint/credentials and scanner endpoint/token. The live synthetic External Evidence Integration Verification gate is implemented in-repo.
 - External OpenTelemetry backend, dashboards and alert delivery.
@@ -47,11 +48,13 @@ external system and are not blockers for UI/Figma work:
 
 Production startup itself is no longer permissive: setting `HAMOON_ENVIRONMENT=production`
 activates fail-fast validation that rejects local endpoints, local Evidence storage,
-non-HTTPS OIDC/S3 endpoints, MinIO bootstrap credentials, and the local Evidence
-capability-signing secret. The same `Settings` boundary is shared by API, workers,
-and migrations.
+non-HTTPS OIDC/S3 endpoints, MinIO bootstrap credentials, the local Evidence
+capability-signing secret, any external AI credential, and an unsafe/non-absolute native
+model root. The same `Settings` boundary is shared by API, workers and migrations.
 
-The application contracts for these integrations must remain provider-agnostic.
+Production AI is not provider-agnostic at the operational boundary: decision-producing
+tasks are restricted to `HAMOON_NATIVE`, local immutable model artifacts and no network
+inference dependency.
 
 ## Local startup
 
