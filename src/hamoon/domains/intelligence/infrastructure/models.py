@@ -409,6 +409,10 @@ class AIModelVersionModel(Base):
         String(150),
         nullable=True,
     )
+    production_evaluation_run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("evaluation_run.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     parent_model_version_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("ai_model_version.id", ondelete="RESTRICT"),
         nullable=True,
