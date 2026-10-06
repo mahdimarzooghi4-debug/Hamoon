@@ -329,7 +329,9 @@ export function LearningGovernancePage() {
     return ready.models.filter(
       (item) =>
         item.provider_code === "HAMOON_NATIVE" &&
+        item.provider_status === "ACTIVE" &&
         item.artifact_sha256 !== null &&
+        (item.status === "APPROVED" || item.status === "PRODUCTION") &&
         item.purpose === dataset.purpose,
     );
   }, [ready, trainingDatasetId]);
@@ -1122,6 +1124,7 @@ export function LearningGovernancePage() {
             <label>
               <span>Model key</span>
               <input
+                disabled={Boolean(trainingBaseModelVersionId)}
                 maxLength={150}
                 placeholder="hamoon.outcome.native"
                 value={trainingModelKey}
@@ -1140,6 +1143,7 @@ export function LearningGovernancePage() {
             <label>
               <span>Model ID</span>
               <input
+                disabled={Boolean(trainingBaseModelVersionId)}
                 maxLength={250}
                 placeholder="hamoon-native-outcome-v1"
                 value={trainingModelId}
