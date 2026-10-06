@@ -128,6 +128,8 @@ Dataset Approval همچنان انسانی است و Promotion به Production �
   `707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7`؛
 - pinned model weight SHA-256:
   `5a84cb313260ac447237b890387116dfa8682e49a6b44bc585ae8353abbff18d`؛
+- pinned tokenizer SHA-256:
+  `cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f`؛
 - training method: `SFT_LORA` با PEFT؛
 - adapter serialization: Safetensors؛
 - Hamoon artifact format: `HAMOON_GEMMA4_PEFT_SAFETENSORS_V1`؛
@@ -135,7 +137,9 @@ Dataset Approval همچنان انسانی است و Promotion به Production �
 - concrete execution: Transformers/PyTorch/PEFT به‌صورت `IN_PROCESS` و
   `local_files_only=True`؛
 - base checkpoint از filesystem خصوصی/mounted artifact storage خوانده می‌شود و قبل از load
-  revision و SHA-256 آن verify می‌شود؛ هیچ download شبکه‌ای در runtime انجام نمی‌شود.
+  revision، SHA-256 وزن و tokenizer، presenceِ chat template و metadata اصلی
+  model/processor/tokenizer/generation verify می‌شوند؛ هیچ download شبکه‌ای در runtime انجام
+  نمی‌شود.
 
 مقادیر زیر عمداً hard-code نشده‌اند و باید از configuration صریح تأمین شوند:
 
@@ -145,9 +149,9 @@ Dataset Approval همچنان انسانی است و Promotion به Production �
 - hardware sizing/resource isolation؛
 - concrete production S3 provider/credentials و bucket deployment.
 
-هسته execution/training اکنون وجود دارد، اما تا زمانی که concrete trainer، executor و
-artifact-store binding مصوب در process ثبت نشده باشند، Production همچنان fail-closed است و
-به انسان route می‌شود.
+هسته execution/training و concrete Gemma trainer/executor اکنون وجود دارند، اما تا زمانی
+که checkpoint خصوصی و configuration کامل runtime و artifact-store Production provision نشده
+باشند، Production همچنان fail-closed است و به انسان route می‌شود.
 
 ---
 
