@@ -737,6 +737,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
                 version=version.version,
                 concrete_model_id=version.concrete_model_id,
                 artifact_sha256=version.artifact_sha256,
+                parent_model_version_id=version.parent_model_version_id,
                 status=version.status,
                 limitations=version.limitations,
                 approved_at=version.approved_at,
@@ -744,6 +745,73 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             )
             for version, model, provider in result.all()
         ]
+
+    async def get_native_growth_base(
+        self,
+        *,
+        model_version_id: UUID,
+        task_class: AITaskClass,
+        model_key: str,
+        concrete_model_id: str,
+    ) -> AIModelVersionCatalogItem:
+        result = await self._session.execute(
+            select(
+                AIModelVersionModel,
+                AIModelModel,
+                AIProviderModel,
+            )
+            .join(
+                AIModelModel,
+                AIModelModel.id == AIModelVersionModel.ai_model_id,
+            )
+            .join(
+                AIProviderModel,
+                AIProviderModel.id == AIModelModel.provider_id,
+            )
+            .where(AIModelVersionModel.id == model_version_id)
+        )
+        row = result.one_or_none()
+        if row is None:
+            raise LookupError("BASE_MODEL_VERSION_NOT_FOUND")
+        version, model, provider = row
+        if (
+            provider.code != HAMOON_NATIVE_PROVIDER_CODE
+            or provider.status is not AIProviderStatus.ACTIVE
+        ):
+            raise ValueError("BASE_MODEL_MUST_BE_HAMOON_NATIVE")
+        if model.model_key != model_key.strip():
+            raise ValueError("BASE_MODEL_KEY_MISMATCH")
+        if model.purpose != task_class.value:
+            raise ValueError("BASE_MODEL_PURPOSE_MISMATCH")
+        if version.concrete_model_id != concrete_model_id.strip():
+            raise ValueError("BASE_MODEL_ID_MISMATCH")
+        if version.status not in {
+            AIModelVersionStatus.APPROVED,
+            AIModelVersionStatus.PRODUCTION,
+        }:
+            raise ValueError("BASE_MODEL_VERSION_NOT_APPROVED")
+        if (
+            version.artifact_sha256 is None
+            or re.fullmatch(r"[0-9a-f]{64}", version.artifact_sha256) is None
+        ):
+            raise ValueError("BASE_MODEL_ARTIFACT_REQUIRED")
+        return AIModelVersionCatalogItem(
+            id=version.id,
+            ai_model_id=model.id,
+            model_key=model.model_key,
+            purpose=model.purpose,
+            provider_id=provider.id,
+            provider_code=provider.code,
+            provider_status=provider.status,
+            version=version.version,
+            concrete_model_id=version.concrete_model_id,
+            artifact_sha256=version.artifact_sha256,
+            parent_model_version_id=version.parent_model_version_id,
+            status=version.status,
+            limitations=version.limitations,
+            approved_at=version.approved_at,
+            deployed_at=version.deployed_at,
+        )
 
     async def register_native_model_candidate(
         self,
@@ -753,6 +821,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         version: str,
         concrete_model_id: str,
         artifact_sha256: str,
+        parent_model_version_id: UUID | None,
         limitations: str | None,
     ) -> AIModelVersionCatalogItem:
         clean_key = model_key.strip()
@@ -792,6 +861,14 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             if model.purpose != task_class.value:
                 raise ValueError("MODEL_KEY_PURPOSE_MISMATCH")
 
+        if parent_model_version_id is not None:
+            await self.get_native_growth_base(
+                model_version_id=parent_model_version_id,
+                task_class=task_class,
+                model_key=clean_key,
+                concrete_model_id=clean_model_id,
+            )
+
         duplicate = await self._session.execute(
             select(AIModelVersionModel.id).where(
                 AIModelVersionModel.ai_model_id == model.id,
@@ -807,6 +884,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             version=clean_version,
             concrete_model_id=clean_model_id,
             artifact_sha256=clean_digest,
+            parent_model_version_id=parent_model_version_id,
             status=AIModelVersionStatus.CANDIDATE,
             limitations=limitations.strip() if limitations else None,
             approved_at=None,
@@ -825,6 +903,7 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             version=candidate.version,
             concrete_model_id=candidate.concrete_model_id,
             artifact_sha256=candidate.artifact_sha256,
+            parent_model_version_id=candidate.parent_model_version_id,
             status=candidate.status,
             limitations=candidate.limitations,
             approved_at=candidate.approved_at,
