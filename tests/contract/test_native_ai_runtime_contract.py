@@ -42,3 +42,20 @@ def test_native_ai_growth_keeps_human_governance_boundary() -> None:
     assert "RoutingPolicyStatus.DRAFT" in repository
     assert "EXTERNAL_AI_PROVIDER_PRODUCTION_FORBIDDEN" in repository
     assert "MODEL_ARTIFACT_DIGEST_REQUIRED" in repository
+
+
+
+def test_candidate_evaluators_are_native_and_api_free() -> None:
+    for path in (
+        "src/hamoon/evaluation/diagnosis_candidate.py",
+        "src/hamoon/evaluation/outcome_candidate.py",
+    ):
+        source = Path(path).read_text(encoding="utf-8")
+        assert "HamoonNativeAIProvider" in source
+        for forbidden in (
+            "OpenAIProvider",
+            "OPENAI_API_KEY",
+            "OPENAI_BASE_URL",
+            "api.openai.com",
+        ):
+            assert forbidden not in source
