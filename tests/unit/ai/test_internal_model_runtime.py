@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -102,7 +103,7 @@ class Executor:
 
 
 @pytest.fixture(autouse=True)
-def _reset_runtime() -> None:
+def _reset_runtime() -> Iterator[None]:
     reset_internal_model_runtime_for_testing()
     yield
     reset_internal_model_runtime_for_testing()
