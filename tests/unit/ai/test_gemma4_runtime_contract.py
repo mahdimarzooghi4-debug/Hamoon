@@ -4,6 +4,7 @@ from uuid import UUID
 
 import pytest
 
+import hamoon.infrastructure.ai.gemma4_runtime as gemma4_runtime_module
 from hamoon.infrastructure.ai.contracts import AITaskClass
 from hamoon.infrastructure.ai.gemma4_baseline import (
     GEMMA4_BASELINE_ARTIFACT_FORMAT,
@@ -11,6 +12,7 @@ from hamoon.infrastructure.ai.gemma4_baseline import (
     GEMMA4_BASELINE_MODEL_SHA256,
     GEMMA4_BASELINE_PIPELINE_VERSION,
     GEMMA4_BASELINE_REVISION,
+    GEMMA4_BASELINE_TOKENIZER_SHA256,
     GEMMA4_CONCRETE_MODEL_ID,
     build_gemma4_lora_manifest,
     canonical_training_config_digest,
@@ -18,6 +20,7 @@ from hamoon.infrastructure.ai.gemma4_baseline import (
     encode_gemma4_lora_manifest,
 )
 from hamoon.infrastructure.ai.gemma4_runtime import (
+    Gemma4BaseCheckpoint,
     Gemma4GenerationConfig,
     Gemma4LoRATrainingConfig,
     Gemma4RuntimeError,
@@ -77,12 +80,126 @@ def test_gemma4_baseline_is_pinned_and_reproducible() -> None:
         GEMMA4_BASELINE_MODEL_SHA256
         == "5a84cb313260ac447237b890387116dfa8682e49a6b44bc585ae8353abbff18d"
     )
+    assert (
+        GEMMA4_BASELINE_TOKENIZER_SHA256
+        == "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f"
+    )
     assert GEMMA4_BASELINE_ARTIFACT_FORMAT == "HAMOON_GEMMA4_PEFT_SAFETENSORS_V1"
     assert GEMMA4_BASELINE_PIPELINE_VERSION == "gemma4-12b-it-sft-lora-v1"
     assert GEMMA4_CONCRETE_MODEL_ID.endswith(GEMMA4_BASELINE_REVISION)
     assert decode_gemma4_lora_manifest(
         encode_gemma4_lora_manifest(manifest)
     ) == manifest
+
+
+
+def _write_fake_base_checkpoint(root: Path) -> tuple[bytes, bytes]:
+    model_bytes = b"fake-model-weights"
+    tokenizer_bytes = b"fake-tokenizer"
+    (root / "model.safetensors").write_bytes(model_bytes)
+    (root / "tokenizer.json").write_bytes(tokenizer_bytes)
+    (root / "hamoon-revision.txt").write_text(
+        GEMMA4_BASELINE_REVISION,
+        encoding="utf-8",
+    )
+    (root / "chat_template.jinja").write_text(
+        "{{ messages }}",
+        encoding="utf-8",
+    )
+    (root / "config.json").write_text(
+        """{
+          "architectures": ["Gemma4UnifiedForConditionalGeneration"],
+          "model_type": "gemma4_unified",
+          "text_config": {
+            "model_type": "gemma4_unified_text",
+            "hidden_size": 3840,
+            "num_hidden_layers": 48,
+            "vocab_size": 262144
+          }
+        }""",
+        encoding="utf-8",
+    )
+    (root / "processor_config.json").write_text(
+        '{"processor_class":"Gemma4UnifiedProcessor"}',
+        encoding="utf-8",
+    )
+    (root / "tokenizer_config.json").write_text(
+        (
+            '{"processor_class":"Gemma4UnifiedProcessor",'
+            '"tokenizer_class":"GemmaTokenizer"}'
+        ),
+        encoding="utf-8",
+    )
+    (root / "generation_config.json").write_text(
+        (
+            '{"bos_token_id":2,"pad_token_id":0,'
+            '"eos_token_id":[1,106,50],'
+            '"suppress_tokens":[258883,258882]}'
+        ),
+        encoding="utf-8",
+    )
+    return model_bytes, tokenizer_bytes
+
+
+def test_gemma4_base_checkpoint_attests_tokenizer_template_and_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    model_bytes, tokenizer_bytes = _write_fake_base_checkpoint(tmp_path)
+    monkeypatch.setattr(
+        gemma4_runtime_module,
+        "GEMMA4_BASELINE_MODEL_SHA256",
+        hashlib.sha256(model_bytes).hexdigest(),
+    )
+    monkeypatch.setattr(
+        gemma4_runtime_module,
+        "GEMMA4_BASELINE_TOKENIZER_SHA256",
+        hashlib.sha256(tokenizer_bytes).hexdigest(),
+    )
+
+    assert Gemma4BaseCheckpoint(tmp_path).validate() == tmp_path
+
+    (tmp_path / "chat_template.jinja").unlink()
+    with pytest.raises(
+        Gemma4RuntimeError,
+        match="GEMMA4_BASE_CHECKPOINT_FILES_MISSING",
+    ):
+        Gemma4BaseCheckpoint(tmp_path).validate()
+
+
+def test_gemma4_base_checkpoint_rejects_tokenizer_or_metadata_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    model_bytes, tokenizer_bytes = _write_fake_base_checkpoint(tmp_path)
+    monkeypatch.setattr(
+        gemma4_runtime_module,
+        "GEMMA4_BASELINE_MODEL_SHA256",
+        hashlib.sha256(model_bytes).hexdigest(),
+    )
+    monkeypatch.setattr(
+        gemma4_runtime_module,
+        "GEMMA4_BASELINE_TOKENIZER_SHA256",
+        hashlib.sha256(tokenizer_bytes).hexdigest(),
+    )
+
+    (tmp_path / "tokenizer.json").write_bytes(b"tampered-tokenizer")
+    with pytest.raises(
+        Gemma4RuntimeError,
+        match="GEMMA4_BASE_CHECKPOINT_TOKENIZER_DIGEST_MISMATCH",
+    ):
+        Gemma4BaseCheckpoint(tmp_path).validate()
+
+    (tmp_path / "tokenizer.json").write_bytes(tokenizer_bytes)
+    (tmp_path / "config.json").write_text(
+        '{"architectures":["OtherModel"],"model_type":"other","text_config":{}}',
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        Gemma4RuntimeError,
+        match="GEMMA4_BASE_CHECKPOINT_MODEL_METADATA_MISMATCH",
+    ):
+        Gemma4BaseCheckpoint(tmp_path).validate()
 
 
 def test_gemma4_training_config_has_no_implicit_hyperparameter_defaults() -> None:
