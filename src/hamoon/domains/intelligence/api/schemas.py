@@ -203,13 +203,19 @@ class DiagnosisHistoryResponse(BaseModel):
     data: list[DiagnosisHistoryEntryData]
 
 
-class TrainNativeModelRequest(BaseModel):
+class RegisterInternalModelCandidateRequest(BaseModel):
     task_class: AITaskClass
     dataset_version_id: UUID
     base_model_version_id: UUID | None = None
     model_key: str = Field(min_length=1, max_length=150)
     version: str = Field(min_length=1, max_length=100)
     model_id: str = Field(min_length=1, max_length=250)
+    artifact_sha256: str = Field(
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+    training_pipeline_version: str = Field(min_length=1, max_length=150)
     limitations: str | None = Field(default=None, max_length=2000)
 
 
@@ -225,6 +231,8 @@ class AIModelVersionCatalogData(BaseModel):
     concrete_model_id: str
     artifact_sha256: str | None
     parent_model_version_id: UUID | None
+    training_dataset_manifest_digest: str | None = None
+    training_pipeline_version: str | None = None
     status: str
     limitations: str | None
     approved_at: datetime | None
@@ -235,7 +243,7 @@ class AIModelVersionCatalogResponse(BaseModel):
     data: list[AIModelVersionCatalogData]
 
 
-class TrainNativeModelResponse(BaseModel):
+class RegisterInternalModelCandidateResponse(BaseModel):
     data: AIModelVersionCatalogData
 
 
