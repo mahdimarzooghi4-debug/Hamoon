@@ -9,13 +9,14 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "20261006_0037"
 down_revision: str | Sequence[str] | None = "20261006_0036"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-training_status = sa.Enum(
+training_status = postgresql.ENUM(
     "RUNNING",
     "SUCCEEDED",
     "FAILED",
@@ -30,7 +31,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column(
             "task_class",
-            sa.Enum(
+            postgresql.ENUM(
                 "DIAGNOSIS",
                 "PRESCRIPTION",
                 "OUTCOME_INTERPRETATION",
