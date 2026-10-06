@@ -23,6 +23,7 @@ from hamoon.infrastructure.ai.gemma4_runtime import (
     Gemma4RuntimeError,
     _build_adapter_artifact,
     _extract_adapter_artifact,
+    _require_supervised_target,
 )
 
 
@@ -101,6 +102,16 @@ def test_gemma4_training_config_has_no_implicit_hyperparameter_defaults() -> Non
         match="GEMMA4_TRAINING_CONFIGURATION_FIELDS_INVALID",
     ):
         Gemma4LoRATrainingConfig.from_json('{"lora_r": 16}')
+
+
+def test_gemma4_training_fails_closed_without_supervised_target_tokens() -> None:
+    _require_supervised_target(sequence_length=8, prompt_length=7)
+
+    with pytest.raises(
+        Gemma4RuntimeError,
+        match="GEMMA4_TRAINING_TARGET_TRUNCATED",
+    ):
+        _require_supervised_target(sequence_length=8, prompt_length=8)
 
 
 def test_gemma4_generation_config_requires_explicit_output_bound() -> None:
