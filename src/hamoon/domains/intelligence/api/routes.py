@@ -775,6 +775,7 @@ async def register_internal_model_candidate(
                 candidate.training_dataset_manifest_digest
             ),
             training_pipeline_version=candidate.training_pipeline_version,
+            production_evaluation_run_id=candidate.production_evaluation_run_id,
             status=candidate.status.value,
             limitations=candidate.limitations,
             approved_at=candidate.approved_at,
@@ -811,6 +812,7 @@ async def list_ai_model_versions(
                 parent_model_version_id=item.parent_model_version_id,
                 training_dataset_manifest_digest=item.training_dataset_manifest_digest,
                 training_pipeline_version=item.training_pipeline_version,
+                production_evaluation_run_id=item.production_evaluation_run_id,
                 status=item.status.value,
                 limitations=item.limitations,
                 approved_at=item.approved_at,
