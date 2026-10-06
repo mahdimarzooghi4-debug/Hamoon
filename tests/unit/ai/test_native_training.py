@@ -56,6 +56,14 @@ def _item() -> LearningDatasetItem:
             "pgor.bottleneck_variables": ["G"],
             "prescription.intensity_score": "0.7",
             "diagnosis.id": OLD_DIAGNOSIS_ID,
+            "diagnosis.accepted_payload": {
+                "nested_case_id": OLD_DIAGNOSIS_ID,
+                "source_refs": [
+                    f"diagnosis:{OLD_DIAGNOSIS_ID}",
+                    "pgor.G",
+                ],
+                "safe": "retained",
+            },
         },
         target_payload={
             "schema_version": "prescription-v1",
@@ -101,6 +109,11 @@ def test_native_training_writes_digest_bound_artifact_without_case_identity(
 
     assert loaded == artifact
     assert "diagnosis.id" not in loaded.examples[0].input
+    accepted = loaded.examples[0].input["diagnosis.accepted_payload"]
+    assert isinstance(accepted, dict)
+    assert "nested_case_id" not in accepted
+    assert accepted["source_refs"] == ["pgor.G"]
+    assert accepted["safe"] == "retained"
     raw_items = loaded.examples[0].target["items"]
     assert isinstance(raw_items, list)
     first = raw_items[0]
