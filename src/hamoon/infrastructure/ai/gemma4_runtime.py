@@ -124,13 +124,19 @@ class Gemma4LoRATrainingConfig:
             or not target_modules
             or not all(
                 isinstance(item, str) and item.strip()
-                for item in target_modules
+                for item in target_modules_values
             )
             or not isinstance(training_arguments, dict)
         ):
             raise Gemma4RuntimeError(
                 "GEMMA4_TRAINING_CONFIGURATION_INVALID"
             )
+
+        target_modules_values = cast(list[object], target_modules)
+        training_argument_values = cast(
+            dict[object, object],
+            training_arguments,
+        )
 
         dtype = str(data["dtype"]).strip()
         device_map = str(data["device_map"]).strip()
@@ -155,11 +161,14 @@ class Gemma4LoRATrainingConfig:
             "seed",
             "gradient_checkpointing",
         }
-        if set(training_arguments) != required_training_args:
+        if set(training_argument_values) != required_training_args:
             raise Gemma4RuntimeError(
                 "GEMMA4_TRAINING_ARGUMENTS_FIELDS_INVALID"
             )
-        normalized_args = cast(dict[str, JsonValue], dict(training_arguments))
+        normalized_args = cast(
+            dict[str, JsonValue],
+            training_argument_values,
+        )
         return cls(
             max_sequence_length=max_sequence_length,
             dtype=dtype,
