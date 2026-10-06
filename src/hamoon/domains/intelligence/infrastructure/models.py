@@ -401,6 +401,10 @@ class AIModelVersionModel(Base):
     version: Mapped[str] = mapped_column(String(100), nullable=False)
     concrete_model_id: Mapped[str] = mapped_column(String(250), nullable=False)
     artifact_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    training_dataset_version_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("learning_dataset_version.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     training_dataset_manifest_digest: Mapped[str | None] = mapped_column(
         String(64),
         nullable=True,
