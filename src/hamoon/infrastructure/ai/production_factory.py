@@ -9,6 +9,7 @@ from hamoon.domains.intelligence.domain.registry import (
 )
 from hamoon.infrastructure.ai.contracts import InternalModelExecutionMode
 from hamoon.infrastructure.ai.gateway import ProviderAIGateway
+from hamoon.infrastructure.ai.internal_model import get_internal_model_runtime
 
 
 INTERNAL_MODEL_EXECUTION_MODE = InternalModelExecutionMode.IN_PROCESS
@@ -36,10 +37,18 @@ def build_internal_model_gateway(
             "INTERNAL_MODEL_ARTIFACT_DIGEST_REQUIRED"
         )
 
-    # Execution is approved only as in-process inside Hamoon. The concrete
-    # executor, model family, artifact serialization format and training
-    # implementation remain intentionally absent. Production therefore fails
-    # closed and routes work to a human instead of selecting an implementation.
-    raise InternalModelRuntimeConfigurationError(
-        "INTERNAL_MODEL_EXECUTOR_NOT_IMPLEMENTED"
+    runtime = get_internal_model_runtime()
+    if runtime is None:
+        raise InternalModelRuntimeConfigurationError(
+            "INTERNAL_MODEL_RUNTIME_NOT_CONFIGURED"
+        )
+    if route.routing_policy.concrete_model_id not in runtime.executors:
+        raise InternalModelRuntimeConfigurationError(
+            "INTERNAL_MODEL_EXECUTOR_NOT_REGISTERED"
+        )
+
+    return ProviderAIGateway(
+        providers={
+            INTERNAL_MODEL_PROVIDER_CODE: runtime.provider_adapter(),
+        }
     )
