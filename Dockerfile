@@ -20,10 +20,14 @@ RUN apt-get update \
     && pip install --no-cache-dir uv
 
 COPY pyproject.toml uv.lock README.md alembic.ini ./
+COPY requirements ./requirements
 COPY migrations ./migrations
 COPY src ./src
 
-RUN uv sync --frozen --no-dev --no-editable
+RUN uv sync --frozen --no-dev --no-editable \
+    && uv pip install \
+      --python /app/.venv/bin/python \
+      --requirement requirements/internal-ai-gemma4.txt
 
 EXPOSE 8000
 
