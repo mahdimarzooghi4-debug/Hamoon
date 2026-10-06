@@ -672,19 +672,41 @@ async def train_native_ai_model(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> TrainNativeModelResponse:
     datasets = SqlAlchemyLearningDatasetRepository(session)
-    async with session.begin():
-        dataset = await datasets.get(body.dataset_version_id)
-        if dataset is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={"code": "LEARNING_DATASET_NOT_FOUND"},
-            )
-        if dataset.status is not DatasetVersionStatus.APPROVED:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={"code": "TRAINING_DATASET_NOT_APPROVED"},
-            )
-        items = await datasets.list_items(dataset.id)
+    repository = SqlAlchemyAIRuntimeRegistryRepository(session)
+    base_artifact_sha256: str | None = None
+    try:
+        async with session.begin():
+            dataset = await datasets.get(body.dataset_version_id)
+            if dataset is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"code": "LEARNING_DATASET_NOT_FOUND"},
+                )
+            if dataset.status is not DatasetVersionStatus.APPROVED:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={"code": "TRAINING_DATASET_NOT_APPROVED"},
+                )
+            items = await datasets.list_items(dataset.id)
+            if body.base_model_version_id is not None:
+                base = await repository.get_native_growth_base(
+                    model_version_id=body.base_model_version_id,
+                    task_class=body.task_class,
+                    model_key=body.model_key,
+                    concrete_model_id=body.model_id,
+                )
+                base_artifact_sha256 = base.artifact_sha256
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": str(exc)},
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": str(exc)},
+        ) from exc
+
     try:
         _artifact, digest = train_native_model(
             model_root=settings.ai_model_root,
@@ -692,6 +714,7 @@ async def train_native_ai_model(
             model_id=body.model_id,
             dataset=dataset,
             items=items,
+            base_artifact_sha256=base_artifact_sha256,
         )
     except NativeModelTrainingError as exc:
         raise HTTPException(
@@ -699,7 +722,6 @@ async def train_native_ai_model(
             detail={"code": str(exc)},
         ) from exc
 
-    repository = SqlAlchemyAIRuntimeRegistryRepository(session)
     now = datetime.now(UTC)
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
@@ -711,6 +733,7 @@ async def train_native_ai_model(
                 version=body.version,
                 concrete_model_id=body.model_id,
                 artifact_sha256=digest,
+                parent_model_version_id=body.base_model_version_id,
                 limitations=body.limitations,
             )
             await SqlAlchemyAuditRecorder(session).record(
@@ -731,6 +754,12 @@ async def train_native_ai_model(
                         "model_key": candidate.model_key,
                         "model_version": candidate.version,
                         "artifact_sha256": digest,
+                        "parent_model_version_id": (
+                            str(candidate.parent_model_version_id)
+                            if candidate.parent_model_version_id is not None
+                            else None
+                        ),
+                        "parent_artifact_sha256": base_artifact_sha256,
                         "provider_code": candidate.provider_code,
                     },
                 )
@@ -753,6 +782,7 @@ async def train_native_ai_model(
             version=candidate.version,
             concrete_model_id=candidate.concrete_model_id,
             artifact_sha256=candidate.artifact_sha256,
+            parent_model_version_id=candidate.parent_model_version_id,
             status=candidate.status.value,
             limitations=candidate.limitations,
             approved_at=candidate.approved_at,
@@ -786,6 +816,7 @@ async def list_ai_model_versions(
                 version=item.version,
                 concrete_model_id=item.concrete_model_id,
                 artifact_sha256=item.artifact_sha256,
+                parent_model_version_id=item.parent_model_version_id,
                 status=item.status.value,
                 limitations=item.limitations,
                 approved_at=item.approved_at,
