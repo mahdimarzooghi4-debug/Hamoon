@@ -100,6 +100,7 @@ class AIModelVersionCatalogItem:
     version: str
     concrete_model_id: str
     artifact_sha256: str | None
+    parent_model_version_id: UUID | None
     status: AIModelVersionStatus
     limitations: str | None
     approved_at: datetime | None
