@@ -71,6 +71,7 @@ class AIDecisionData(BaseModel):
     status: AIDecisionStatus
     provider_code: str
     model_id: str
+    model_artifact_sha256: str | None
     model_alias: str
     routing_policy_id: UUID
     routing_policy_version: str
