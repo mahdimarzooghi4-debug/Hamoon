@@ -332,11 +332,15 @@ def _validate_base_checkpoint_metadata(root: Path) -> None:
     tokenizer_config = _json_object(root / "tokenizer_config.json")
     generation = _json_object(root / "generation_config.json")
 
-    text_config = config.get("text_config")
+    text_config_value = config.get("text_config")
+    if not isinstance(text_config_value, dict):
+        raise Gemma4RuntimeError(
+            "GEMMA4_BASE_CHECKPOINT_MODEL_METADATA_MISMATCH"
+        )
+    text_config = cast(dict[str, object], text_config_value)
     if (
         config.get("architectures") != ["Gemma4UnifiedForConditionalGeneration"]
         or config.get("model_type") != "gemma4_unified"
-        or not isinstance(text_config, dict)
         or text_config.get("model_type") != "gemma4_unified_text"
         or text_config.get("hidden_size") != 3840
         or text_config.get("num_hidden_layers") != 48
