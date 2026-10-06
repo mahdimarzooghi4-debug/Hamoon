@@ -14,6 +14,8 @@ from hamoon.domains.intelligence.domain.registry import (
     AIProviderStatus,
     EvaluationRunState,
     EvaluationStatus,
+    InternalTrainingRunState,
+    InternalTrainingRunStatus,
     PromptPolicyVersionCatalogItem,
     PromptPolicyVersionStatus,
     RoutingPolicyCatalogItem,
@@ -30,6 +32,7 @@ PROMPT_POLICY_ID = UUID("66666666-6666-6666-6666-666666666666")
 EVAL_ID = UUID("77777777-7777-7777-7777-777777777777")
 DATASET_ID = UUID("88888888-8888-8888-8888-888888888888")
 ROUTE_ID = UUID("99999999-9999-9999-9999-999999999999")
+TRAINING_RUN_ID = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 
 
 def _context() -> AuthorizationContext:
@@ -61,6 +64,35 @@ class Registry:
                 limitations=None,
                 approved_at=None,
                 deployed_at=None,
+            )
+        ]
+
+    async def list_internal_training_runs(
+        self,
+        *,
+        limit: int = 100,
+    ) -> list[InternalTrainingRunState]:
+        assert limit == 10
+        return [
+            InternalTrainingRunState(
+                id=TRAINING_RUN_ID,
+                task_class=AITaskClass.OUTCOME_INTERPRETATION,
+                dataset_version_id=DATASET_ID,
+                dataset_manifest_digest="d" * 64,
+                training_pipeline_version="pipeline-v1",
+                model_key="outcome-model",
+                model_version="v2",
+                concrete_model_id="model-v2",
+                parent_model_version_id=None,
+                status=InternalTrainingRunStatus.SUCCEEDED,
+                artifact_sha256="c" * 64,
+                artifact_size_bytes=1024,
+                candidate_model_version_id=MODEL_ID,
+                error_code=None,
+                created_by=ACTOR_ID,
+                created_at=datetime(2026, 10, 4, tzinfo=UTC),
+                started_at=datetime(2026, 10, 4, tzinfo=UTC),
+                completed_at=datetime(2026, 10, 4, 1, tzinfo=UTC),
             )
         ]
 
@@ -144,6 +176,11 @@ async def test_admin_governance_catalog_read_endpoints(
     context = _context()
 
     models = await intelligence_routes.list_ai_model_versions(context, session)
+    training_runs = await intelligence_routes.list_internal_training_runs(
+        context,
+        session,
+        limit=10,
+    )
     prompts = await intelligence_routes.list_prompt_policy_versions(context, session)
     evaluations = await intelligence_routes.list_ai_evaluations(
         context,
@@ -161,6 +198,8 @@ async def test_admin_governance_catalog_read_endpoints(
     assert models.data[0].status == AIModelVersionStatus.CANDIDATE.value
     assert models.data[0].provider_code == "INTERNAL_MODEL"
     assert models.data[0].artifact_sha256 == "c" * 64
+    assert training_runs.data[0].status == InternalTrainingRunStatus.SUCCEEDED.value
+    assert training_runs.data[0].candidate_model_version_id == MODEL_ID
     assert prompts.data[0].status == PromptPolicyVersionStatus.ACTIVE.value
     assert evaluations.data[0].status == EvaluationStatus.PASSED.value
     assert evaluations.data[0].dataset_version_id == DATASET_ID
