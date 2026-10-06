@@ -8,13 +8,17 @@ from uuid import uuid4
 from pydantic import JsonValue
 
 from hamoon.domains.intelligence.domain.decisions import (
+    AIDecisionType,
     LearningSignal,
     LearningSignalQuality,
     LearningSignalType,
 )
 from hamoon.domains.intelligence.domain.registry import EvaluationRunState
 from hamoon.domains.intelligence.ports.repositories import (
+    AIDecisionRepository,
     AIRuntimeRegistryRepository,
+    FeaturePackageRepository,
+    HumanDecisionRepository,
     LearningSignalRepository,
 )
 from hamoon.domains.intervention.ports.repositories import InterventionRepository
@@ -22,6 +26,7 @@ from hamoon.domains.learning.application.commands import (
     ApproveDatasetCommand,
     CreateEvaluationRunCommand,
     CreateOutcomeDatasetCommand,
+    CreateReviewedDecisionDatasetCommand,
     CurateLearningSignalCommand,
 )
 from hamoon.domains.learning.domain.entities import (
@@ -233,38 +238,34 @@ class CreateOutcomeDatasetHandler:
                 provider_result_status = provider_result.result_status
 
             input_payload: dict[str, JsonValue] = {
-                "schema_version": "outcome-learning-input-v1",
-                "pre_pgor": {
-                    "p": str(pre.p),
-                    "g": str(pre.g),
-                    "o": str(pre.o),
-                    "r": str(pre.r),
-                    "e": str(pre.e),
-                },
-                "post_pgor": {
-                    "p": str(post.p),
-                    "g": str(post.g),
-                    "o": str(post.o),
-                    "r": str(post.r),
-                    "e": str(post.e),
-                },
-                "delta": {
-                    "p": str(outcome.p_delta),
-                    "g": str(outcome.g_delta),
-                    "o": str(outcome.o_delta),
-                    "r": str(outcome.r_delta),
-                    "e": str(outcome.e_delta),
-                },
-                "intervention_type": intervention.intervention_type.value,
-                "target_pgor_variable": intervention.target_pgor_variable.value,
-                "provider_result_type": provider_result_type,
-                "provider_result_status": provider_result_status,
-                "methodology_version": outcome.methodology_version,
-                "causal_claim_allowed": False,
+                "pgor.pre.P": str(pre.p),
+                "pgor.pre.G": str(pre.g),
+                "pgor.pre.O": str(pre.o),
+                "pgor.pre.R": str(pre.r),
+                "pgor.pre.E": str(pre.e),
+                "pgor.post.P": str(post.p),
+                "pgor.post.G": str(post.g),
+                "pgor.post.O": str(post.o),
+                "pgor.post.R": str(post.r),
+                "pgor.post.E": str(post.e),
+                "pgor.delta.P": str(outcome.p_delta),
+                "pgor.delta.G": str(outcome.g_delta),
+                "pgor.delta.O": str(outcome.o_delta),
+                "pgor.delta.R": str(outcome.r_delta),
+                "pgor.delta.E": str(outcome.e_delta),
+                "intervention.type": intervention.intervention_type.value,
+                "intervention.target_variable": (
+                    intervention.target_pgor_variable.value
+                ),
+                "provider_result.type": provider_result_type,
+                "provider_result.status": provider_result_status,
+                "outcome.methodology_version": outcome.methodology_version,
+                "policy.causal_claim_allowed": False,
             }
             target_payload: dict[str, JsonValue] = {
                 "classification": outcome.classification.value,
-                "human_review_required": True,
+                "observed_change_summary": outcome.observed_change_summary,
+                "causal_claim": False,
             }
             source_refs_list = [
                 f"learning_signal:{signal.id}",
@@ -368,6 +369,205 @@ class CreateOutcomeDatasetHandler:
                     "item_count": len(items),
                     "manifest_digest": dataset.manifest_digest,
                     "selection_policy_version": dataset.selection_policy_version,
+                },
+            )
+        )
+        return dataset, tuple(items)
+
+
+class CreateReviewedDecisionDatasetHandler:
+    def __init__(
+        self,
+        *,
+        signals: LearningSignalRepository,
+        datasets: LearningDatasetRepository,
+        ai_decisions: AIDecisionRepository,
+        human_decisions: HumanDecisionRepository,
+        feature_packages: FeaturePackageRepository,
+        events: DomainEventRecorder,
+        audits: AuditRecorder,
+    ) -> None:
+        self._signals = signals
+        self._datasets = datasets
+        self._ai_decisions = ai_decisions
+        self._human_decisions = human_decisions
+        self._feature_packages = feature_packages
+        self._events = events
+        self._audits = audits
+
+    async def handle(
+        self,
+        command: CreateReviewedDecisionDatasetCommand,
+    ) -> tuple[LearningDatasetVersion, tuple[LearningDatasetItem, ...]]:
+        task_class = command.task_class
+        if task_class is AITaskClass.DIAGNOSIS:
+            expected_decision_type = AIDecisionType.DIAGNOSIS
+            allowed_signal_types = {
+                LearningSignalType.DIAGNOSIS_CONFIRMED,
+                LearningSignalType.DIAGNOSIS_MODIFIED,
+                LearningSignalType.DIAGNOSIS_REPLACED,
+            }
+        elif task_class is AITaskClass.PRESCRIPTION:
+            expected_decision_type = AIDecisionType.PRESCRIPTION
+            allowed_signal_types = {
+                LearningSignalType.PRESCRIPTION_CONFIRMED,
+                LearningSignalType.PRESCRIPTION_MODIFIED,
+                LearningSignalType.PRESCRIPTION_REPLACED,
+            }
+        else:
+            raise LearningDatasetError("REVIEWED_DECISION_DATASET_TASK_INVALID")
+
+        dataset_key = command.dataset_key.strip()
+        version = command.version.strip()
+        policy_version = command.selection_policy_version.strip()
+        if not dataset_key or not version or not policy_version:
+            raise LearningDatasetError("DATASET_METADATA_REQUIRED")
+        if not command.signal_ids:
+            raise LearningDatasetError("DATASET_SIGNALS_REQUIRED")
+        if len(set(command.signal_ids)) != len(command.signal_ids):
+            raise LearningDatasetError("DUPLICATE_LEARNING_SIGNAL")
+        if await self._datasets.get_by_key_version(
+            dataset_key=dataset_key,
+            version=version,
+        ) is not None:
+            raise LearningDatasetError("DATASET_VERSION_ALREADY_EXISTS")
+
+        dataset_id = uuid4()
+        raw_items: list[dict[str, JsonValue]] = []
+        items: list[LearningDatasetItem] = []
+
+        for ordinal, signal_id in enumerate(command.signal_ids, start=1):
+            signal = await self._signals.get(signal_id)
+            if signal is None:
+                raise LearningDatasetError("LEARNING_SIGNAL_NOT_FOUND")
+            if signal.quality_status is not LearningSignalQuality.CURATED:
+                raise LearningDatasetError("LEARNING_SIGNAL_NOT_CURATED")
+            if signal.signal_type not in allowed_signal_types:
+                raise LearningDatasetError("LEARNING_SIGNAL_TASK_MISMATCH")
+            if signal.ai_decision_id is None:
+                raise LearningDatasetError("AI_DECISION_REFERENCE_REQUIRED")
+
+            ai_decision = await self._ai_decisions.get(signal.ai_decision_id)
+            human_decision = await self._human_decisions.get(
+                signal.human_decision_id
+            )
+            if ai_decision is None or human_decision is None:
+                raise LearningDatasetError("REVIEW_PROVENANCE_INCOMPLETE")
+            if ai_decision.decision_type is not expected_decision_type:
+                raise LearningDatasetError("AI_DECISION_TASK_MISMATCH")
+            if (
+                human_decision.ai_decision_id != ai_decision.id
+                or human_decision.household_id != signal.household_id
+                or ai_decision.household_id != signal.household_id
+            ):
+                raise LearningDatasetError("REVIEW_PROVENANCE_MISMATCH")
+            if human_decision.accepted_payload is None:
+                raise LearningDatasetError("ACCEPTED_HUMAN_PAYLOAD_REQUIRED")
+
+            package = await self._feature_packages.get(
+                ai_decision.feature_package_id
+            )
+            if package is None:
+                raise LearningDatasetError("FEATURE_PACKAGE_NOT_FOUND")
+            if package.household_id != signal.household_id:
+                raise LearningDatasetError("FEATURE_PACKAGE_PROVENANCE_MISMATCH")
+
+            input_payload = package.provider_payload()
+            target_payload = dict(human_decision.accepted_payload)
+            source_refs = (
+                f"learning_signal:{signal.id}",
+                f"ai_decision:{ai_decision.id}",
+                f"human_decision:{human_decision.id}",
+                f"feature_package:{package.id}",
+            )
+            raw_item: dict[str, JsonValue] = {
+                "learning_signal_id": str(signal.id),
+                "signal_type": signal.signal_type.value,
+                "signal_label": signal.signal_label,
+                "input": input_payload,
+                "target": target_payload,
+                "source_refs": list(source_refs),
+            }
+            raw_items.append(raw_item)
+            items.append(
+                LearningDatasetItem(
+                    id=uuid4(),
+                    dataset_version_id=dataset_id,
+                    ordinal=ordinal,
+                    learning_signal_id=signal.id,
+                    signal_type=signal.signal_type,
+                    signal_label=signal.signal_label,
+                    input_payload=input_payload,
+                    target_payload=target_payload,
+                    source_refs=source_refs,
+                )
+            )
+
+        manifest_digest = _json_digest(
+            {
+                "dataset_key": dataset_key,
+                "version": version,
+                "purpose": task_class.value,
+                "selection_policy_version": policy_version,
+                "items": raw_items,
+            }
+        )
+        now = datetime.now(UTC)
+        dataset = LearningDatasetVersion(
+            id=dataset_id,
+            dataset_key=dataset_key,
+            version=version,
+            purpose=task_class.value,
+            selection_policy_version=policy_version,
+            status=DatasetVersionStatus.DRAFT,
+            manifest_ref=f"db://learning-datasets/{dataset_id}/items",
+            manifest_digest=manifest_digest,
+            created_at=now,
+            created_by=command.actor_id,
+        )
+        await self._datasets.add(dataset, tuple(items))
+
+        event_id = uuid4()
+        await self._events.record(
+            DomainEventRecord(
+                event_id=event_id,
+                event_type="DatasetVersionCreated",
+                event_version=1,
+                aggregate_type="LEARNING_DATASET",
+                aggregate_id=dataset.id,
+                aggregate_version=1,
+                actor_id=command.actor_id,
+                occurred_at=now,
+                recorded_at=now,
+                correlation_id=command.correlation_id,
+                causation_id=None,
+                payload={
+                    "dataset_id": str(dataset.id),
+                    "dataset_key": dataset.dataset_key,
+                    "version": dataset.version,
+                    "purpose": dataset.purpose,
+                    "selection_policy_version": dataset.selection_policy_version,
+                    "item_count": len(items),
+                    "manifest_digest": dataset.manifest_digest,
+                },
+            )
+        )
+        await self._audits.record(
+            AuditRecord(
+                id=uuid4(),
+                actor_id=command.actor_id,
+                action="learning.dataset.create",
+                resource_type="LEARNING_DATASET",
+                resource_id=dataset.id,
+                request_id=command.request_id,
+                correlation_id=command.correlation_id,
+                created_at=now,
+                purpose="AI_TRAINING_DATASET",
+                metadata={
+                    "event_id": str(event_id),
+                    "task_class": task_class.value,
+                    "item_count": len(items),
+                    "manifest_digest": dataset.manifest_digest,
                 },
             )
         )

@@ -71,6 +71,7 @@ class AIDecisionData(BaseModel):
     status: AIDecisionStatus
     provider_code: str
     model_id: str
+    model_artifact_sha256: str | None
     model_alias: str
     routing_policy_id: UUID
     routing_policy_version: str
@@ -92,6 +93,7 @@ class DecisionTraceData(BaseModel):
     pgor_snapshot_id: UUID
     feature_package_id: UUID
     ai_decision_id: UUID
+    model_artifact_sha256: str | None
     human_decision_id: UUID | None
     prescription_id: UUID | None
     intervention_id: UUID | None
@@ -201,6 +203,15 @@ class DiagnosisHistoryResponse(BaseModel):
     data: list[DiagnosisHistoryEntryData]
 
 
+class TrainNativeModelRequest(BaseModel):
+    task_class: AITaskClass
+    dataset_version_id: UUID
+    model_key: str = Field(min_length=1, max_length=150)
+    version: str = Field(min_length=1, max_length=100)
+    model_id: str = Field(min_length=1, max_length=250)
+    limitations: str | None = Field(default=None, max_length=2000)
+
+
 class AIModelVersionCatalogData(BaseModel):
     id: UUID
     ai_model_id: UUID
@@ -211,6 +222,7 @@ class AIModelVersionCatalogData(BaseModel):
     provider_status: str
     version: str
     concrete_model_id: str
+    artifact_sha256: str | None
     status: str
     limitations: str | None
     approved_at: datetime | None
@@ -219,6 +231,10 @@ class AIModelVersionCatalogData(BaseModel):
 
 class AIModelVersionCatalogResponse(BaseModel):
     data: list[AIModelVersionCatalogData]
+
+
+class TrainNativeModelResponse(BaseModel):
+    data: AIModelVersionCatalogData
 
 
 class PromptPolicyVersionCatalogData(BaseModel):

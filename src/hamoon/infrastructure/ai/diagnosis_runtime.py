@@ -117,6 +117,7 @@ class GatewayDiagnosisAIClient(DiagnosisAIClient):
             prompt_policy_version=result.prompt_policy_version,
             output_schema_version=result.output_schema_version,
             output=result.output,
+            model_artifact_sha256=result.model_artifact_sha256,
         )
 
 

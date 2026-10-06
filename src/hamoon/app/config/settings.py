@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 import re
 from typing import Self
 from urllib.parse import urlsplit
@@ -93,9 +94,9 @@ class Settings(BaseSettings):
     oidc_jwks_url: str | None = None
     oidc_clock_skew_seconds: int = 30
 
+    # Legacy environment trap only: Production rejects HAMOON_OPENAI_API_KEY.
     openai_api_key: str | None = None
-    openai_base_url: str = "https://api.openai.com/v1"
-    openai_timeout_seconds: float = 60.0
+    ai_model_root: str = ".hamoon/models"
 
     temporal_address: str = "localhost:7233"
     temporal_namespace: str = "default"
@@ -156,6 +157,15 @@ class Settings(BaseSettings):
             errors.append("PRODUCTION_OTEL_LOGS_EXPORTER_HTTPS_REQUIRED")
         if not self.structured_logging:
             errors.append("PRODUCTION_STRUCTURED_LOGGING_REQUIRED")
+
+        if self.openai_api_key:
+            errors.append("PRODUCTION_EXTERNAL_AI_CREDENTIAL_FORBIDDEN")
+        model_root = Path(self.ai_model_root)
+        if (
+            not model_root.is_absolute()
+            or str(model_root) in {"/", "/tmp", "/var/tmp"}
+        ):
+            errors.append("PRODUCTION_AI_MODEL_ROOT_REQUIRED")
 
         if not self.database_url.startswith("postgresql"):
             errors.append("PRODUCTION_POSTGRESQL_REQUIRED")

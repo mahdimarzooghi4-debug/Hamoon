@@ -7,7 +7,7 @@ export type LearningSignalType =
   | "DIAGNOSIS_REPLACED"
   | "DIAGNOSIS_REJECTED"
   | "DIAGNOSIS_DEFERRED"
-  | "PRESCRIPTION_APPROVED"
+  | "PRESCRIPTION_CONFIRMED"
   | "PRESCRIPTION_MODIFIED"
   | "PRESCRIPTION_REPLACED"
   | "PRESCRIPTION_DEFERRED"
@@ -58,7 +58,8 @@ export interface DatasetExport {
   cases: Array<{
     case_id: string;
     input: Record<string, unknown>;
-    expert_classification: string;
+    target: Record<string, unknown>;
+    expert_classification: string | null;
     source_refs: string[];
   }>;
 }
@@ -80,6 +81,7 @@ export interface ModelVersionCatalogItem {
   provider_status: "ACTIVE" | "DISABLED";
   version: string;
   concrete_model_id: string;
+  artifact_sha256: string | null;
   status: ModelVersionStatus;
   limitations: string | null;
   approved_at: string | null;
@@ -174,6 +176,29 @@ export async function listLearningDatasets(
   return response.data;
 }
 
+export async function createReviewedDecisionDataset(input: {
+  taskClass: "DIAGNOSIS" | "PRESCRIPTION";
+  datasetKey: string;
+  version: string;
+  selectionPolicyVersion: string;
+  signalIds: string[];
+}): Promise<LearningDataset> {
+  const response = await requestJson<DataResponse<LearningDataset>>(
+    "/api/v1/admin/learning/reviewed-decision-datasets",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        task_class: input.taskClass,
+        dataset_key: input.datasetKey,
+        version: input.version,
+        selection_policy_version: input.selectionPolicyVersion,
+        signal_ids: input.signalIds,
+      }),
+    },
+  );
+  return response.data;
+}
+
 export async function createOutcomeDataset(input: {
   datasetKey: string;
   version: string;
@@ -210,6 +235,31 @@ export async function exportLearningDataset(
 ): Promise<DatasetExport> {
   const response = await requestJson<DataResponse<DatasetExport>>(
     `/api/v1/admin/learning/datasets/${encodeURIComponent(datasetId)}/export`,
+  );
+  return response.data;
+}
+
+export async function trainNativeModel(input: {
+  taskClass: "DIAGNOSIS" | "PRESCRIPTION" | "OUTCOME_INTERPRETATION";
+  datasetVersionId: string;
+  modelKey: string;
+  version: string;
+  modelId: string;
+  limitations?: string;
+}): Promise<ModelVersionCatalogItem> {
+  const response = await requestJson<DataResponse<ModelVersionCatalogItem>>(
+    "/api/v1/admin/ai/native-models/train",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        task_class: input.taskClass,
+        dataset_version_id: input.datasetVersionId,
+        model_key: input.modelKey,
+        version: input.version,
+        model_id: input.modelId,
+        limitations: input.limitations || null,
+      }),
+    },
   );
   return response.data;
 }

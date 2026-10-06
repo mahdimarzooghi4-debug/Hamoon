@@ -43,6 +43,14 @@ class CurateLearningSignalRequest(BaseModel):
     reason_code: str = Field(min_length=1, max_length=100)
 
 
+class CreateReviewedDecisionDatasetRequest(BaseModel):
+    task_class: AITaskClass
+    dataset_key: str = Field(min_length=1, max_length=150)
+    version: str = Field(min_length=1, max_length=100)
+    selection_policy_version: str = Field(min_length=1, max_length=100)
+    signal_ids: list[UUID] = Field(min_length=1)
+
+
 class CreateOutcomeDatasetRequest(BaseModel):
     dataset_key: str = Field(min_length=1, max_length=150)
     version: str = Field(min_length=1, max_length=100)
@@ -73,7 +81,8 @@ class LearningDatasetResponse(BaseModel):
 class LearningDatasetExportCase(BaseModel):
     case_id: str
     input: dict[str, JsonValue]
-    expert_classification: str
+    target: dict[str, JsonValue]
+    expert_classification: str | None
     source_refs: list[str]
 
 

@@ -17,7 +17,10 @@ from hamoon.domains.intelligence.domain.decisions import (
     LearningSignalType,
 )
 from hamoon.domains.intelligence.infrastructure.repositories import (
+    SqlAlchemyAIDecisionRepository,
     SqlAlchemyAIRuntimeRegistryRepository,
+    SqlAlchemyFeaturePackageRepository,
+    SqlAlchemyHumanDecisionRepository,
     SqlAlchemyLearningSignalRepository,
 )
 from hamoon.domains.intervention.infrastructure.repositories import (
@@ -26,6 +29,7 @@ from hamoon.domains.intervention.infrastructure.repositories import (
 from hamoon.domains.learning.api.schemas import (
     CreateEvaluationRunRequest,
     CreateOutcomeDatasetRequest,
+    CreateReviewedDecisionDatasetRequest,
     CurateLearningSignalRequest,
     LearningDatasetData,
     LearningDatasetExportCase,
@@ -41,12 +45,14 @@ from hamoon.domains.learning.application.commands import (
     ApproveDatasetCommand,
     CreateEvaluationRunCommand,
     CreateOutcomeDatasetCommand,
+    CreateReviewedDecisionDatasetCommand,
     CurateLearningSignalCommand,
 )
 from hamoon.domains.learning.application.handlers import (
     ApproveDatasetHandler,
     CreateEvaluationRunHandler,
     CreateOutcomeDatasetHandler,
+    CreateReviewedDecisionDatasetHandler,
     CurateLearningSignalHandler,
 )
 from hamoon.domains.learning.domain.entities import DatasetVersionStatus
@@ -299,6 +305,72 @@ async def create_learning_dataset(
 
 
 @router.post(
+    "/api/v1/admin/learning/reviewed-decision-datasets",
+    response_model=LearningDatasetResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_reviewed_decision_dataset(
+    body: CreateReviewedDecisionDatasetRequest,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.ADMIN)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> LearningDatasetResponse:
+    request_id = current_request_id() or "unknown"
+    correlation_id = current_correlation_id() or request_id
+    repository = SqlAlchemyLearningDatasetRepository(session)
+    try:
+        async with session.begin():
+            dataset, items = await CreateReviewedDecisionDatasetHandler(
+                signals=SqlAlchemyLearningSignalRepository(session),
+                datasets=repository,
+                ai_decisions=SqlAlchemyAIDecisionRepository(session),
+                human_decisions=SqlAlchemyHumanDecisionRepository(session),
+                feature_packages=SqlAlchemyFeaturePackageRepository(session),
+                events=SqlAlchemyDomainEventRecorder(session),
+                audits=SqlAlchemyAuditRecorder(session),
+            ).handle(
+                CreateReviewedDecisionDatasetCommand(
+                    task_class=body.task_class,
+                    dataset_key=body.dataset_key,
+                    version=body.version,
+                    selection_policy_version=body.selection_policy_version,
+                    signal_ids=tuple(body.signal_ids),
+                    actor_id=context.actor_id,
+                    request_id=request_id,
+                    correlation_id=correlation_id,
+                )
+            )
+    except LearningDatasetError as exc:
+        code = str(exc)
+        http_status = (
+            status.HTTP_409_CONFLICT
+            if code == "DATASET_VERSION_ALREADY_EXISTS"
+            else status.HTTP_422_UNPROCESSABLE_ENTITY
+        )
+        raise HTTPException(status_code=http_status, detail={"code": code}) from exc
+
+    return LearningDatasetResponse(
+        data=LearningDatasetData(
+            id=dataset.id,
+            dataset_key=dataset.dataset_key,
+            version=dataset.version,
+            purpose=dataset.purpose,
+            selection_policy_version=dataset.selection_policy_version,
+            status=dataset.status,
+            manifest_ref=dataset.manifest_ref,
+            manifest_digest=dataset.manifest_digest,
+            item_count=len(items),
+            created_at=dataset.created_at,
+            created_by=dataset.created_by,
+            approved_at=dataset.approved_at,
+            approved_by=dataset.approved_by,
+        )
+    )
+
+
+@router.post(
     "/api/v1/admin/learning/datasets/{dataset_id}/approve",
     response_model=LearningDatasetResponse,
 )
@@ -375,16 +447,14 @@ async def export_learning_dataset(
     cases: list[LearningDatasetExportCase] = []
     for item in items:
         classification = item.target_payload.get("classification")
-        if not isinstance(classification, str):
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail={"code": "LEARNING_DATASET_TARGET_INVALID"},
-            )
         cases.append(
             LearningDatasetExportCase(
                 case_id=str(item.id),
                 input=item.input_payload,
-                expert_classification=classification,
+                target=item.target_payload,
+                expert_classification=(
+                    classification if isinstance(classification, str) else None
+                ),
                 source_refs=list(item.source_refs),
             )
         )

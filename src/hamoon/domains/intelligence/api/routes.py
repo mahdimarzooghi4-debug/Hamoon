@@ -46,6 +46,8 @@ from hamoon.domains.intelligence.api.schemas import (
     PromptPolicyVersionCatalogResponse,
     ReviewDiagnosisResponse,
     StructuredDiagnosisReviewRequest,
+    TrainNativeModelRequest,
+    TrainNativeModelResponse,
 )
 from hamoon.domains.intelligence.application.diagnosis_commands import (
     GenerateDiagnosisCommand,
@@ -75,6 +77,10 @@ from hamoon.domains.intelligence.infrastructure.repositories import (
     SqlAlchemyHumanDecisionRepository,
     SqlAlchemyLearningSignalRepository,
 )
+from hamoon.domains.learning.domain.entities import DatasetVersionStatus
+from hamoon.domains.learning.infrastructure.repositories import (
+    SqlAlchemyLearningDatasetRepository,
+)
 from hamoon.domains.operations.infrastructure.repositories import (
     SqlAlchemyWorkItemRepository,
 )
@@ -89,8 +95,15 @@ from hamoon.infrastructure.ai.diagnosis_runtime import (
     local_fake_diagnosis_policy,
 )
 from hamoon.infrastructure.ai.gateway import ProviderAIGateway
+from hamoon.infrastructure.ai.training import (
+    NativeModelTrainingError,
+    train_native_model,
+)
 from hamoon.infrastructure.ai.providers.fake import FakeAIProvider
-from hamoon.infrastructure.ai.providers.openai import OpenAIProvider
+from hamoon.infrastructure.ai.production_factory import (
+    NativeAIRuntimeConfigurationError,
+    build_native_gateway,
+)
 from hamoon.infrastructure.audit.recorders import SqlAlchemyAuditRecorder
 from hamoon.infrastructure.db.session import get_db_session
 from hamoon.infrastructure.events.recorders import SqlAlchemyDomainEventRecorder
@@ -116,23 +129,15 @@ def _production_ai_client(
     settings: Settings,
     route: ResolvedAIRoute,
 ) -> GatewayDiagnosisAIClient:
-    if route.routing_policy.provider_code != "OPENAI":
+    try:
+        gateway = build_native_gateway(settings=settings, route=route)
+    except NativeAIRuntimeConfigurationError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"code": "AI_PROVIDER_UNAVAILABLE"},
-        )
-    if not settings.openai_api_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"code": "AI_PROVIDER_CREDENTIAL_MISSING"},
-        )
-    provider = OpenAIProvider(
-        api_key=settings.openai_api_key,
-        base_url=settings.openai_base_url,
-        timeout_seconds=settings.openai_timeout_seconds,
-    )
+            detail={"code": str(exc)},
+        ) from exc
     return GatewayDiagnosisAIClient(
-        gateway=ProviderAIGateway(providers={"OPENAI": provider}),
+        gateway=gateway,
         routing_policy=route.routing_policy,
         instructions=route.instructions,
     )
@@ -584,6 +589,7 @@ async def get_ai_decision(
             status=decision.status,
             provider_code=decision.provider_code,
             model_id=decision.model_id,
+            model_artifact_sha256=decision.model_artifact_sha256,
             model_alias=decision.model_alias,
             routing_policy_id=decision.routing_policy_id,
             routing_policy_version=decision.routing_policy_version,
@@ -636,6 +642,7 @@ async def get_ai_decision_trace(
             pgor_snapshot_id=trace.pgor_snapshot_id,
             feature_package_id=trace.feature_package_id,
             ai_decision_id=trace.ai_decision_id,
+            model_artifact_sha256=decision.model_artifact_sha256,
             human_decision_id=trace.human_decision_id,
             prescription_id=trace.prescription_id,
             intervention_id=trace.intervention_id,
@@ -648,6 +655,110 @@ async def get_ai_decision_trace(
         )
     )
 
+
+
+@router.post(
+    "/api/v1/admin/ai/native-models/train",
+    response_model=TrainNativeModelResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def train_native_ai_model(
+    body: TrainNativeModelRequest,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.ADMIN)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> TrainNativeModelResponse:
+    datasets = SqlAlchemyLearningDatasetRepository(session)
+    async with session.begin():
+        dataset = await datasets.get(body.dataset_version_id)
+        if dataset is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"code": "LEARNING_DATASET_NOT_FOUND"},
+            )
+        if dataset.status is not DatasetVersionStatus.APPROVED:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"code": "TRAINING_DATASET_NOT_APPROVED"},
+            )
+        items = await datasets.list_items(dataset.id)
+    try:
+        _artifact, digest = train_native_model(
+            model_root=settings.ai_model_root,
+            task_class=body.task_class,
+            model_id=body.model_id,
+            dataset=dataset,
+            items=items,
+        )
+    except NativeModelTrainingError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": str(exc)},
+        ) from exc
+
+    repository = SqlAlchemyAIRuntimeRegistryRepository(session)
+    now = datetime.now(UTC)
+    request_id = current_request_id() or "unknown"
+    correlation_id = current_correlation_id() or request_id
+    try:
+        async with session.begin():
+            candidate = await repository.register_native_model_candidate(
+                task_class=body.task_class,
+                model_key=body.model_key,
+                version=body.version,
+                concrete_model_id=body.model_id,
+                artifact_sha256=digest,
+                limitations=body.limitations,
+            )
+            await SqlAlchemyAuditRecorder(session).record(
+                AuditRecord(
+                    id=uuid4(),
+                    actor_id=context.actor_id,
+                    action="ai.native_model.train",
+                    resource_type="AI_MODEL_VERSION",
+                    resource_id=candidate.id,
+                    request_id=request_id,
+                    correlation_id=correlation_id,
+                    created_at=now,
+                    purpose="AI_MODEL_TRAINING",
+                    metadata={
+                        "task_class": body.task_class.value,
+                        "dataset_version_id": str(dataset.id),
+                        "dataset_manifest_digest": dataset.manifest_digest,
+                        "model_key": candidate.model_key,
+                        "model_version": candidate.version,
+                        "artifact_sha256": digest,
+                        "provider_code": candidate.provider_code,
+                    },
+                )
+            )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": str(exc)},
+        ) from exc
+
+    return TrainNativeModelResponse(
+        data=AIModelVersionCatalogData(
+            id=candidate.id,
+            ai_model_id=candidate.ai_model_id,
+            model_key=candidate.model_key,
+            purpose=candidate.purpose,
+            provider_id=candidate.provider_id,
+            provider_code=candidate.provider_code,
+            provider_status=candidate.provider_status.value,
+            version=candidate.version,
+            concrete_model_id=candidate.concrete_model_id,
+            artifact_sha256=candidate.artifact_sha256,
+            status=candidate.status.value,
+            limitations=candidate.limitations,
+            approved_at=candidate.approved_at,
+            deployed_at=candidate.deployed_at,
+        )
+    )
 
 
 @router.get(
@@ -674,6 +785,7 @@ async def list_ai_model_versions(
                 provider_status=item.provider_status.value,
                 version=item.version,
                 concrete_model_id=item.concrete_model_id,
+                artifact_sha256=item.artifact_sha256,
                 status=item.status.value,
                 limitations=item.limitations,
                 approved_at=item.approved_at,

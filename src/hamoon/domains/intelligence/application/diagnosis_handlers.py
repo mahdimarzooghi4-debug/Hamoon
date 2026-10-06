@@ -216,6 +216,7 @@ class GenerateDiagnosisHandler:
             status=AIDecisionStatus.GENERATED,
             provider_code=result.provider_code,
             model_id=result.model_id,
+            model_artifact_sha256=result.model_artifact_sha256,
             model_alias=result.model_alias,
             routing_policy_id=result.routing_policy_id,
             routing_policy_version=result.routing_policy_version,

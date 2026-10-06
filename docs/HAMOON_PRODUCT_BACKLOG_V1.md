@@ -379,11 +379,15 @@ Acceptance Criteria:
 
 ## PB-040 — AI Gateway Interface
 Priority: P0
+Implementation: COMPLETE. Production decision-producing AI is restricted to the in-process
+`HAMOON_NATIVE` adapter; local/test retains deterministic FakeAIProvider. No vendor SDK,
+HTTP/gRPC inference client or external AI adapter is present in the Production runtime.
 
 Acceptance Criteria:
-- provider-agnostic interface exists.
-- FakeAIProvider exists.
-- one real adapter can be plugged in.
+- AI gateway interface exists.
+- FakeAIProvider exists for local/test.
+- HAMOON_NATIVE executes from local immutable artifacts.
+- Production external/internal AI API usage is forbidden.
 - Domain imports no vendor SDK.
 
 ---
@@ -457,6 +461,27 @@ Acceptance Criteria:
 - machine diagnosis remains traceable.
 - reason required.
 - LearningSignalCreated.
+
+---
+
+## PB-047 — Native AI Growth Loop
+Priority: P0
+Implementation: COMPLETE. Hamoon can create reviewed Diagnosis/Prescription datasets and
+curated Outcome datasets, approve/version them, train content-addressed local model artifacts,
+register only CANDIDATE model versions, evaluate them offline, create DRAFT routes and require
+explicit ADMIN promotion. Production inference is in-process and no-network.
+
+Acceptance Criteria:
+- only curated/reviewed data enters training datasets.
+- dataset approval is explicit.
+- case identity is stripped from model artifacts.
+- model artifact SHA-256 is immutable and persisted.
+- AI Decision records exact model artifact SHA-256.
+- training never auto-promotes.
+- evaluation must pass before promotion.
+- routing starts DRAFT.
+- explicit ADMIN promotion is required.
+- no internal/external AI API or network fallback exists.
 
 ---
 

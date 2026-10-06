@@ -127,6 +127,7 @@ class ProviderAIGateway:
                 output_schema=output_schema,
                 features=request.features,
                 correlation_id=request.correlation_id,
+                    model_artifact_sha256=routing_policy.model_artifact_sha256,
                 )
             )
         except Exception as exc:
@@ -179,4 +180,5 @@ class ProviderAIGateway:
             prompt_policy_version=routing_policy.prompt_policy_version,
             output_schema_version=routing_policy.output_schema_version,
             output=response.output,
+            model_artifact_sha256=response.model_artifact_sha256,
         )
