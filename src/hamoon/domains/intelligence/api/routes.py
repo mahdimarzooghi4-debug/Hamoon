@@ -123,6 +123,29 @@ from hamoon.shared.contracts.records import AuditRecord, DomainEventRecord
 router = APIRouter(tags=["intelligence"])
 
 
+def _training_run_data(run: InternalTrainingRunState) -> InternalTrainingRunData:
+    return InternalTrainingRunData(
+        id=run.id,
+        task_class=run.task_class,
+        dataset_version_id=run.dataset_version_id,
+        dataset_manifest_digest=run.dataset_manifest_digest,
+        training_pipeline_version=run.training_pipeline_version,
+        model_key=run.model_key,
+        model_version=run.model_version,
+        concrete_model_id=run.concrete_model_id,
+        parent_model_version_id=run.parent_model_version_id,
+        status=run.status.value,
+        artifact_sha256=run.artifact_sha256,
+        artifact_size_bytes=run.artifact_size_bytes,
+        candidate_model_version_id=run.candidate_model_version_id,
+        error_code=run.error_code,
+        created_by=run.created_by,
+        created_at=run.created_at,
+        started_at=run.started_at,
+        completed_at=run.completed_at,
+    )
+
+
 def _local_ai_client(settings: Settings) -> GatewayDiagnosisAIClient:
     if settings.environment.lower() not in {"local", "test", "development"}:
         raise HTTPException(
