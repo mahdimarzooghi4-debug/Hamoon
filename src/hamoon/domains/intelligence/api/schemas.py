@@ -233,6 +233,7 @@ class AIModelVersionCatalogData(BaseModel):
     parent_model_version_id: UUID | None
     training_dataset_manifest_digest: str | None = None
     training_pipeline_version: str | None = None
+    production_evaluation_run_id: UUID | None = None
     status: str
     limitations: str | None
     approved_at: datetime | None
