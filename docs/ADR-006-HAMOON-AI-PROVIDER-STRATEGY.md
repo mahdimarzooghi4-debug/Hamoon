@@ -83,7 +83,14 @@ Observed Outcomes
 یادگیری مستقیم از Production ممنوع است. رسیدن داده جدید، Passed شدن Evaluation یا ساخته‌شدن
 artifact به‌تنهایی هیچ نسخه‌ای را Production نمی‌کند.
 
-Promotion به Production فقط با اقدام صریح ADMIN انسانی انجام می‌شود.
+Dataset creation برای signalهای دارای policy مصوب به‌صورت event-driven و خودکار است: هر
+Learning Signal که به `CURATED` می‌رسد، اگر برای نوع آن Dataset policy موجود باشد، همان لحظه
+یک Dataset Version جدید و immutable در وضعیت `DRAFT` ساخته می‌شود. نسخه خودکار بر اساس
+شناسه همان signal idempotent است. signalهایی که هنوز Dataset policy مصوب ندارند خودکار وارد
+Dataset نمی‌شوند.
+
+Dataset Approval همچنان انسانی است و Promotion به Production فقط با اقدام صریح ADMIN انسانی
+انجام می‌شود.
 
 ---
 
@@ -96,6 +103,7 @@ Promotion به Production فقط با اقدام صریح ADMIN انسانی ا�
 - نگهداری Model Registry و lineage نسخه‌دار؛
 - الزام artifact digest، training dataset digest، training pipeline version و evaluation evidence؛
 - ثبت Candidate metadata بدون اجرای Training؛
+- ساخت event-driven و خودکار Dataset Versionهای DRAFT از Learning Signalهای CURATED واجد policy؛
 - execution mode مصوب فقط `IN_PROCESS` داخل backend/worker خود Hamoon است؛
 - هیچ network hop، endpoint، token یا inference service برای اجرای مدل مجاز نیست؛
 - artifact از Registry lineage و digest معتبر resolve می‌شود، نه از URL یا endpoint؛
