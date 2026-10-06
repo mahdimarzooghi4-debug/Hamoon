@@ -27,7 +27,7 @@ COPY migrations ./migrations
 COPY src ./src
 
 RUN uv sync --frozen --no-dev --no-editable \
-    && /app/.venv/bin/pip install --no-cache-dir \
+    && uv pip install --python /app/.venv/bin/python --no-cache \
         -r requirements/internal-ai-gemma4.txt
 
 EXPOSE 8000
