@@ -89,6 +89,10 @@ def _required_checks(requirements: dict[str, object]) -> list[str]:
         check = value.strip()
         require(check not in checks, "preflight checks must be unique")
         checks.append(check)
+    require(
+        "gemma4_checkpoint_attested" in checks,
+        "preflight Gemma checkpoint attestation check missing",
+    )
     return checks
 
 
