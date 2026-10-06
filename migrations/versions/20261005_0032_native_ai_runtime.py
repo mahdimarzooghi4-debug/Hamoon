@@ -30,6 +30,10 @@ def upgrade() -> None:
         "ai_model_version",
         sa.Column("artifact_sha256", sa.String(length=64), nullable=True),
     )
+    op.add_column(
+        "ai_decision",
+        sa.Column("model_artifact_sha256", sa.String(length=64), nullable=True),
+    )
 
     provider_status = postgresql.ENUM(
         "ACTIVE",
@@ -117,4 +121,5 @@ def downgrade() -> None:
             "DELETE FROM ai_provider WHERE id = CAST(:id AS uuid)"
         ).bindparams(id=str(HAMOON_NATIVE_PROVIDER_ID))
     )
+    op.drop_column("ai_decision", "model_artifact_sha256")
     op.drop_column("ai_model_version", "artifact_sha256")
