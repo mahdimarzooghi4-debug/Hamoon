@@ -204,3 +204,55 @@ async def test_native_prescription_rewrites_case_specific_diagnosis_reference(
 def test_native_provider_requires_absolute_model_root() -> None:
     with pytest.raises(ValueError, match="NATIVE_AI_MODEL_ROOT_MUST_BE_ABSOLUTE"):
         HamoonNativeAIProvider(model_root=".hamoon/models")
+
+
+
+@pytest.mark.asyncio
+async def test_native_provider_refuses_uncovered_feature_shape(
+    tmp_path: Path,
+) -> None:
+    artifact = NativeModelArtifact(
+        task_class=AITaskClass.DIAGNOSIS,
+        model_id="hamoon-diagnosis-native-v1",
+        feature_schema_version="diagnosis-input-v1",
+        output_schema_version="diagnosis-v1",
+        training_dataset_id="dataset-1",
+        training_dataset_manifest_digest="d" * 64,
+        trained_at=datetime.now(UTC),
+        examples=[
+            NativeModelExample(
+                input={"pgor.P": "0.2"},
+                target={
+                    "schema_version": "diagnosis-v1",
+                    "summary": "نمونه",
+                    "items": [],
+                    "review_flags": ["HUMAN_REVIEW_REQUIRED"],
+                },
+            )
+        ],
+    )
+    _path, digest = write_artifact(root=tmp_path, artifact=artifact)
+    provider = HamoonNativeAIProvider(model_root=str(tmp_path))
+
+    with pytest.raises(
+        Exception,
+        match="NATIVE_MODEL_NO_APPLICABLE_TRAINING_EXAMPLE",
+    ):
+        await provider.generate_structured(
+            ProviderStructuredRequest(
+                task_class=AITaskClass.DIAGNOSIS,
+                model_id="hamoon-diagnosis-native-v1",
+                model_alias="hamoon.diagnosis.v1",
+                prompt_policy_version="diagnosis-prompt-v1",
+                output_schema_version="diagnosis-v1",
+                feature_schema_version="diagnosis-input-v1",
+                instructions="",
+                output_schema={},
+                features={
+                    "pgor.P": "0.9",
+                    "pgor.G": "0.8",
+                },
+                correlation_id="test-correlation",
+                model_artifact_sha256=digest,
+            )
+        )
