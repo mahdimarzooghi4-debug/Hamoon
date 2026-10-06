@@ -248,7 +248,7 @@ async def test_curated_outcome_signal_builds_minimized_immutable_dataset() -> No
     assert len(items) == 1
     item = items[0]
     assert item.target_payload["classification"] == "PROGRESS"
-    assert item.input_payload["causal_claim_allowed"] is False
+    assert item.input_payload["policy.causal_claim_allowed"] is False
     assert "result_summary" not in item.input_payload
     assert f"human_decision:{ACTOR}" in item.source_refs
     assert f"ai_decision:{AI_DECISION}" in item.source_refs
