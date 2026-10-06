@@ -50,8 +50,6 @@ from hamoon.domains.intelligence.api.schemas import (
     PromptPolicyVersionCatalogResponse,
     ReviewDiagnosisResponse,
     StructuredDiagnosisReviewRequest,
-    RegisterInternalModelCandidateRequest,
-    RegisterInternalModelCandidateResponse,
 )
 from hamoon.domains.intelligence.application.diagnosis_commands import (
     GenerateDiagnosisCommand,
@@ -1028,117 +1026,12 @@ async def list_internal_training_runs(
 
 @router.post(
     "/api/v1/admin/ai/internal-model-candidates",
-    response_model=RegisterInternalModelCandidateResponse,
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
 )
-async def register_internal_model_candidate(
-    body: RegisterInternalModelCandidateRequest,
-    context: Annotated[
-        AuthorizationContext,
-        Depends(require_roles(Role.ADMIN)),
-    ],
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> RegisterInternalModelCandidateResponse:
-    datasets = SqlAlchemyLearningDatasetRepository(session)
-    repository = SqlAlchemyAIRuntimeRegistryRepository(session)
-    request_id = current_request_id() or "unknown"
-    correlation_id = current_correlation_id() or request_id
-    now = datetime.now(UTC)
-
-    try:
-        async with session.begin():
-            dataset = await datasets.get(body.dataset_version_id)
-            if dataset is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail={"code": "LEARNING_DATASET_NOT_FOUND"},
-                )
-            if dataset.status is not DatasetVersionStatus.APPROVED:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={"code": "TRAINING_DATASET_NOT_APPROVED"},
-                )
-            if dataset.purpose != body.task_class.value:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={"code": "TRAINING_DATASET_PURPOSE_MISMATCH"},
-                )
-
-            candidate = await repository.register_internal_model_candidate(
-                task_class=body.task_class,
-                model_key=body.model_key,
-                version=body.version,
-                concrete_model_id=body.model_id,
-                artifact_sha256=body.artifact_sha256,
-                training_dataset_version_id=dataset.id,
-                training_dataset_manifest_digest=dataset.manifest_digest,
-                training_pipeline_version=body.training_pipeline_version,
-                parent_model_version_id=body.base_model_version_id,
-                limitations=body.limitations,
-            )
-            await SqlAlchemyAuditRecorder(session).record(
-                AuditRecord(
-                    id=uuid4(),
-                    actor_id=context.actor_id,
-                    action="ai.internal_model.candidate.register",
-                    resource_type="AI_MODEL_VERSION",
-                    resource_id=candidate.id,
-                    request_id=request_id,
-                    correlation_id=correlation_id,
-                    created_at=now,
-                    purpose="AI_MODEL_GOVERNANCE",
-                    metadata={
-                        "task_class": body.task_class.value,
-                        "dataset_version_id": str(dataset.id),
-                        "training_dataset_manifest_digest": dataset.manifest_digest,
-                        "training_pipeline_version": body.training_pipeline_version,
-                        "model_key": candidate.model_key,
-                        "model_version": candidate.version,
-                        "artifact_sha256": candidate.artifact_sha256,
-                        "parent_model_version_id": (
-                            str(candidate.parent_model_version_id)
-                            if candidate.parent_model_version_id is not None
-                            else None
-                        ),
-                        "provider_code": candidate.provider_code,
-                    },
-                )
-            )
-    except LookupError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": str(exc)},
-        ) from exc
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"code": str(exc)},
-        ) from exc
-
-    return RegisterInternalModelCandidateResponse(
-        data=AIModelVersionCatalogData(
-            id=candidate.id,
-            ai_model_id=candidate.ai_model_id,
-            model_key=candidate.model_key,
-            purpose=candidate.purpose,
-            provider_id=candidate.provider_id,
-            provider_code=candidate.provider_code,
-            provider_status=candidate.provider_status.value,
-            version=candidate.version,
-            concrete_model_id=candidate.concrete_model_id,
-            artifact_sha256=candidate.artifact_sha256,
-            parent_model_version_id=candidate.parent_model_version_id,
-            training_dataset_version_id=candidate.training_dataset_version_id,
-            training_dataset_manifest_digest=(
-                candidate.training_dataset_manifest_digest
-            ),
-            training_pipeline_version=candidate.training_pipeline_version,
-            production_evaluation_run_id=candidate.production_evaluation_run_id,
-            status=candidate.status.value,
-            limitations=candidate.limitations,
-            approved_at=candidate.approved_at,
-            deployed_at=candidate.deployed_at,
-        )
+async def register_internal_model_candidate() -> None:
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail={"code": "INTERNAL_TRAINING_RUN_REQUIRED"},
     )
 
 
