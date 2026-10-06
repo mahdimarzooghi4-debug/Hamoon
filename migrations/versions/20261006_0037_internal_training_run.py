@@ -21,6 +21,7 @@ training_status = postgresql.ENUM(
     "SUCCEEDED",
     "FAILED",
     name="internal_training_run_status",
+    create_type=False,
 )
 
 
