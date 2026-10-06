@@ -122,10 +122,6 @@ class Gemma4LoRATrainingConfig:
             or not 0 <= float(lora_dropout) < 1
             or not isinstance(target_modules, list)
             or not target_modules
-            or not all(
-                isinstance(item, str) and item.strip()
-                for item in target_modules_values
-            )
             or not isinstance(training_arguments, dict)
         ):
             raise Gemma4RuntimeError(
@@ -137,6 +133,13 @@ class Gemma4LoRATrainingConfig:
             dict[object, object],
             training_arguments,
         )
+        if not all(
+            isinstance(item, str) and item.strip()
+            for item in target_modules_values
+        ):
+            raise Gemma4RuntimeError(
+                "GEMMA4_TRAINING_CONFIGURATION_INVALID"
+            )
 
         dtype = str(data["dtype"]).strip()
         device_map = str(data["device_map"]).strip()
