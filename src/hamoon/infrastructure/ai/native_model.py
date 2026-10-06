@@ -36,6 +36,12 @@ class NativeModelArtifact(BaseModel):
         max_length=64,
         pattern=r"^[0-9a-f]{64}$",
     )
+    parent_artifact_sha256: str | None = Field(
+        default=None,
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
+    )
     trained_at: datetime
     examples: list[NativeModelExample] = Field(min_length=1)
 
