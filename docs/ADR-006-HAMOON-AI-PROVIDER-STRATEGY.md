@@ -139,7 +139,10 @@ Dataset Approval همچنان انسانی است و Promotion به Production �
 - base checkpoint از filesystem خصوصی/mounted artifact storage خوانده می‌شود و قبل از load
   revision، SHA-256 وزن و tokenizer، presenceِ chat template و metadata اصلی
   model/processor/tokenizer/generation verify می‌شوند؛ هیچ download شبکه‌ای در runtime انجام
-  نمی‌شود.
+  نمی‌شود؛
+- Production Runtime Preflight باید هویت دقیق همین checkpoint را شامل model/revision/digestها
+  با `execution_mode=IN_PROCESS` و `network_model_download=false` attest کند؛ receipt با هویت
+  متفاوت قابل قبول نیست.
 
 مقادیر زیر عمداً hard-code نشده‌اند و باید از configuration صریح تأمین شوند:
 
@@ -227,9 +230,10 @@ Execution boundary تصویب شده است: مدل فقط به‌صورت `IN_P
 و هیچ API/endpoint/token یا inference service جداگانه مجاز نیست.
 
 model family، upstream revision، training method، artifact format و concrete
-trainer/executor برای baseline v1 تصویب و پیاده شده‌اند. موارد باز: مقادیر hyperparameter،
-resource isolation/hardware sizing، provisioning checkpoint خصوصی، production artifact-store
-deployment و evaluation policy جزئی.
+trainer/executor برای baseline v1 تصویب و پیاده شده‌اند. Production preflight نیز به هویت
+checkpoint مصوب bind شده است. موارد باز: مقادیر hyperparameter، resource isolation/hardware
+sizing، provisioning فیزیکی/mount checkpoint خصوصی، production artifact-store deployment و
+evaluation policy جزئی.
 
 Dataset تأییدشده از طریق Training Run وارد Gemma 4 trainer می‌شود؛ adapter خروجی در storage
 خصوصی immutable ثبت می‌شود و همان Run در صورت موفقیت Candidate lineage را می‌سازد. Training
