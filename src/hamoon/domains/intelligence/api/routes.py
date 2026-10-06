@@ -714,6 +714,7 @@ async def register_internal_model_candidate(
                 version=body.version,
                 concrete_model_id=body.model_id,
                 artifact_sha256=body.artifact_sha256,
+                training_dataset_version_id=dataset.id,
                 training_dataset_manifest_digest=dataset.manifest_digest,
                 training_pipeline_version=body.training_pipeline_version,
                 parent_model_version_id=body.base_model_version_id,
@@ -771,6 +772,7 @@ async def register_internal_model_candidate(
             concrete_model_id=candidate.concrete_model_id,
             artifact_sha256=candidate.artifact_sha256,
             parent_model_version_id=candidate.parent_model_version_id,
+            training_dataset_version_id=candidate.training_dataset_version_id,
             training_dataset_manifest_digest=(
                 candidate.training_dataset_manifest_digest
             ),
@@ -810,6 +812,7 @@ async def list_ai_model_versions(
                 concrete_model_id=item.concrete_model_id,
                 artifact_sha256=item.artifact_sha256,
                 parent_model_version_id=item.parent_model_version_id,
+                training_dataset_version_id=item.training_dataset_version_id,
                 training_dataset_manifest_digest=item.training_dataset_manifest_digest,
                 training_pipeline_version=item.training_pipeline_version,
                 production_evaluation_run_id=item.production_evaluation_run_id,
