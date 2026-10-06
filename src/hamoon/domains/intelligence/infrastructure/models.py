@@ -401,6 +401,10 @@ class AIModelVersionModel(Base):
     version: Mapped[str] = mapped_column(String(100), nullable=False)
     concrete_model_id: Mapped[str] = mapped_column(String(250), nullable=False)
     artifact_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    parent_model_version_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("ai_model_version.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     status: Mapped[AIModelVersionStatus] = mapped_column(
         Enum(AIModelVersionStatus, name="ai_model_version_status"),
         nullable=False,
