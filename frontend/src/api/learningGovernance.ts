@@ -82,6 +82,7 @@ export interface ModelVersionCatalogItem {
   version: string;
   concrete_model_id: string;
   artifact_sha256: string | null;
+  parent_model_version_id: string | null;
   status: ModelVersionStatus;
   limitations: string | null;
   approved_at: string | null;
@@ -245,6 +246,7 @@ export async function trainNativeModel(input: {
   modelKey: string;
   version: string;
   modelId: string;
+  baseModelVersionId?: string;
   limitations?: string;
 }): Promise<ModelVersionCatalogItem> {
   const response = await requestJson<DataResponse<ModelVersionCatalogItem>>(
@@ -257,6 +259,7 @@ export async function trainNativeModel(input: {
         model_key: input.modelKey,
         version: input.version,
         model_id: input.modelId,
+        base_model_version_id: input.baseModelVersionId || null,
         limitations: input.limitations || null,
       }),
     },
