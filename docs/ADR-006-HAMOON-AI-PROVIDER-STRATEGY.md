@@ -102,8 +102,11 @@ Dataset Approval همچنان انسانی است و Promotion به Production �
 - تبدیل هویت runtime به `INTERNAL_MODEL`؛
 - نگهداری Model Registry و lineage نسخه‌دار؛
 - الزام artifact digest، training dataset digest، training pipeline version و evaluation evidence؛
-- ثبت Candidate metadata بدون اجرای Training؛
+- ثبت Candidate metadata و lineage نسخه‌دار؛
 - ساخت event-driven و خودکار Dataset Versionهای DRAFT از Learning Signalهای CURATED واجد policy؛
+- هسته Internal Training Engine برای اجرای trainerهای صریحاً ثبت‌شده به‌صورت in-process؛
+- هسته Internal Model Executor برای اجرای executorهای صریحاً ثبت‌شده به‌صورت in-process؛
+- artifact store contract با digest attestation و immutable artifact identity؛
 - execution mode مصوب فقط `IN_PROCESS` داخل backend/worker خود Hamoon است؛
 - هیچ network hop، endpoint، token یا inference service برای اجرای مدل مجاز نیست؛
 - artifact از Registry lineage و digest معتبر resolve می‌شود، نه از URL یا endpoint؛
@@ -114,13 +117,15 @@ Dataset Approval همچنان انسانی است و Promotion به Production �
 
 - مدل مشخص مانند Llama/Qwen/Mistral یا هر خانواده دیگر؛
 - Training algorithm؛
-- concrete in-process executor و inference/execution algorithm؛
+- concrete trainer/model family و training algorithm؛
+- concrete in-process executor implementation و inference algorithm؛
 - threshold یا hyperparameter؛
-- Training Engine کامل؛
+- production artifact-store binding؛
 - internal/external inference API.
 
-بنابراین تا تصویب مرحله بعد، executor داخلی عمداً unavailable است و Production به انسان
-fail-safe می‌شود.
+هسته execution/training اکنون وجود دارد، اما تا زمانی که concrete trainer، executor و
+artifact-store binding مصوب در process ثبت نشده باشند، Production همچنان fail-closed است و
+به انسان route می‌شود.
 
 ---
 
@@ -196,7 +201,8 @@ Execution boundary تصویب شده است: مدل فقط به‌صورت `IN_P
 و هیچ API/endpoint/token یا inference service جداگانه مجاز نیست.
 
 مواردی که هنوز تصمیم جداگانه می‌خواهند: model family، artifact serialization format،
-training method، concrete executor implementation، resource isolation و evaluation policy
-جزئی. Training Engine نیز در این مرحله deferred باقی می‌ماند.
+training method، concrete trainer/executor implementation، production artifact-store binding،
+resource isolation و evaluation policy جزئی.
 
-تا تصویب این موارد، هیچ implementation مشخص مدل یا executor حق ورود به Production path را ندارد.
+هسته Training/Execution این تصمیم‌ها را hard-code نمی‌کند. تا تصویب و ثبت صریح implementation
+مشخص، Production route وجود مدل را کافی نمی‌داند و fail-closed باقی می‌ماند.
