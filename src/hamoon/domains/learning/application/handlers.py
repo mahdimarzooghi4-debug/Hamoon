@@ -42,6 +42,7 @@ from hamoon.domains.learning.ports.repositories import LearningDatasetRepository
 from hamoon.domains.outcome.ports.repositories import OutcomeRepository
 from hamoon.domains.pgor.ports.repositories import PGORSnapshotRepository
 from hamoon.domains.provider_result.ports.repositories import ProviderResultRepository
+from hamoon.infrastructure.ai.contracts import AITaskClass
 from hamoon.shared.contracts.records import AuditRecord, DomainEventRecord
 from hamoon.shared.ports.recorders import AuditRecorder, DomainEventRecorder
 
