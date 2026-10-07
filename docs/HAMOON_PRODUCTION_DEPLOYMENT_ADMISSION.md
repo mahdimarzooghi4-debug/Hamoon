@@ -14,11 +14,13 @@ The workflow is manual and requires:
 - a stable Production target identifier;
 - a non-local HTTPS Production endpoint;
 - an expected runtime deployment identifier;
-- a successful immutable Release Approval artifact for the exact commit.
+- a successful immutable Release Approval artifact for the exact commit;
+- a successful immutable Production Operational Readiness artifact for the exact commit.
 
-It resolves the Release Approval first, follows that evidence to the exact Stage
-Admission and source CI run, downloads the exact release bundle, and re-verifies the
-entire governance chain.
+It resolves the Production Operational Readiness and Release Approval artifacts, follows the
+approval evidence to the exact Stage Admission and source CI run, downloads the exact release
+bundle, and re-verifies the entire governance chain. Readiness must be `READY`, must not claim
+deployment, must belong to the same commit, and its immutable SHA-256 is pinned into admission.
 
 ## What it produces
 
@@ -37,6 +39,7 @@ The attestation binds the deployment target to:
 - release manifest SHA-256;
 - Stage attestation SHA-256;
 - Release Approval SHA-256;
+- Production Operational Readiness run ID and SHA-256;
 - backend/frontend image IDs;
 - release approver;
 - deployment operator;
@@ -60,6 +63,7 @@ orchestrator returns a final `DEPLOYED` receipt bound to the exact admitted iden
 CI
 → immutable release artifact
 → Stage Admission PASSED
+→ Production Operational Readiness READY
 → explicit Human Release Approval
 → Production Deployment Admission
 → Production Deploy / trusted external orchestrator
