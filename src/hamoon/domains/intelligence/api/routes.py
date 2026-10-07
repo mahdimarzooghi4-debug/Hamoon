@@ -1346,6 +1346,7 @@ async def complete_ai_evaluation(
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> AIEvaluationRunResponse:
     repository = SqlAlchemyAIRuntimeRegistryRepository(session)
+    datasets = SqlAlchemyLearningDatasetRepository(session)
     now = datetime.now(UTC)
     request_id = current_request_id() or "unknown"
     correlation_id = current_correlation_id() or request_id
@@ -1354,9 +1355,26 @@ async def complete_ai_evaluation(
             pending = await repository.get_evaluation_run(evaluation_run_id)
             if pending is None:
                 raise LookupError("EVALUATION_RUN_NOT_FOUND")
+            if pending.dataset_version_id is None:
+                raise ValueError("EVALUATION_DATASET_REQUIRED")
+            dataset = await datasets.get(pending.dataset_version_id)
+            if dataset is None:
+                raise LookupError("LEARNING_DATASET_NOT_FOUND")
+            if dataset.status is not DatasetVersionStatus.APPROVED:
+                raise ValueError("EVALUATION_DATASET_NOT_APPROVED")
+            if dataset.purpose != pending.task_class.value:
+                raise ValueError("EVALUATION_DATASET_PURPOSE_MISMATCH")
+            if dataset.manifest_digest != pending.dataset_manifest_digest:
+                raise ValueError("EVALUATION_DATASET_DIGEST_CHANGED")
+            if body.dataset_manifest_digest != dataset.manifest_digest:
+                raise ValueError("EVALUATION_DATASET_DIGEST_MISMATCH")
+            items = await datasets.list_items(dataset.id)
+            if not items:
+                raise ValueError("EVALUATION_DATASET_EMPTY")
             attestation = attest_evaluation_report(
                 task_class=pending.task_class,
                 expected_policy_version=pending.evaluation_policy_version,
+                expected_dataset_version=dataset.version,
                 report=dict(body.report),
             )
             evaluation = await repository.complete_evaluation_run(
