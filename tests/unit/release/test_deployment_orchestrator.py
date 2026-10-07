@@ -126,7 +126,9 @@ def _preflight_receipt() -> dict[str, object]:
             "verification_id": "checkpoint-verify-001",
             "verified_at": "2026-10-05T12:54:00+00:00",
         },
-        "internal_model_artifact_store": ARTIFACT_STORE_ATTESTATION,
+        "internal_model_artifact_store": {
+            **ARTIFACT_STORE_ATTESTATION,
+        },
         "checked_at": "2026-10-05T12:55:00+00:00",
     }
 
