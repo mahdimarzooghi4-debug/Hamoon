@@ -77,12 +77,14 @@ def test_outcome_report_attestation_derives_pass_and_stable_digest() -> None:
     first = attest_evaluation_report(
         task_class=AITaskClass.OUTCOME_INTERPRETATION,
         expected_policy_version="outcome-eval-v1",
+        expected_dataset_version="outcome-v1",
         report=report,
     )
     reordered = dict(reversed(list(report.items())))
     second = attest_evaluation_report(
         task_class=AITaskClass.OUTCOME_INTERPRETATION,
         expected_policy_version="outcome-eval-v1",
+        expected_dataset_version="outcome-v1",
         report=reordered,
     )
 
@@ -100,6 +102,7 @@ def test_failed_structural_gate_is_recorded_as_failed_not_promotable() -> None:
     attestation = attest_evaluation_report(
         task_class=AITaskClass.OUTCOME_INTERPRETATION,
         expected_policy_version="outcome-eval-v1",
+        expected_dataset_version="outcome-v1",
         report=report,
     )
 
@@ -122,11 +125,26 @@ def test_outcome_attestation_rejects_safety_bypass() -> None:
         raise AssertionError("unsupported refs must block a passing attestation")
 
 
+def test_attestation_rejects_dataset_mismatch() -> None:
+    try:
+        attest_evaluation_report(
+            task_class=AITaskClass.OUTCOME_INTERPRETATION,
+            expected_policy_version="outcome-eval-v1",
+            expected_dataset_version="outcome-v2",
+            report=_outcome_report(),
+        )
+    except ValueError as exc:
+        assert str(exc) == "EVALUATION_REPORT_DATASET_MISMATCH"
+    else:
+        raise AssertionError("dataset mismatch must be rejected")
+
+
 def test_attestation_rejects_policy_mismatch() -> None:
     try:
         attest_evaluation_report(
             task_class=AITaskClass.OUTCOME_INTERPRETATION,
             expected_policy_version="outcome-eval-v2",
+            expected_dataset_version="outcome-v1",
             report=_outcome_report(),
         )
     except ValueError as exc:
