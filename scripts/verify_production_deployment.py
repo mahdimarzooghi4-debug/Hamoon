@@ -7,6 +7,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlsplit
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -101,8 +102,89 @@ def _checkpoint_provisioning_contract(
     return provisioning
 
 
+def _artifact_store_contract(
+    requirements: dict[str, object],
+) -> dict[str, object]:
+    raw = requirements.get("internal_model_artifact_store")
+    require(isinstance(raw, dict), "internal model artifact store contract missing")
+    store = dict(raw)
+    require(
+        store
+        == {
+            "backend": "S3_COMPATIBLE",
+            "transport": "HTTPS",
+            "access_scope": "PRIVATE",
+            "credential_source": "RUNTIME_SECRET",
+            "object_prefix": "internal-model-artifacts/sha256/",
+            "write_mode": "CREATE_ONLY",
+            "digest_algorithm": "SHA256",
+            "read_digest_verification": True,
+        },
+        "internal model artifact store contract invalid",
+    )
+    return store
+
+
+def _verify_artifact_store_attestation(
+    *,
+    receipt: dict[str, object],
+    contract: dict[str, object],
+) -> None:
+    raw = receipt.get("internal_model_artifact_store")
+    require(isinstance(raw, dict), "preflight internal model artifact store attestation missing")
+    attestation = dict(raw)
+    expected_fields = set(contract) | {
+        "endpoint",
+        "bucket",
+        "region",
+        "credential_binding_id",
+        "private_access_verified",
+        "immutability_verified",
+        "verification_id",
+        "verified_at",
+    }
+    require(
+        set(attestation) == expected_fields,
+        "preflight internal model artifact store attestation fields invalid",
+    )
+    for field, expected in contract.items():
+        require(
+            attestation.get(field) == expected,
+            f"preflight internal model artifact store {field} mismatch",
+        )
+
+    endpoint = attestation.get("endpoint")
+    require(isinstance(endpoint, str) and bool(endpoint.strip()), "artifact store endpoint invalid")
+    parsed = urlsplit(endpoint.strip())
+    host = parsed.hostname.lower() if parsed.hostname is not None else None
+    require(
+        parsed.scheme == "https"
+        and host is not None
+        and host not in {"localhost", "127.0.0.1", "0.0.0.0", "::1", "::"}
+        and not host.endswith(".localhost")
+        and parsed.username is None
+        and parsed.password is None,
+        "artifact store endpoint must be remote HTTPS",
+    )
+    for field in ("bucket", "region", "credential_binding_id", "verification_id"):
+        value = attestation.get(field)
+        require(
+            isinstance(value, str) and bool(value.strip()) and len(value.strip()) <= 200,
+            f"artifact store {field} invalid",
+        )
+    require(
+        attestation.get("private_access_verified") is True,
+        "artifact store private access not verified",
+    )
+    require(
+        attestation.get("immutability_verified") is True,
+        "artifact store immutability not verified",
+    )
+    _require_timestamp(attestation.get("verified_at"), "artifact store verified_at")
+
+
 def _required_checks(requirements: dict[str, object]) -> list[str]:
-    require(requirements.get("schema_version") == 3, "preflight schema invalid")
+    require(requirements.get("schema_version") == 4, "preflight schema invalid")
     require(
         requirements.get("contract") == "HAMOON_PRODUCTION_RUNTIME_PREFLIGHT",
         "preflight contract invalid",
@@ -122,6 +204,10 @@ def _required_checks(requirements: dict[str, object]) -> list[str]:
     require(
         "gemma4_checkpoint_provisioned" in checks,
         "preflight Gemma checkpoint provisioning check missing",
+    )
+    require(
+        "internal_model_artifact_store_attested" in checks,
+        "preflight internal model artifact store attestation check missing",
     )
     return checks
 
@@ -157,6 +243,7 @@ def main() -> None:
     required_checks = _required_checks(requirements)
     checkpoint_contract = _checkpoint_contract(requirements)
     provisioning_contract = _checkpoint_provisioning_contract(requirements)
+    artifact_store_contract = _artifact_store_contract(requirements)
 
     require(deployment.get("schema_version") == 1, "unsupported schema_version")
     require(deployment.get("status") == "DEPLOYED", "status must be DEPLOYED")
@@ -273,6 +360,11 @@ def main() -> None:
         == provisioning_contract,
         "preflight checkpoint provisioning contract mismatch",
     )
+    require(
+        preflight_meta.get("internal_model_artifact_store")
+        == artifact_store_contract,
+        "preflight internal model artifact store contract mismatch",
+    )
 
     require(preflight_receipt.get("status") == "READY", "preflight status must be READY")
     for field in (
@@ -320,6 +412,10 @@ def main() -> None:
     _require_timestamp(
         provisioning_receipt.get("verified_at"),
         "preflight checkpoint verified_at",
+    )
+    _verify_artifact_store_attestation(
+        receipt=preflight_receipt,
+        contract=artifact_store_contract,
     )
     checks = preflight_receipt.get("checks")
     require(isinstance(checks, dict), "preflight receipt checks missing")
