@@ -107,6 +107,14 @@ class DecisionTraceData(BaseModel):
 class DecisionTraceResponse(BaseModel):
     data: DecisionTraceData
 
+class CreateAIEvaluationRunRequest(BaseModel):
+    task_class: AITaskClass
+    model_version_id: UUID
+    prompt_policy_version_id: UUID
+    dataset_version_id: UUID
+    evaluation_policy_version: str = Field(min_length=1, max_length=100)
+
+
 class CompleteAIEvaluationRequest(BaseModel):
     dataset_manifest_digest: str = Field(
         min_length=64,

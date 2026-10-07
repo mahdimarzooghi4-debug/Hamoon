@@ -28,6 +28,7 @@ from hamoon.domains.intelligence.api.schemas import (
     AIRoutingPolicyDraftResponse,
     AIRoutingPromotionData,
     AIRoutingPromotionResponse,
+    CreateAIEvaluationRunRequest,
     CreateAIRoutingPolicyRequest,
     CompleteAIEvaluationRequest,
     ConfirmDiagnosisRequest,
@@ -1202,6 +1203,132 @@ async def list_ai_routing_policies(
             )
             for item in values
         ]
+    )
+
+
+@router.post(
+    "/api/v1/admin/ai/evaluations",
+    response_model=AIEvaluationRunResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_ai_evaluation(
+    body: CreateAIEvaluationRunRequest,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.ADMIN)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> AIEvaluationRunResponse:
+    repository = SqlAlchemyAIRuntimeRegistryRepository(session)
+    datasets = SqlAlchemyLearningDatasetRepository(session)
+    now = datetime.now(UTC)
+    request_id = current_request_id() or "unknown"
+    correlation_id = current_correlation_id() or request_id
+    try:
+        async with session.begin():
+            dataset = await datasets.get(body.dataset_version_id)
+            if dataset is None:
+                raise LookupError("LEARNING_DATASET_NOT_FOUND")
+            if dataset.status is not DatasetVersionStatus.APPROVED:
+                raise ValueError("EVALUATION_DATASET_NOT_APPROVED")
+            if dataset.purpose != body.task_class.value:
+                raise ValueError("EVALUATION_DATASET_PURPOSE_MISMATCH")
+            items = await datasets.list_items(dataset.id)
+            if not items:
+                raise ValueError("EVALUATION_DATASET_EMPTY")
+
+            evaluation = await repository.create_evaluation_run(
+                task_class=body.task_class,
+                model_version_id=body.model_version_id,
+                prompt_policy_version_id=body.prompt_policy_version_id,
+                dataset_version_id=dataset.id,
+                dataset_manifest_digest=dataset.manifest_digest,
+                evaluation_policy_version=body.evaluation_policy_version.strip(),
+                started_at=now,
+            )
+            await SqlAlchemyDomainEventRecorder(session).record(
+                DomainEventRecord(
+                    event_id=uuid4(),
+                    event_type="EvaluationRunCreated",
+                    event_version=1,
+                    aggregate_type="EVALUATION_RUN",
+                    aggregate_id=evaluation.id,
+                    aggregate_version=1,
+                    actor_id=context.actor_id,
+                    occurred_at=now,
+                    recorded_at=now,
+                    correlation_id=correlation_id,
+                    causation_id=None,
+                    payload={
+                        "task_class": evaluation.task_class.value,
+                        "model_version_id": str(evaluation.model_version_id),
+                        "prompt_policy_version_id": str(
+                            evaluation.prompt_policy_version_id
+                        ),
+                        "dataset_version_id": str(evaluation.dataset_version_id),
+                        "dataset_manifest_digest": (
+                            evaluation.dataset_manifest_digest
+                        ),
+                        "evaluation_policy_version": (
+                            evaluation.evaluation_policy_version
+                        ),
+                    },
+                )
+            )
+            await SqlAlchemyAuditRecorder(session).record(
+                AuditRecord(
+                    id=uuid4(),
+                    actor_id=context.actor_id,
+                    action="ai.evaluation.create",
+                    resource_type="EVALUATION_RUN",
+                    resource_id=evaluation.id,
+                    request_id=request_id,
+                    correlation_id=correlation_id,
+                    created_at=now,
+                    purpose="AI_MODEL_GOVERNANCE",
+                    metadata={
+                        "task_class": evaluation.task_class.value,
+                        "model_version_id": str(evaluation.model_version_id),
+                        "prompt_policy_version_id": str(
+                            evaluation.prompt_policy_version_id
+                        ),
+                        "dataset_version_id": str(evaluation.dataset_version_id),
+                        "dataset_manifest_digest": (
+                            evaluation.dataset_manifest_digest
+                        ),
+                        "evaluation_policy_version": (
+                            evaluation.evaluation_policy_version
+                        ),
+                    },
+                )
+            )
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": str(exc)},
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": str(exc)},
+        ) from exc
+
+    return AIEvaluationRunResponse(
+        data=AIEvaluationRunData(
+            id=evaluation.id,
+            task_class=evaluation.task_class.value,
+            model_version_id=evaluation.model_version_id,
+            prompt_policy_version_id=evaluation.prompt_policy_version_id,
+            evaluation_policy_version=evaluation.evaluation_policy_version,
+            dataset_version_id=evaluation.dataset_version_id,
+            dataset_manifest_digest=evaluation.dataset_manifest_digest,
+            report_digest=evaluation.report_digest,
+            status=evaluation.status.value,
+            passed=evaluation.passed,
+            summary_metrics=evaluation.summary_metrics,
+            started_at=evaluation.started_at,
+            completed_at=evaluation.completed_at,
+        )
     )
 
 
