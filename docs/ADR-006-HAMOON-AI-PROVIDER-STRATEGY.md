@@ -205,7 +205,10 @@ Offline Evaluation باید به Model Version و evidence نسخه‌دار م�
 دارای training lineage، Prompt Policy در وضعیت `ACTIVE` و evaluation policy version صریح
 ایجاد می‌شود. Evaluation Dataset نباید همان Training Dataset باشد؛ هم Dataset Version ID و هم
 manifest digest باید مستقل باشند تا training-data reuse به‌عنوان Evaluation fail-closed شود.
-creation به‌تنهایی هیچ Promotion یا Production activation انجام نمی‌دهد.
+در زمان completion نیز Dataset دوباره از Registry/DB خوانده می‌شود و باید همچنان APPROVED،
+هم-purpose، non-empty و دارای همان manifest digest ثبت‌شده در Evaluation Run باشد. خود report
+نیز باید دقیقاً به version همان Dataset bind باشد؛ report مربوط به Dataset دیگر قابل قبول نیست.
+creation و completion به‌تنهایی هیچ Promotion یا Production activation انجام نمی‌دهند.
 
 Passed Gate فقط شرط لازم است، نه مجوز Production.
 
