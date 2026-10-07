@@ -145,7 +145,12 @@ Dataset Approval همچنان انسانی است و Promotion به Production �
   متفاوت قابل قبول نیست؛
 - همان preflight باید provisioning checkpoint را نیز attest کند: filesystem محلی خصوصی،
   read-only، مسیر absolute غیر-root، verification id/timestamp معتبر و بدون network model
-  download. vendor، mount path و hardware sizing در قرارداد hard-code نمی‌شوند.
+  download. vendor، mount path و hardware sizing در قرارداد hard-code نمی‌شوند؛
+- Production internal-model artifact store نیز باید در preflight به‌صورت مستقل attest شود:
+  S3-compatible روی remote HTTPS، bucket خصوصی، credential از runtime secret، namespace
+  `internal-model-artifacts/sha256/`، create-only write semantics، SHA-256 content addressing
+  و read-time digest verification. receipt فقط `credential_binding_id` غیرمحرمانه را ثبت
+  می‌کند و raw access/secret key حق ورود به deployment evidence ندارد.
 
 مقادیر زیر عمداً hard-code نشده‌اند و باید از configuration صریح تأمین شوند:
 
@@ -234,9 +239,9 @@ Execution boundary تصویب شده است: مدل فقط به‌صورت `IN_P
 
 model family، upstream revision، training method، artifact format و concrete
 trainer/executor برای baseline v1 تصویب و پیاده شده‌اند. Production preflight نیز به هویت
-checkpoint و provisioning attestation آن bind شده است. موارد باز: مقادیر hyperparameter،
-resource isolation/hardware sizing، provisioning فیزیکی/mount واقعی checkpoint خصوصی،
-production artifact-store deployment و
+checkpoint، provisioning attestation آن و artifact-store attestation bind شده است. موارد باز:
+مقادیر hyperparameter، resource isolation/hardware sizing، provisioning فیزیکی/mount واقعی
+checkpoint خصوصی، استقرار واقعی provider/bucket/credentials برای Production artifact store و
 evaluation policy جزئی.
 
 Dataset تأییدشده از طریق Training Run وارد Gemma 4 trainer می‌شود؛ adapter خروجی در storage
