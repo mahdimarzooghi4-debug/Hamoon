@@ -81,6 +81,11 @@ def main() -> None:
     require(bool(actor) and not actor.endswith("[bot]"), "actor must be human")
     require(workflow_run_id.isdigit(), "workflow run id invalid")
 
+    require(
+        not os.environ.get("HAMOON_OPENAI_API_KEY"),
+        "HAMOON_OPENAI_API_KEY is forbidden in Production",
+    )
+
     missing = [name for name in REQUIRED_VALUES if not os.environ.get(name, "").strip()]
     require(not missing, "required Production inputs missing: " + ",".join(missing))
 

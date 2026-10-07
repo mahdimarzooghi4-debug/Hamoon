@@ -75,6 +75,20 @@ def test_operational_readiness_rejects_missing_required_input(tmp_path: Path) ->
     assert "HAMOON_PROVIDER_DISPATCH_CONFIG" in result.stderr
 
 
+def test_operational_readiness_rejects_external_ai_without_leaking_secret(tmp_path: Path) -> None:
+    secret = "forbidden-external-ai-test-credential"
+    result = _run(tmp_path, {"HAMOON_OPENAI_API_KEY": secret})
+    assert result.returncode != 0
+    assert "HAMOON_OPENAI_API_KEY is forbidden" in result.stderr
+    assert secret not in result.stdout + result.stderr
+    assert not (tmp_path / "readiness.json").exists()
+
+
+def test_operational_readiness_allows_unconfigured_external_ai(tmp_path: Path) -> None:
+    result = _run(tmp_path, {"HAMOON_OPENAI_API_KEY": ""})
+    assert result.returncode == 0
+
+
 def test_operational_readiness_rejects_local_endpoint(tmp_path: Path) -> None:
     result = _run(
         tmp_path,
@@ -95,6 +109,7 @@ def test_operational_readiness_workflow_is_non_deploying_and_protected() -> None
         ".github/workflows/production-operational-readiness.yml"
     ).read_text(encoding="utf-8")
     assert "environment: production" in workflow
+    assert "HAMOON_OPENAI_API_KEY: ${{ secrets.HAMOON_OPENAI_API_KEY }}" in workflow
     assert "scripts/verify_production_operational_readiness.py" in workflow
     assert "hamoon-production-operational-readiness-" in workflow
     assert "production-deploy.yml" not in workflow
