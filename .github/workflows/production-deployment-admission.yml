@@ -76,6 +76,40 @@ jobs:
           git fetch origin main
           git merge-base --is-ancestor "$PROMOTED_SHA" origin/main
 
+      - name: Resolve immutable Production Operational Readiness artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          readiness_name="hamoon-production-operational-readiness-$PROMOTED_SHA"
+          readiness_artifact_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$readiness_name&per_page=100" \
+              --jq '[.artifacts[] | select(.expired == false)][0].id'
+          )"
+          test -n "$readiness_artifact_id"
+
+          readiness_run_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$readiness_artifact_id" \
+              --jq '.workflow_run.id'
+          )"
+          test -n "$readiness_run_id"
+
+          readiness_conclusion="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$readiness_run_id" \
+              --jq '.conclusion'
+          )"
+          test "$readiness_conclusion" = "success"
+          echo "OPERATIONAL_READINESS_RUN_ID=$readiness_run_id" >> "$GITHUB_ENV"
+
+      - name: Download Production Operational Readiness artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p admission-input/readiness
+          gh run download "$OPERATIONAL_READINESS_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "hamoon-production-operational-readiness-$PROMOTED_SHA" \
+            --dir admission-input/readiness
+
       - name: Resolve immutable Release Approval artifact
         env:
           GH_TOKEN: ${{ github.token }}
@@ -169,10 +203,14 @@ jobs:
           release_manifest_path = Path("admission-input/release/manifest.json")
           stage_path = Path("admission-input/stage/stage-attestation.json")
           approval_path = Path("admission-input/approval/release-approval.json")
+          readiness_path = Path(
+              "admission-input/readiness/production-operational-readiness.json"
+          )
 
           manifest = json.loads(release_manifest_path.read_text())
           stage = json.loads(stage_path.read_text())
           approval = json.loads(approval_path.read_text())
+          readiness = json.loads(readiness_path.read_text())
 
           admission = {
               "schema_version": 1,
@@ -183,6 +221,9 @@ jobs:
               "source_ci_run_id": os.environ["SOURCE_CI_RUN_ID"],
               "stage_admission_run_id": os.environ["STAGE_ADMISSION_RUN_ID"],
               "release_approval_run_id": os.environ["RELEASE_APPROVAL_RUN_ID"],
+              "operational_readiness_run_id": os.environ[
+                  "OPERATIONAL_READINESS_RUN_ID"
+              ],
               "deployment_admission_run_id": os.environ["ADMISSION_RUN_ID"],
               "release_manifest_sha256": hashlib.sha256(
                   release_manifest_path.read_bytes()
@@ -193,6 +234,10 @@ jobs:
               "release_approval_sha256": hashlib.sha256(
                   approval_path.read_bytes()
               ).hexdigest(),
+              "operational_readiness_sha256": hashlib.sha256(
+                  readiness_path.read_bytes()
+              ).hexdigest(),
+              "operational_readiness_status": readiness["status"],
               "backend_image_id": manifest["backend"]["image_id"],
               "frontend_image_id": manifest["frontend"]["image_id"],
               "release_approver": approval["approver"],
@@ -220,6 +265,7 @@ jobs:
             admission-input/release \
             admission-input/stage/stage-attestation.json \
             admission-input/approval/release-approval.json \
+            admission-input/readiness/production-operational-readiness.json \
             production-admission/production-deployment-admission.json
 
       - name: Upload immutable Production deployment admission

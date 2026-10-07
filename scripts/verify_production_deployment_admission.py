@@ -59,22 +59,25 @@ def production_endpoint_valid(value: object) -> bool:
 
 def main() -> None:
     require(
-        len(sys.argv) == 5,
+        len(sys.argv) == 6,
         (
             "usage: verify_production_deployment_admission.py "
-            "<release-dir> <stage-attestation> <release-approval> <admission>"
+            "<release-dir> <stage-attestation> <release-approval> "
+            "<operational-readiness> <admission>"
         ),
     )
 
     release_dir = Path(sys.argv[1]).resolve()
     stage_path = Path(sys.argv[2]).resolve()
     approval_path = Path(sys.argv[3]).resolve()
-    admission_path = Path(sys.argv[4]).resolve()
+    readiness_path = Path(sys.argv[4]).resolve()
+    admission_path = Path(sys.argv[5]).resolve()
     manifest_path = release_dir / "manifest.json"
 
     manifest = load_json(manifest_path)
     stage = load_json(stage_path)
     approval = load_json(approval_path)
+    readiness = load_json(readiness_path)
     admission = load_json(admission_path)
 
     require(admission.get("schema_version") == 1, "unsupported schema")
@@ -105,11 +108,36 @@ def main() -> None:
         approval.get("production_deployed") is False,
         "Release Approval must not claim deployment",
     )
+    require(readiness.get("schema_version") == 1, "readiness schema invalid")
+    require(readiness.get("status") == "READY", "operational readiness is not READY")
+    require(
+        readiness.get("readiness_scope") == "PRODUCTION_EXTERNAL_INTEGRATIONS",
+        "operational readiness scope invalid",
+    )
+    require(
+        readiness.get("production_deployed") is False,
+        "operational readiness must not claim deployment",
+    )
+    readiness_actor = readiness.get("actor")
+    require(
+        isinstance(readiness_actor, str)
+        and readiness_actor
+        and not readiness_actor.endswith("[bot]"),
+        "operational readiness actor must be human",
+    )
+    readiness_checks = readiness.get("checks")
+    require(
+        isinstance(readiness_checks, dict)
+        and bool(readiness_checks)
+        and all(value is True for value in readiness_checks.values()),
+        "operational readiness checks must all pass",
+    )
 
     commit_sha = admission.get("commit_sha")
     source_ci_run_id = admission.get("source_ci_run_id")
     stage_run_id = admission.get("stage_admission_run_id")
     approval_run_id = admission.get("release_approval_run_id")
+    readiness_run_id = admission.get("operational_readiness_run_id")
     admission_run_id = admission.get("deployment_admission_run_id")
 
     require(
@@ -120,6 +148,7 @@ def main() -> None:
         (source_ci_run_id, "source_ci_run_id"),
         (stage_run_id, "stage_admission_run_id"),
         (approval_run_id, "release_approval_run_id"),
+        (readiness_run_id, "operational_readiness_run_id"),
         (admission_run_id, "deployment_admission_run_id"),
     ):
         require(
@@ -131,6 +160,7 @@ def main() -> None:
         "release_manifest_sha256",
         "stage_attestation_sha256",
         "release_approval_sha256",
+        "operational_readiness_sha256",
     ):
         value = admission.get(field)
         require(
@@ -210,6 +240,28 @@ def main() -> None:
         approval.get("approval_run_id") == approval_run_id,
         "approval run mismatch",
     )
+    require(readiness.get("commit_sha") == commit_sha, "readiness commit mismatch")
+    require(
+        readiness.get("workflow_run_id") == readiness_run_id,
+        "operational readiness run mismatch",
+    )
+    require(
+        admission.get("operational_readiness_status") == "READY",
+        "operational_readiness_status invalid",
+    )
+
+    readiness_checked_at = readiness.get("checked_at")
+    require(isinstance(readiness_checked_at, str), "readiness checked_at missing")
+    try:
+        readiness_timestamp = datetime.fromisoformat(readiness_checked_at)
+    except ValueError as exc:
+        raise SystemExit(
+            "production deployment admission invalid: readiness checked_at invalid"
+        ) from exc
+    require(
+        readiness_timestamp.tzinfo is not None,
+        "readiness checked_at must include timezone",
+    )
 
     require(
         file_sha256(manifest_path) == admission["release_manifest_sha256"],
@@ -222,6 +274,10 @@ def main() -> None:
     require(
         file_sha256(approval_path) == admission["release_approval_sha256"],
         "Release Approval SHA-256 mismatch",
+    )
+    require(
+        file_sha256(readiness_path) == admission["operational_readiness_sha256"],
+        "Operational Readiness SHA-256 mismatch",
     )
 
     backend = manifest.get("backend")

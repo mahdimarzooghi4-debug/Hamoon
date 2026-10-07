@@ -15,7 +15,7 @@ def _write_json(path: Path, value: object) -> None:
     path.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
+def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
     release = tmp_path / "release"
     release.mkdir()
     manifest_path = release / "manifest.json"
@@ -65,6 +65,25 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
         },
     )
 
+    readiness_path = tmp_path / "production-operational-readiness.json"
+    _write_json(
+        readiness_path,
+        {
+            "schema_version": 1,
+            "status": "READY",
+            "readiness_scope": "PRODUCTION_EXTERNAL_INTEGRATIONS",
+            "production_deployed": False,
+            "commit_sha": COMMIT,
+            "workflow_run_id": "350",
+            "actor": "release-admin",
+            "checks": {
+                "HAMOON_DEPLOY_ORCHESTRATOR_ENDPOINT": True,
+                "HAMOON_PROVIDER_DISPATCH_CONFIG": True,
+            },
+            "checked_at": "2026-10-04T16:30:00+00:00",
+        },
+    )
+
     admission_path = tmp_path / "production-deployment-admission.json"
     _write_json(
         admission_path,
@@ -77,6 +96,7 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
             "source_ci_run_id": "101",
             "stage_admission_run_id": "202",
             "release_approval_run_id": "303",
+            "operational_readiness_run_id": "350",
             "deployment_admission_run_id": "404",
             "release_manifest_sha256": hashlib.sha256(
                 manifest_path.read_bytes()
@@ -87,6 +107,10 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
             "release_approval_sha256": hashlib.sha256(
                 approval_path.read_bytes()
             ).hexdigest(),
+            "operational_readiness_sha256": hashlib.sha256(
+                readiness_path.read_bytes()
+            ).hexdigest(),
+            "operational_readiness_status": "READY",
             "backend_image_id": API_IMAGE_ID,
             "frontend_image_id": WEB_IMAGE_ID,
             "release_approver": "release-admin",
@@ -100,13 +124,14 @@ def _chain(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
             "admitted_at": "2026-10-04T17:00:00+00:00",
         },
     )
-    return release, stage_path, approval_path, admission_path
+    return release, stage_path, approval_path, readiness_path, admission_path
 
 
 def _verify(
     release: Path,
     stage: Path,
     approval: Path,
+    readiness: Path,
     admission: Path,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -116,6 +141,7 @@ def _verify(
             str(release),
             str(stage),
             str(approval),
+            str(readiness),
             str(admission),
         ],
         text=True,
@@ -136,12 +162,12 @@ def test_production_admission_accepts_bound_approved_release(
 
 
 def test_production_admission_rejects_local_endpoint(tmp_path: Path) -> None:
-    release, stage, approval, admission = _chain(tmp_path)
+    release, stage, approval, readiness, admission = _chain(tmp_path)
     value = json.loads(admission.read_text())
     value["production_endpoint"] = "https://localhost"
     _write_json(admission, value)
 
-    result = _verify(release, stage, approval, admission)
+    result = _verify(release, stage, approval, readiness, admission)
 
     assert result.returncode != 0
     assert "non-local HTTPS endpoint" in result.stderr
@@ -150,12 +176,12 @@ def test_production_admission_rejects_local_endpoint(tmp_path: Path) -> None:
 def test_production_admission_rejects_unapproved_release(
     tmp_path: Path,
 ) -> None:
-    release, stage, approval, admission = _chain(tmp_path)
+    release, stage, approval, readiness, admission = _chain(tmp_path)
     value = json.loads(approval.read_text())
     value["status"] = "DRAFT"
     _write_json(approval, value)
 
-    result = _verify(release, stage, approval, admission)
+    result = _verify(release, stage, approval, readiness, admission)
 
     assert result.returncode != 0
     assert "Release Approval is not APPROVED" in result.stderr
@@ -164,10 +190,10 @@ def test_production_admission_rejects_unapproved_release(
 def test_production_admission_rejects_tampered_approval(
     tmp_path: Path,
 ) -> None:
-    release, stage, approval, admission = _chain(tmp_path)
+    release, stage, approval, readiness, admission = _chain(tmp_path)
     approval.write_text(approval.read_text() + " ", encoding="utf-8")
 
-    result = _verify(release, stage, approval, admission)
+    result = _verify(release, stage, approval, readiness, admission)
 
     assert result.returncode != 0
     assert "Release Approval SHA-256 mismatch" in result.stderr
@@ -176,12 +202,44 @@ def test_production_admission_rejects_tampered_approval(
 def test_production_admission_rejects_invalid_deployment_id(
     tmp_path: Path,
 ) -> None:
-    release, stage, approval, admission = _chain(tmp_path)
+    release, stage, approval, readiness, admission = _chain(tmp_path)
     value = json.loads(admission.read_text())
     value["expected_deployment_id"] = "bad deployment id"
     _write_json(admission, value)
 
-    result = _verify(release, stage, approval, admission)
+    result = _verify(release, stage, approval, readiness, admission)
 
     assert result.returncode != 0
     assert "expected_deployment_id invalid" in result.stderr
+
+
+def test_production_admission_rejects_not_ready_operational_evidence(
+    tmp_path: Path,
+) -> None:
+    release, stage, approval, readiness, admission = _chain(tmp_path)
+    value = json.loads(readiness.read_text())
+    value["status"] = "BLOCKED"
+    _write_json(readiness, value)
+    admission_value = json.loads(admission.read_text())
+    admission_value["operational_readiness_sha256"] = hashlib.sha256(
+        readiness.read_bytes()
+    ).hexdigest()
+    admission_value["operational_readiness_status"] = "BLOCKED"
+    _write_json(admission, admission_value)
+
+    result = _verify(release, stage, approval, readiness, admission)
+
+    assert result.returncode != 0
+    assert "operational readiness is not READY" in result.stderr
+
+
+def test_production_admission_rejects_tampered_readiness(
+    tmp_path: Path,
+) -> None:
+    release, stage, approval, readiness, admission = _chain(tmp_path)
+    readiness.write_text(readiness.read_text() + " ", encoding="utf-8")
+
+    result = _verify(release, stage, approval, readiness, admission)
+
+    assert result.returncode != 0
+    assert "Operational Readiness SHA-256 mismatch" in result.stderr
