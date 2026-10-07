@@ -6,6 +6,9 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import JsonValue
 
+from hamoon.domains.intelligence.application.evaluation_governance import (
+    require_independent_evaluation_dataset,
+)
 from hamoon.domains.intelligence.domain.decisions import (
     AIDecision,
     AIDecisionType,
@@ -1181,7 +1184,8 @@ class SqlAlchemyAIRuntimeRegistryRepository:
         ):
             raise ValueError("EVALUATION_MODEL_ARTIFACT_REQUIRED")
         if (
-            model_version.training_dataset_manifest_digest is None
+            model_version.training_dataset_version_id is None
+            or model_version.training_dataset_manifest_digest is None
             or re.fullmatch(
                 r"[0-9a-f]{64}",
                 model_version.training_dataset_manifest_digest,
@@ -1189,6 +1193,14 @@ class SqlAlchemyAIRuntimeRegistryRepository:
             or not (model_version.training_pipeline_version or "").strip()
         ):
             raise ValueError("EVALUATION_MODEL_TRAINING_LINEAGE_REQUIRED")
+        require_independent_evaluation_dataset(
+            training_dataset_version_id=model_version.training_dataset_version_id,
+            training_dataset_manifest_digest=(
+                model_version.training_dataset_manifest_digest
+            ),
+            evaluation_dataset_version_id=dataset_version_id,
+            evaluation_dataset_manifest_digest=dataset_manifest_digest,
+        )
         if model_version.status not in {
             AIModelVersionStatus.CANDIDATE,
             AIModelVersionStatus.APPROVED,
