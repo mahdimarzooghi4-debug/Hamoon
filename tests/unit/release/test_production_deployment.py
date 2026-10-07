@@ -22,6 +22,7 @@ CHECKS = [
     "protected_metrics_configured",
     "gemma4_checkpoint_attested",
     "gemma4_checkpoint_provisioned",
+    "internal_model_artifact_store_attested",
     "provider_dispatch_configured",
     "backup_policy_configured",
     "retention_policy_configured",
@@ -39,6 +40,27 @@ PROVISIONING = {
     "filesystem_scope": "PRIVATE_LOCAL",
     "read_only": True,
     "network_model_download": False,
+}
+ARTIFACT_STORE = {
+    "backend": "S3_COMPATIBLE",
+    "transport": "HTTPS",
+    "access_scope": "PRIVATE",
+    "credential_source": "RUNTIME_SECRET",
+    "object_prefix": "internal-model-artifacts/sha256/",
+    "write_mode": "CREATE_ONLY",
+    "digest_algorithm": "SHA256",
+    "read_digest_verification": True,
+}
+ARTIFACT_STORE_ATTESTATION = {
+    **ARTIFACT_STORE,
+    "endpoint": "https://models.example.internal",
+    "bucket": "hamoon-model-artifacts",
+    "region": "us-east-1",
+    "credential_binding_id": "runtime-secret:model-artifacts-v1",
+    "private_access_verified": True,
+    "immutability_verified": True,
+    "verification_id": "artifact-store-verify-001",
+    "verified_at": "2026-10-05T12:53:00+00:00",
 }
 
 
@@ -98,11 +120,12 @@ def _chain(
     _write_json(
         requirements,
         {
-            "schema_version": 3,
+            "schema_version": 4,
             "contract": "HAMOON_PRODUCTION_RUNTIME_PREFLIGHT",
             "required_checks": CHECKS,
             "internal_model_checkpoint": CHECKPOINT,
             "internal_model_checkpoint_provisioning": PROVISIONING,
+            "internal_model_artifact_store": ARTIFACT_STORE,
         },
     )
     requirements_sha256 = hashlib.sha256(requirements.read_bytes()).hexdigest()
@@ -145,6 +168,7 @@ def _chain(
                 "required_checks": CHECKS,
                 "internal_model_checkpoint": CHECKPOINT,
                 "internal_model_checkpoint_provisioning": PROVISIONING,
+                "internal_model_artifact_store": ARTIFACT_STORE,
             },
         },
     )
@@ -169,6 +193,7 @@ def _chain(
                 "verification_id": "checkpoint-verify-001",
                 "verified_at": "2026-10-05T12:54:00+00:00",
             },
+            "internal_model_artifact_store": ARTIFACT_STORE_ATTESTATION,
             "checked_at": "2026-10-05T12:55:00+00:00",
         },
     )
@@ -339,6 +364,27 @@ def test_production_deployment_verifier_rejects_checkpoint_provisioning_drift(
 
     assert result.returncode != 0
     assert "preflight checkpoint provisioning read_only mismatch" in result.stderr
+
+
+def test_production_deployment_verifier_rejects_artifact_store_attestation_drift(
+    tmp_path: Path,
+) -> None:
+    chain = list(_chain(tmp_path))
+    preflight_receipt = chain[4]
+    deployment = chain[7]
+    value = json.loads(preflight_receipt.read_text())
+    value["internal_model_artifact_store"]["immutability_verified"] = False
+    _write_json(preflight_receipt, value)
+    deployment_value = json.loads(deployment.read_text())
+    deployment_value["preflight_receipt_sha256"] = hashlib.sha256(
+        preflight_receipt.read_bytes()
+    ).hexdigest()
+    _write_json(deployment, deployment_value)
+
+    result = _verify(*chain)
+
+    assert result.returncode != 0
+    assert "artifact store immutability not verified" in result.stderr
 
 
 def test_production_deployment_verifier_rejects_failed_preflight_check(
