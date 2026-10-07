@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from uuid import UUID
 
 from pydantic import JsonValue
 
@@ -31,6 +32,19 @@ def _number(report: dict[str, JsonValue], key: str) -> float:
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         raise ValueError(f"EVALUATION_REPORT_METRIC_INVALID:{key}")
     return float(value)
+
+
+def require_independent_evaluation_dataset(
+    *,
+    training_dataset_version_id: UUID,
+    training_dataset_manifest_digest: str,
+    evaluation_dataset_version_id: UUID,
+    evaluation_dataset_manifest_digest: str,
+) -> None:
+    if evaluation_dataset_version_id == training_dataset_version_id:
+        raise ValueError("EVALUATION_DATASET_REUSES_TRAINING_VERSION")
+    if evaluation_dataset_manifest_digest == training_dataset_manifest_digest:
+        raise ValueError("EVALUATION_DATASET_REUSES_TRAINING_MANIFEST")
 
 
 def attest_evaluation_report(

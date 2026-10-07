@@ -203,7 +203,9 @@ Dataset نسخه‌دار است و Approval انسانی Dataset از Model Pro
 Offline Evaluation باید به Model Version و evidence نسخه‌دار متصل باشد. Evaluation Run جدید
 فقط از مسیر Admin و با Dataset Version در وضعیت `APPROVED`، purpose هم‌راستا، Candidate داخلی
 دارای training lineage، Prompt Policy در وضعیت `ACTIVE` و evaluation policy version صریح
-ایجاد می‌شود؛ creation به‌تنهایی هیچ Promotion یا Production activation انجام نمی‌دهد.
+ایجاد می‌شود. Evaluation Dataset نباید همان Training Dataset باشد؛ هم Dataset Version ID و هم
+manifest digest باید مستقل باشند تا training-data reuse به‌عنوان Evaluation fail-closed شود.
+creation به‌تنهایی هیچ Promotion یا Production activation انجام نمی‌دهد.
 
 Passed Gate فقط شرط لازم است، نه مجوز Production.
 

@@ -1,5 +1,8 @@
+from uuid import UUID
+
 from hamoon.domains.intelligence.application.evaluation_governance import (
     attest_evaluation_report,
+    require_independent_evaluation_dataset,
 )
 from hamoon.infrastructure.ai.contracts import AITaskClass
 
@@ -18,6 +21,55 @@ def _outcome_report() -> dict:
         "manual_approval_required": True,
         "eligible_for_manual_approval": True,
     }
+
+
+
+def test_evaluation_dataset_must_not_reuse_training_version() -> None:
+    training_id = UUID("11111111-1111-1111-1111-111111111111")
+
+    try:
+        require_independent_evaluation_dataset(
+            training_dataset_version_id=training_id,
+            training_dataset_manifest_digest="a" * 64,
+            evaluation_dataset_version_id=training_id,
+            evaluation_dataset_manifest_digest="b" * 64,
+        )
+    except ValueError as exc:
+        assert str(exc) == "EVALUATION_DATASET_REUSES_TRAINING_VERSION"
+    else:
+        raise AssertionError("evaluation must not reuse the training dataset version")
+
+
+def test_evaluation_dataset_must_not_reuse_training_manifest() -> None:
+    try:
+        require_independent_evaluation_dataset(
+            training_dataset_version_id=UUID(
+                "11111111-1111-1111-1111-111111111111"
+            ),
+            training_dataset_manifest_digest="a" * 64,
+            evaluation_dataset_version_id=UUID(
+                "22222222-2222-2222-2222-222222222222"
+            ),
+            evaluation_dataset_manifest_digest="a" * 64,
+        )
+    except ValueError as exc:
+        assert str(exc) == "EVALUATION_DATASET_REUSES_TRAINING_MANIFEST"
+    else:
+        raise AssertionError("evaluation must use independent dataset content")
+
+
+def test_evaluation_dataset_accepts_independent_version_and_manifest() -> None:
+    require_independent_evaluation_dataset(
+        training_dataset_version_id=UUID(
+            "11111111-1111-1111-1111-111111111111"
+        ),
+        training_dataset_manifest_digest="a" * 64,
+        evaluation_dataset_version_id=UUID(
+            "22222222-2222-2222-2222-222222222222"
+        ),
+        evaluation_dataset_manifest_digest="b" * 64,
+    )
+
 
 
 def test_outcome_report_attestation_derives_pass_and_stable_digest() -> None:
