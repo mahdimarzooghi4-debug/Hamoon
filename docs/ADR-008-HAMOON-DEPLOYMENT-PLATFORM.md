@@ -33,7 +33,7 @@ Hamoon V1 باید بدون پیچیدگی عملیاتی زودهنگام، ا�
 - PII از محیط‌های غیرProduction جدا بماند
 - deployment قابل تکرار باشد
 - release/rollback روشن باشد
-- AI و Provider integration جدا scale شوند
+- AI execution و Provider integration جدا scale شوند
 - هیچ component حیاتی فقط به local disk وابسته نباشد
 - Kubernetes از روز اول الزام نباشد
 
@@ -383,13 +383,17 @@ Provider هیچ network access مستقیم به internal services ندارد.
 
 ---
 
-# 15. AI Provider Connectivity
+# 15. Internal AI Connectivity
 
-فقط AI worker/Gateway اجازه outbound به configured AI provider endpoints دارد.
+Production AI هیچ provider endpoint/token و هیچ inference service جداگانه ندارد.
+Gemma فقط به‌صورت `IN_PROCESS` داخل Hamoon اجرا می‌شود.
 
-Domain API/serviceها مستقیماً provider SDK call نمی‌کنند.
+Runtime مدل base checkpoint را از filesystem خصوصی/read-only و adapter را از
+internal-model artifact store خصوصی resolve می‌کند. هیچ network model download یا
+fallback شبکه‌ای مجاز نیست.
 
-Network egress policy در صورت پشتیبانی platform محدود می‌شود.
+Network egress برای AI فقط به dependencyهای عملیاتی مصوب مانند private artifact
+storage محدود می‌شود؛ مدل inference از طریق شبکه فراخوانی نمی‌شود.
 
 ---
 
@@ -428,7 +432,7 @@ Real operational workloads.
 - identity realm/client config
 - object storage bucket/prefix isolation
 - secrets
-- AI provider credentials
+- internal-model checkpoint/artifact-store configuration
 - provider sandbox/production endpoints
 - observability labels/backends
 
@@ -599,7 +603,7 @@ Examples:
 - DB credentials
 - NATS credentials
 - OIDC client secret
-- AI provider key
+- internal-model artifact-store credentials
 - provider integration secret
 - object storage credentials
 
@@ -636,7 +640,7 @@ Signals:
 
 ## AI worker
 - task queue backlog
-- provider concurrency limits
+- local model resource capacity / task queue concurrency
 
 ## Provider worker
 - task queue backlog
@@ -777,7 +781,7 @@ RPO/RTO عددی در Operations policy تعیین می‌شود.
 
 Deployment environment باید region/data residency policy را enforce کند.
 
-AI provider و object storage باید با همان policy سازگار باشند.
+internal model checkpoint/artifacts و object storage باید با همان policy سازگار باشند.
 
 عدد/کشور خاص در این ADR hard-code نمی‌شود.
 
@@ -825,7 +829,7 @@ otel-collector
 
 بعضی serviceها می‌توانند optional profile باشند.
 
-Fake AI adapter default local path است.
+Fake AI adapter فقط برای local development مجاز است و در Production ممنوع است.
 
 ---
 
@@ -840,7 +844,7 @@ Stage باید حداقل این‌ها را با production pattern مشترک 
 - Temporal
 - object storage contract
 - observability
-- AI adapter contract
+- internal AI runtime contract
 - provider sandbox contract
 
 ---
@@ -1046,7 +1050,7 @@ Deployment provider باید بتواند این contract را پوشش دهد:
 4. No production secret in repo/image.
 5. No automatic destructive migration.
 6. No production PII copied to non-prod by default.
-7. No AI provider call directly from arbitrary service.
+7. No external AI endpoint/token or standalone inference service; Production model execution is IN_PROCESS only.
 8. No Kubernetes until justified by measurable need.
 9. No manual-only production infrastructure.
 10. No release without stage verification and observability.
