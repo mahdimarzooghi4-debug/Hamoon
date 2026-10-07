@@ -136,7 +136,16 @@ Recovery verification:
 Secrets belong in the GitHub `production` Environment or the external platform secret
 manager as appropriate. They must not be committed to the repository or image.
 
-## 5. Go-live execution order
+## 5. Production readiness gate
+
+Before Release Approval / deployment admission, run the manual `Production Operational Readiness`
+workflow for the exact candidate commit. It validates that every GitHub `production`
+Environment secret consumed by deployment, telemetry, alerting, Evidence, provider and recovery
+verification workflows is present, and that externally reachable endpoints satisfy the existing
+remote-HTTPS safety boundary. The emitted evidence contains only boolean check results and release
+identity; it never records secret values and never deploys Production.
+
+## 6. Go-live execution order
 
 The repository-side release chain is:
 
@@ -144,6 +153,7 @@ The repository-side release chain is:
 CI
 → Stage Admission
 → Recovery Rehearsal
+→ Production Operational Readiness
 → explicit Human Release Approval
 → Production Deployment Admission
 → Production Deploy
@@ -162,7 +172,7 @@ External integration verification may be performed before the final go-live wind
 target infrastructure already exists, but Production verification/monitoring steps must remain
 bound to the exact deployed release evidence.
 
-## 6. Final external blockers
+## 7. Final external blockers
 
 The repository cannot complete the following without real environment ownership:
 
@@ -180,7 +190,7 @@ The repository cannot complete the following without real environment ownership:
 Until those inputs exist, Hamoon remains intentionally fail-closed rather than substituting
 local defaults or invented Production values.
 
-## 7. Production authorization
+## 8. Production authorization
 
 Passing every automated check is necessary but never sufficient for model or application
 Production activation. Model Production promotion remains an explicit ADMIN action, and hosted

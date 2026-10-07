@@ -1,0 +1,72 @@
+name: Production Operational Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact release candidate 40-character commit SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify-production-operational-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      HAMOON_READINESS_COMMIT_SHA: ${{ inputs.commit_sha }}
+      HAMOON_READINESS_ACTOR: ${{ github.actor }}
+      HAMOON_READINESS_RUN_ID: ${{ github.run_id }}
+      HAMOON_DEPLOY_ORCHESTRATOR_ENDPOINT: ${{ secrets.HAMOON_DEPLOY_ORCHESTRATOR_ENDPOINT }}
+      HAMOON_DEPLOY_ORCHESTRATOR_TOKEN: ${{ secrets.HAMOON_DEPLOY_ORCHESTRATOR_TOKEN }}
+      HAMOON_PRODUCTION_METRICS_TOKEN: ${{ secrets.HAMOON_PRODUCTION_METRICS_TOKEN }}
+      HAMOON_OBSERVABILITY_VERIFICATION_URL: ${{ secrets.HAMOON_OBSERVABILITY_VERIFICATION_URL }}
+      HAMOON_OBSERVABILITY_VERIFICATION_TOKEN: ${{ secrets.HAMOON_OBSERVABILITY_VERIFICATION_TOKEN }}
+      HAMOON_ALERTMANAGER_URL: ${{ secrets.HAMOON_ALERTMANAGER_URL }}
+      HAMOON_ALERTMANAGER_METRICS_URL: ${{ secrets.HAMOON_ALERTMANAGER_METRICS_URL }}
+      HAMOON_ALERTMANAGER_BEARER_TOKEN: ${{ secrets.HAMOON_ALERTMANAGER_BEARER_TOKEN }}
+      HAMOON_EVIDENCE_S3_ENDPOINT: ${{ secrets.HAMOON_EVIDENCE_S3_ENDPOINT }}
+      HAMOON_EVIDENCE_S3_ACCESS_KEY: ${{ secrets.HAMOON_EVIDENCE_S3_ACCESS_KEY }}
+      HAMOON_EVIDENCE_S3_SECRET_KEY: ${{ secrets.HAMOON_EVIDENCE_S3_SECRET_KEY }}
+      HAMOON_EVIDENCE_S3_BUCKET: ${{ secrets.HAMOON_EVIDENCE_S3_BUCKET }}
+      HAMOON_EVIDENCE_S3_REGION: ${{ secrets.HAMOON_EVIDENCE_S3_REGION }}
+      HAMOON_EVIDENCE_SCANNER_ENDPOINT: ${{ secrets.HAMOON_EVIDENCE_SCANNER_ENDPOINT }}
+      HAMOON_EVIDENCE_SCANNER_TOKEN: ${{ secrets.HAMOON_EVIDENCE_SCANNER_TOKEN }}
+      HAMOON_PROVIDER_DISPATCH_CONFIG: ${{ secrets.HAMOON_PROVIDER_DISPATCH_CONFIG }}
+      HAMOON_RECOVERY_VERIFICATION_URL: ${{ secrets.HAMOON_RECOVERY_VERIFICATION_URL }}
+      HAMOON_RECOVERY_VERIFICATION_TOKEN: ${{ secrets.HAMOON_RECOVERY_VERIFICATION_TOKEN }}
+
+    steps:
+      - name: Validate explicit readiness input
+        run: |
+          printf '%s' "$HAMOON_READINESS_COMMIT_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test -n "$HAMOON_READINESS_ACTOR"
+          case "$HAMOON_READINESS_ACTOR" in
+            *"[bot]") echo "bot identities cannot attest Production readiness"; exit 1 ;;
+          esac
+
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Require candidate to belong to main history
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$HAMOON_READINESS_COMMIT_SHA" origin/main
+
+      - name: Verify Production external integration readiness
+        run: |
+          python3 scripts/verify_production_operational_readiness.py             production-readiness/production-operational-readiness.json
+
+      - name: Upload immutable Production readiness evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hamoon-production-operational-readiness-${{ inputs.commit_sha }}
+          path: production-readiness/
+          if-no-files-found: error
+          retention-days: 30
