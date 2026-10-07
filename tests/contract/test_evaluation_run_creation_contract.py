@@ -54,3 +54,24 @@ def test_evaluation_run_creation_requires_explicit_policy_version() -> None:
     assert "dataset_version_id: UUID" in request_block
     assert "evaluation_policy_version: str = Field(" in request_block
     assert "default=" not in request_block
+
+def test_evaluation_completion_revalidates_dataset_and_report_binding() -> None:
+    routes = Path(
+        "src/hamoon/domains/intelligence/api/routes.py"
+    ).read_text(encoding="utf-8")
+    governance = Path(
+        "src/hamoon/domains/intelligence/application/evaluation_governance.py"
+    ).read_text(encoding="utf-8")
+
+    completion_start = routes.index("async def complete_ai_evaluation(")
+    completion_end = routes.index('@router.post(\n    "/api/v1/admin/ai/routing-policies"', completion_start)
+    completion_block = routes[completion_start:completion_end]
+
+    assert "EVALUATION_DATASET_NOT_APPROVED" in completion_block
+    assert "EVALUATION_DATASET_PURPOSE_MISMATCH" in completion_block
+    assert "EVALUATION_DATASET_DIGEST_CHANGED" in completion_block
+    assert "EVALUATION_DATASET_DIGEST_MISMATCH" in completion_block
+    assert "EVALUATION_DATASET_EMPTY" in completion_block
+    assert "expected_dataset_version=dataset.version" in completion_block
+    assert "EVALUATION_REPORT_DATASET_MISMATCH" in governance
+
