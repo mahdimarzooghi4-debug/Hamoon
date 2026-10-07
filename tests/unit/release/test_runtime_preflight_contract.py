@@ -22,6 +22,7 @@ EXPECTED_CHECKS = [
     "internal_model_fail_safe_configured",
     "gemma4_checkpoint_attested",
     "gemma4_checkpoint_provisioned",
+    "internal_model_artifact_store_attested",
     "provider_dispatch_configured",
     "backup_policy_configured",
     "retention_policy_configured",
@@ -32,7 +33,7 @@ def test_runtime_preflight_contract_is_explicit_and_stable() -> None:
     path = Path("ops/production/runtime-preflight.json")
     payload = json.loads(path.read_text(encoding="utf-8"))
 
-    assert payload["schema_version"] == 3
+    assert payload["schema_version"] == 4
     assert payload["contract"] == "HAMOON_PRODUCTION_RUNTIME_PREFLIGHT"
     assert payload["required_checks"] == EXPECTED_CHECKS
     assert len(payload["required_checks"]) == len(set(payload["required_checks"]))
@@ -49,4 +50,14 @@ def test_runtime_preflight_contract_is_explicit_and_stable() -> None:
         "filesystem_scope": "PRIVATE_LOCAL",
         "read_only": True,
         "network_model_download": False,
+    }
+    assert payload["internal_model_artifact_store"] == {
+        "backend": "S3_COMPATIBLE",
+        "transport": "HTTPS",
+        "access_scope": "PRIVATE",
+        "credential_source": "RUNTIME_SECRET",
+        "object_prefix": "internal-model-artifacts/sha256/",
+        "write_mode": "CREATE_ONLY",
+        "digest_algorithm": "SHA256",
+        "read_digest_verification": True,
     }

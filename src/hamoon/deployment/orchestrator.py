@@ -245,10 +245,118 @@ def _checkpoint_provisioning_contract(
     return dict(provisioning)
 
 
+def _internal_model_artifact_store_contract(
+    requirements: dict[str, object],
+) -> dict[str, object]:
+    raw = requirements.get("internal_model_artifact_store")
+    if not isinstance(raw, dict):
+        raise DeploymentOrchestratorError(
+            "Production internal model artifact store contract is missing."
+        )
+    store = cast(dict[str, object], raw)
+    expected = {
+        "backend": "S3_COMPATIBLE",
+        "transport": "HTTPS",
+        "access_scope": "PRIVATE",
+        "credential_source": "RUNTIME_SECRET",
+        "object_prefix": "internal-model-artifacts/sha256/",
+        "write_mode": "CREATE_ONLY",
+        "digest_algorithm": "SHA256",
+        "read_digest_verification": True,
+    }
+    if store != expected:
+        raise DeploymentOrchestratorError(
+            "Production internal model artifact store contract is invalid."
+        )
+    return dict(store)
+
+
+def _validate_internal_model_artifact_store_attestation(
+    *,
+    receipt: dict[str, object],
+    contract: dict[str, object],
+) -> None:
+    raw = receipt.get("internal_model_artifact_store")
+    if not isinstance(raw, dict):
+        raise DeploymentOrchestratorError(
+            "Production internal model artifact store attestation is missing."
+        )
+    attestation = cast(dict[str, object], raw)
+    expected_fields = set(contract) | {
+        "endpoint",
+        "bucket",
+        "region",
+        "credential_binding_id",
+        "private_access_verified",
+        "immutability_verified",
+        "verification_id",
+        "verified_at",
+    }
+    if set(attestation) != expected_fields:
+        raise DeploymentOrchestratorError(
+            "Production internal model artifact store attestation fields are invalid."
+        )
+    for field, expected in contract.items():
+        if attestation.get(field) != expected:
+            raise DeploymentOrchestratorError(
+                f"Production internal model artifact store {field} does not match request."
+            )
+
+    endpoint = _require_string(
+        attestation.get("endpoint"),
+        field="internal_model_artifact_store.endpoint",
+    )
+    parsed = urlsplit(endpoint)
+    host = parsed.hostname.lower() if parsed.hostname is not None else None
+    if (
+        parsed.scheme != "https"
+        or host is None
+        or host in {"localhost", "127.0.0.1", "0.0.0.0", "::1", "::"}
+        or host.endswith(".localhost")
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise DeploymentOrchestratorError(
+            "Production internal model artifact store endpoint must be remote HTTPS."
+        )
+
+    for field in ("bucket", "region", "credential_binding_id", "verification_id"):
+        value = _require_string(
+            attestation.get(field),
+            field=f"internal_model_artifact_store.{field}",
+        )
+        if len(value) > 200:
+            raise DeploymentOrchestratorError(
+                f"internal_model_artifact_store.{field} is too long."
+            )
+    if attestation.get("private_access_verified") is not True:
+        raise DeploymentOrchestratorError(
+            "Production internal model artifact store private access is not verified."
+        )
+    if attestation.get("immutability_verified") is not True:
+        raise DeploymentOrchestratorError(
+            "Production internal model artifact store immutability is not verified."
+        )
+    verified_at = _require_string(
+        attestation.get("verified_at"),
+        field="internal_model_artifact_store.verified_at",
+    )
+    try:
+        timestamp = datetime.fromisoformat(verified_at)
+    except ValueError as exc:
+        raise DeploymentOrchestratorError(
+            "internal model artifact store verified_at is invalid."
+        ) from exc
+    if timestamp.tzinfo is None:
+        raise DeploymentOrchestratorError(
+            "internal model artifact store verified_at must include a timezone."
+        )
+
+
 def _required_preflight_checks(
     requirements: dict[str, object],
 ) -> tuple[str, ...]:
-    if requirements.get("schema_version") != 3:
+    if requirements.get("schema_version") != 4:
         raise DeploymentOrchestratorError(
             "Production runtime preflight schema_version is unsupported."
         )
@@ -282,6 +390,10 @@ def _required_preflight_checks(
         raise DeploymentOrchestratorError(
             "Production runtime preflight must attest checkpoint provisioning."
         )
+    if "internal_model_artifact_store_attested" not in checks:
+        raise DeploymentOrchestratorError(
+            "Production runtime preflight must attest the internal model artifact store."
+        )
     return tuple(checks)
 
 
@@ -301,6 +413,7 @@ def build_preflight_request(
     checks = _required_preflight_checks(requirements)
     checkpoint = _internal_model_checkpoint_contract(requirements)
     provisioning = _checkpoint_provisioning_contract(requirements)
+    artifact_store = _internal_model_artifact_store_contract(requirements)
     if len(requirements_sha256) != 64 or any(
         character not in "0123456789abcdef" for character in requirements_sha256
     ):
@@ -315,6 +428,7 @@ def build_preflight_request(
             "required_checks": list(checks),
             "internal_model_checkpoint": checkpoint,
             "internal_model_checkpoint_provisioning": provisioning,
+            "internal_model_artifact_store": artifact_store,
         },
     }
 
@@ -430,6 +544,18 @@ def _validate_preflight_receipt(
         raise DeploymentOrchestratorError(
             "checkpoint provisioning verified_at must include a timezone."
         )
+
+    artifact_store_request_value = runtime_preflight.get(
+        "internal_model_artifact_store"
+    )
+    if not isinstance(artifact_store_request_value, dict):
+        raise DeploymentOrchestratorError(
+            "Production internal model artifact store request metadata is missing."
+        )
+    _validate_internal_model_artifact_store_attestation(
+        receipt=receipt,
+        contract=cast(dict[str, object], artifact_store_request_value),
+    )
 
     required_checks_value = runtime_preflight.get("required_checks")
     if not isinstance(required_checks_value, list):
