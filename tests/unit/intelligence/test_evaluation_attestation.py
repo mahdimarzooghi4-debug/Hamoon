@@ -23,7 +23,6 @@ def _outcome_report() -> dict:
     }
 
 
-
 def test_evaluation_dataset_must_not_reuse_training_version() -> None:
     training_id = UUID("11111111-1111-1111-1111-111111111111")
 
@@ -71,7 +70,6 @@ def test_evaluation_dataset_accepts_independent_version_and_manifest() -> None:
     )
 
 
-
 def test_outcome_report_attestation_derives_pass_and_stable_digest() -> None:
     report = _outcome_report()
     first = attest_evaluation_report(
@@ -117,6 +115,7 @@ def test_outcome_attestation_rejects_safety_bypass() -> None:
         attest_evaluation_report(
             task_class=AITaskClass.OUTCOME_INTERPRETATION,
             expected_policy_version="outcome-eval-v1",
+            expected_dataset_version="outcome-v1",
             report=report,
         )
     except ValueError as exc:
@@ -161,6 +160,7 @@ def test_attestation_requires_explicit_manual_approval_boundary() -> None:
         attest_evaluation_report(
             task_class=AITaskClass.OUTCOME_INTERPRETATION,
             expected_policy_version="outcome-eval-v1",
+            expected_dataset_version="outcome-v1",
             report=report,
         )
     except ValueError as exc:
