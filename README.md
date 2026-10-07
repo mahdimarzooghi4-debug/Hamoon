@@ -72,8 +72,9 @@ The authoritative release gate is GitHub Actions CI, which additionally runs:
 - PostgreSQL Outbox → NATS JetStream publish/consume integration;
 - complete local-stack boot smoke.
 
-Production hosting and real external AI/provider/storage integrations are intentionally
-outside the local release boundary.
+Production hosting, real service-provider integrations, private storage, and internal
+model checkpoint/artifact provisioning are intentionally outside the local release boundary.
+Production AI itself remains internal to Hamoon and has no external model endpoint/token.
 
 See `docs/HAMOON_LOCAL_RELEASE_READINESS.md` for the exact Go/No-Go contract.
 
