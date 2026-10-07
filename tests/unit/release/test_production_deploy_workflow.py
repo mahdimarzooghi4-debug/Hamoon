@@ -26,6 +26,9 @@ def test_production_deploy_workflow_requires_protected_orchestrator_contract() -
     assert "preflight_receipt_sha256" in workflow
     assert "preflight_id" in workflow
     assert "scripts/verify_production_deployment.py" in workflow
+    assert "OPERATIONAL_READINESS_RUN_ID" in workflow
+    assert "hamoon-production-operational-readiness-$PROMOTED_SHA" in workflow
+    assert "deployment-input/readiness/production-operational-readiness.json" in workflow
     assert "hamoon-production-deployment-${{ inputs.commit_sha }}" in workflow
 
 
@@ -41,3 +44,16 @@ def test_production_verification_requires_immutable_deployment_evidence() -> Non
     assert "ops/production/runtime-preflight.json" in workflow
     assert "production_deployment_run_id" in workflow
     assert "production_deployment_sha256" in workflow
+
+
+def test_production_admission_requires_operational_readiness_evidence() -> None:
+    workflow = Path(
+        ".github/workflows/production-deployment-admission.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "Resolve immutable Production Operational Readiness artifact" in workflow
+    assert "OPERATIONAL_READINESS_RUN_ID" in workflow
+    assert "hamoon-production-operational-readiness-$PROMOTED_SHA" in workflow
+    assert "operational_readiness_sha256" in workflow
+    assert "operational_readiness_status" in workflow
+    assert "admission-input/readiness/production-operational-readiness.json" in workflow
