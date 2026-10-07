@@ -23,6 +23,7 @@ PREFLIGHT_CHECKS = [
     "nats_jetstream_connectivity",
     "gemma4_checkpoint_attested",
     "gemma4_checkpoint_provisioned",
+    "internal_model_artifact_store_attested",
 ]
 CHECKPOINT = {
     "model_id": "google/gemma-4-12B-it",
@@ -36,6 +37,27 @@ PROVISIONING = {
     "filesystem_scope": "PRIVATE_LOCAL",
     "read_only": True,
     "network_model_download": False,
+}
+ARTIFACT_STORE = {
+    "backend": "S3_COMPATIBLE",
+    "transport": "HTTPS",
+    "access_scope": "PRIVATE",
+    "credential_source": "RUNTIME_SECRET",
+    "object_prefix": "internal-model-artifacts/sha256/",
+    "write_mode": "CREATE_ONLY",
+    "digest_algorithm": "SHA256",
+    "read_digest_verification": True,
+}
+ARTIFACT_STORE_ATTESTATION = {
+    **ARTIFACT_STORE,
+    "endpoint": "https://models.example.internal",
+    "bucket": "hamoon-model-artifacts",
+    "region": "us-east-1",
+    "credential_binding_id": "runtime-secret:model-artifacts-v1",
+    "private_access_verified": True,
+    "immutability_verified": True,
+    "verification_id": "artifact-store-verify-001",
+    "verified_at": "2026-10-05T12:53:00+00:00",
 }
 
 
@@ -77,11 +99,12 @@ def _admission() -> dict[str, object]:
 
 def _requirements() -> dict[str, object]:
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "contract": "HAMOON_PRODUCTION_RUNTIME_PREFLIGHT",
         "required_checks": PREFLIGHT_CHECKS,
         "internal_model_checkpoint": CHECKPOINT,
         "internal_model_checkpoint_provisioning": PROVISIONING,
+        "internal_model_artifact_store": ARTIFACT_STORE,
     }
 
 
@@ -103,6 +126,7 @@ def _preflight_receipt() -> dict[str, object]:
             "verification_id": "checkpoint-verify-001",
             "verified_at": "2026-10-05T12:54:00+00:00",
         },
+        "internal_model_artifact_store": ARTIFACT_STORE_ATTESTATION,
         "checked_at": "2026-10-05T12:55:00+00:00",
     }
 
@@ -288,6 +312,7 @@ def test_build_preflight_request_binds_runtime_contract() -> None:
     assert metadata["required_checks"] == PREFLIGHT_CHECKS
     assert metadata["internal_model_checkpoint"] == CHECKPOINT
     assert metadata["internal_model_checkpoint_provisioning"] == PROVISIONING
+    assert metadata["internal_model_artifact_store"] == ARTIFACT_STORE
 
 def test_execute_production_preflight_requires_all_checks_ready() -> None:
     observed_operations: list[object] = []
@@ -375,6 +400,87 @@ def test_execute_production_preflight_rejects_relative_checkpoint_root() -> None
     with pytest.raises(
         DeploymentOrchestratorError,
         match="checkpoint_root must be an absolute non-root path",
+    ):
+        execute_production_preflight(
+            orchestrator_endpoint="https://deploy.example.com/v1/deployments",
+            token=TOKEN,
+            repository="owner/Hamoon",
+            manifest=_manifest(),
+            admission=_admission(),
+            requirements=_requirements(),
+            requirements_sha256="2" * 64,
+            transport=httpx.MockTransport(handler),
+        )
+
+
+def test_execute_production_preflight_rejects_insecure_artifact_store_endpoint() -> None:
+    receipt = _preflight_receipt()
+    artifact_store = cast(
+        dict[str, object],
+        receipt["internal_model_artifact_store"],
+    )
+    artifact_store["endpoint"] = "http://models.example.internal"
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=receipt)
+
+    with pytest.raises(
+        DeploymentOrchestratorError,
+        match="artifact store endpoint must be remote HTTPS",
+    ):
+        execute_production_preflight(
+            orchestrator_endpoint="https://deploy.example.com/v1/deployments",
+            token=TOKEN,
+            repository="owner/Hamoon",
+            manifest=_manifest(),
+            admission=_admission(),
+            requirements=_requirements(),
+            requirements_sha256="2" * 64,
+            transport=httpx.MockTransport(handler),
+        )
+
+
+def test_execute_production_preflight_rejects_unverified_artifact_immutability() -> None:
+    receipt = _preflight_receipt()
+    artifact_store = cast(
+        dict[str, object],
+        receipt["internal_model_artifact_store"],
+    )
+    artifact_store["immutability_verified"] = False
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=receipt)
+
+    with pytest.raises(
+        DeploymentOrchestratorError,
+        match="artifact store immutability is not verified",
+    ):
+        execute_production_preflight(
+            orchestrator_endpoint="https://deploy.example.com/v1/deployments",
+            token=TOKEN,
+            repository="owner/Hamoon",
+            manifest=_manifest(),
+            admission=_admission(),
+            requirements=_requirements(),
+            requirements_sha256="2" * 64,
+            transport=httpx.MockTransport(handler),
+        )
+
+
+def test_execute_production_preflight_rejects_artifact_store_secret_material() -> None:
+    receipt = _preflight_receipt()
+    artifact_store = cast(
+        dict[str, object],
+        receipt["internal_model_artifact_store"],
+    )
+    artifact_store["secret_key"] = "must-not-enter-attestation"
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=receipt)
+
+    with pytest.raises(
+        DeploymentOrchestratorError,
+        match="artifact store attestation fields are invalid",
     ):
         execute_production_preflight(
             orchestrator_endpoint="https://deploy.example.com/v1/deployments",
