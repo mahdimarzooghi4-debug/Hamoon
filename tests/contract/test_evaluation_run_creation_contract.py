@@ -55,6 +55,7 @@ def test_evaluation_run_creation_requires_explicit_policy_version() -> None:
     assert "evaluation_policy_version: str = Field(" in request_block
     assert "default=" not in request_block
 
+
 def test_evaluation_completion_revalidates_dataset_and_report_binding() -> None:
     routes = Path(
         "src/hamoon/domains/intelligence/api/routes.py"
