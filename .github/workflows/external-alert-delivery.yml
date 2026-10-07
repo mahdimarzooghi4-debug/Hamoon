@@ -27,6 +27,7 @@ permissions:
 jobs:
   verify-alert-delivery:
     runs-on: ubuntu-latest
+    environment: production
     timeout-minutes: 15
     env:
       PROMOTED_SHA: ${{ inputs.commit_sha }}

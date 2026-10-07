@@ -19,6 +19,7 @@ permissions:
 jobs:
   verify-external-telemetry:
     runs-on: ubuntu-latest
+    environment: production
     timeout-minutes: 15
     env:
       PROMOTED_SHA: ${{ inputs.commit_sha }}
