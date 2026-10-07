@@ -138,12 +138,15 @@ manager as appropriate. They must not be committed to the repository or image.
 
 ## 5. Production readiness gate
 
-Before Release Approval / deployment admission, run the manual `Production Operational Readiness`
-workflow for the exact candidate commit. It validates that every GitHub `production`
+Before Production Deployment Admission, the exact candidate commit must have a successful
+`Production Operational Readiness` artifact. Running it before Release Approval is recommended
+so missing environment inputs are surfaced earlier. It validates that every GitHub `production`
 Environment secret consumed by deployment, telemetry, alerting, Evidence, provider and recovery
 verification workflows is present, and that externally reachable endpoints satisfy the existing
 remote-HTTPS safety boundary. The emitted evidence contains only boolean check results and release
-identity; it never records secret values and never deploys Production.
+identity; it never records secret values and never deploys Production. Production Deployment
+Admission pins the readiness workflow run ID and SHA-256 of that artifact, and Production Deploy
+downloads and re-verifies the same evidence before any hosted deployment request is sent.
 
 ## 6. Go-live execution order
 
