@@ -200,7 +200,10 @@ Dataset نسخه‌دار است و Approval انسانی Dataset از Model Pro
 
 # 8. Evaluation & Promotion Boundary
 
-Offline Evaluation باید به Model Version و evidence نسخه‌دار متصل باشد.
+Offline Evaluation باید به Model Version و evidence نسخه‌دار متصل باشد. Evaluation Run جدید
+فقط از مسیر Admin و با Dataset Version در وضعیت `APPROVED`، purpose هم‌راستا، Candidate داخلی
+دارای training lineage، Prompt Policy در وضعیت `ACTIVE` و evaluation policy version صریح
+ایجاد می‌شود؛ creation به‌تنهایی هیچ Promotion یا Production activation انجام نمی‌دهد.
 
 Passed Gate فقط شرط لازم است، نه مجوز Production.
 
@@ -239,10 +242,11 @@ Execution boundary تصویب شده است: مدل فقط به‌صورت `IN_P
 
 model family، upstream revision، training method، artifact format و concrete
 trainer/executor برای baseline v1 تصویب و پیاده شده‌اند. Production preflight نیز به هویت
-checkpoint، provisioning attestation آن و artifact-store attestation bind شده است. موارد باز:
-مقادیر hyperparameter، resource isolation/hardware sizing، provisioning فیزیکی/mount واقعی
-checkpoint خصوصی، استقرار واقعی provider/bucket/credentials برای Production artifact store و
-evaluation policy جزئی.
+checkpoint، provisioning attestation آن و artifact-store attestation bind شده است. مسیر
+ایجاد Evaluation Run نیز به Dataset/Model/Prompt lineage واقعی bind شده است. موارد باز: مقادیر
+hyperparameter، resource isolation/hardware sizing، provisioning فیزیکی/mount واقعی checkpoint
+خصوصی، استقرار واقعی provider/bucket/credentials برای Production artifact store و جزئیات
+policy/metric ارزیابی که فقط باید از تصمیم محصول و evidence واقعی تعیین شوند.
 
 Dataset تأییدشده از طریق Training Run وارد Gemma 4 trainer می‌شود؛ adapter خروجی در storage
 خصوصی immutable ثبت می‌شود و همان Run در صورت موفقیت Candidate lineage را می‌سازد. Training
