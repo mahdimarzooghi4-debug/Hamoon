@@ -51,10 +51,13 @@ def attest_evaluation_report(
     *,
     task_class: AITaskClass,
     expected_policy_version: str,
+    expected_dataset_version: str,
     report: dict[str, JsonValue],
 ) -> EvaluationReportAttestation:
     if report.get("policy_version") != expected_policy_version:
         raise ValueError("EVALUATION_REPORT_POLICY_MISMATCH")
+    if report.get("dataset_version") != expected_dataset_version:
+        raise ValueError("EVALUATION_REPORT_DATASET_MISMATCH")
 
     structural_gate = report.get("structural_gate_passed")
     if not isinstance(structural_gate, bool):
