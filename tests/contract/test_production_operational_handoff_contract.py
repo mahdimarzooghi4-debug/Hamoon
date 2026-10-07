@@ -19,8 +19,8 @@ def test_deployment_docs_forbid_external_ai_runtime_contract() -> None:
         assert marker not in adr
         assert marker not in readme
 
-    assert "no AI endpoint/token" in adr
-    assert "IN_PROCESS" in adr
+    assert "Production AI هیچ provider endpoint/token" in adr
+    assert "Gemma فقط به‌صورت `IN_PROCESS` داخل Hamoon اجرا می‌شود." in adr
     assert "network model download" in adr
     assert "Production AI itself remains internal to Hamoon" in readme
 
