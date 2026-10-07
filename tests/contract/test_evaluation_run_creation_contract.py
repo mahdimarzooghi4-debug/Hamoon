@@ -32,6 +32,8 @@ def test_evaluation_run_creation_is_dataset_bound_and_governed() -> None:
     assert "EVALUATION_MODEL_PURPOSE_MISMATCH" in repository
     assert "EVALUATION_MODEL_ARTIFACT_REQUIRED" in repository
     assert "EVALUATION_MODEL_TRAINING_LINEAGE_REQUIRED" in repository
+    assert "model_version.training_dataset_version_id is None" in repository
+    assert "require_independent_evaluation_dataset(" in repository
     assert "EVALUATION_MODEL_VERSION_NOT_ELIGIBLE" in repository
     assert "EVALUATION_PROMPT_NOT_ACTIVE" in repository
     assert "EVALUATION_PROMPT_PURPOSE_MISMATCH" in repository
