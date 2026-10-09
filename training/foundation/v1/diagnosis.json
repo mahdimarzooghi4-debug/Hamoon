@@ -1,0 +1,518 @@
+{
+  "dataset_key": "hamoon.foundation.diagnosis.behavior",
+  "version": "v1",
+  "task_class": "DIAGNOSIS",
+  "status": "DRAFT_SOURCE_ONLY",
+  "source_type": "SYNTHETIC_FOUNDATION_INSTRUCTION",
+  "feature_schema_version": "diagnosis-input-v1",
+  "output_schema_version": "diagnosis-v1",
+  "language": "fa",
+  "contains_production_household_data": false,
+  "contains_hidden_chain_of_thought": false,
+  "examples": [
+    {
+      "example_id": "fdx-001-p-bottleneck-no-cause-inference",
+      "skill_tags": [
+        "grounding",
+        "no_missing_fact_inference",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.P": "0.24",
+        "pgor.G": "0.61",
+        "pgor.O": "0.57",
+        "pgor.R": "0.55",
+        "pgor.E": "0.37",
+        "pgor.bottleneck_variables": [
+          "P"
+        ],
+        "pgor.data_quality_flags": [],
+        "pgor.completeness_ratio": "1.0"
+      },
+      "target_payload": {
+        "schema_version": "diagnosis-v1",
+        "summary": "بر اساس Feature Package، P گلوگاه فعلی است. درباره علت این وضعیت داده‌ای ارائه نشده و خروجی فقط برای بازبینی انسانی است.",
+        "items": [
+          {
+            "code": "FOUNDATION_P_BOTTLENECK",
+            "category": "NEED",
+            "title": "گلوگاه مشارکت",
+            "rationale": "P در ورودی به‌عنوان گلوگاه فعلی معرفی شده است؛ هیچ علت دیگری از داده‌های موجود استنتاج نمی‌شود.",
+            "supporting_feature_refs": [
+              "pgor.P",
+              "pgor.bottleneck_variables"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fdx-002-g-bottleneck-no-cause-inference",
+      "skill_tags": [
+        "grounding",
+        "no_missing_fact_inference",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.P": "0.64",
+        "pgor.G": "0.29",
+        "pgor.O": "0.56",
+        "pgor.R": "0.60",
+        "pgor.E": "0.41",
+        "pgor.bottleneck_variables": [
+          "G"
+        ],
+        "pgor.data_quality_flags": [],
+        "pgor.completeness_ratio": "1.0"
+      },
+      "target_payload": {
+        "schema_version": "diagnosis-v1",
+        "summary": "G گلوگاه فعلی ثبت‌شده است؛ تشخیص به همین شواهد محدود می‌ماند و نیازمند بازبینی انسانی است.",
+        "items": [
+          {
+            "code": "FOUNDATION_G_BOTTLENECK",
+            "category": "CAPACITY",
+            "title": "محدودیت ظرفیت رشد",
+            "rationale": "Feature Package مقدار G را در فهرست گلوگاه‌های فعلی قرار داده است.",
+            "supporting_feature_refs": [
+              "pgor.G",
+              "pgor.bottleneck_variables"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fdx-003-o-bottleneck-no-provider-assumption",
+      "skill_tags": [
+        "grounding",
+        "no_provider_assumption",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.P": "0.69",
+        "pgor.G": "0.63",
+        "pgor.O": "0.27",
+        "pgor.R": "0.58",
+        "pgor.E": "0.40",
+        "pgor.bottleneck_variables": [
+          "O"
+        ],
+        "pgor.data_quality_flags": [],
+        "pgor.completeness_ratio": "1.0"
+      },
+      "target_payload": {
+        "schema_version": "diagnosis-v1",
+        "summary": "O گلوگاه فعلی است. از این داده نمی‌توان نوع Provider یا مداخله را تعیین کرد.",
+        "items": [
+          {
+            "code": "FOUNDATION_O_BOTTLENECK",
+            "category": "CONSTRAINT",
+            "title": "محدودیت فرصت",
+            "rationale": "تنها ادعای قابل اتکا این است که O در Feature Package به‌عنوان گلوگاه فعلی ثبت شده است.",
+            "supporting_feature_refs": [
+              "pgor.O",
+              "pgor.bottleneck_variables"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fdx-004-r-bottleneck-no-cause-inference",
+      "skill_tags": [
+        "grounding",
+        "no_causal_claim",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.P": "0.70",
+        "pgor.G": "0.66",
+        "pgor.O": "0.62",
+        "pgor.R": "0.25",
+        "pgor.E": "0.39",
+        "pgor.bottleneck_variables": [
+          "R"
+        ],
+        "pgor.data_quality_flags": [],
+        "pgor.completeness_ratio": "1.0"
+      },
+      "target_payload": {
+        "schema_version": "diagnosis-v1",
+        "summary": "R گلوگاه فعلی است؛ علت یا منشأ ریسک از مقادیر PGOR به‌تنهایی قابل استنتاج نیست.",
+        "items": [
+          {
+            "code": "FOUNDATION_R_BOTTLENECK",
+            "category": "RISK",
+            "title": "گلوگاه تاب‌آوری",
+            "rationale": "R در ورودی به‌عنوان گلوگاه معرفی شده و هیچ علت بیرونی به آن نسبت داده نمی‌شود.",
+            "supporting_feature_refs": [
+              "pgor.R",
+              "pgor.bottleneck_variables"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fdx-005-tied-p-g-preserve-tie",
+      "skill_tags": [
+        "preserve_authoritative_state",
+        "no_forced_ranking",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.P": "0.33",
+        "pgor.G": "0.33",
+        "pgor.O": "0.59",
+        "pgor.R": "0.61",
+        "pgor.E": "0.36",
+        "pgor.bottleneck_variables": [
+          "P",
+          "G"
+        ],
+        "pgor.data_quality_flags": [],
+        "pgor.completeness_ratio": "1.0"
+      },
+      "target_payload": {
+        "schema_version": "diagnosis-v1",
+        "summary": "P و G به‌صورت همزمان گلوگاه ثبت شده‌اند؛ AI نباید بدون سیاست یا شواهد اضافی یکی را بر دیگری مقدم کند.",
+        "items": [
+          {
+            "code": "FOUNDATION_TIED_P",
+            "category": "NEED",
+            "title": "گلوگاه مشارکت",
+            "rationale": "P یکی از گلوگاه‌های همزمان در Feature Package است.",
+            "supporting_feature_refs": [
+              "pgor.P",
+              "pgor.bottleneck_variables"
+            ],
+            "uncertainty": "UNKNOWN"
+          },
+          {
+            "code": "FOUNDATION_TIED_G",
+            "category": "CAPACITY",
+            "title": "گلوگاه ظرفیت رشد",
+            "rationale": "G یکی از گلوگاه‌های همزمان در Feature Package است.",
+            "supporting_feature_refs": [
+              "pgor.G",
+              "pgor.bottleneck_variables"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fdx-006-absent-completeness-not-invented",
+      "skill_tags": [
+        "unknown_stays_unknown",
+        "schema_grounding",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.P": "0.58",
+        "pgor.G": "0.31",
+        "pgor.O": "0.55",
+        "pgor.R": "0.57",
+        "pgor.E": "0.38",
+        "pgor.bottleneck_variables": [
+          "G"
+        ],
+        "pgor.data_quality_flags": []
+      },
+      "target_payload": {
+        "schema_version": "diagnosis-v1",
+        "summary": "G گلوگاه ثبت‌شده است. چون completeness_ratio در ورودی وجود ندارد، هیچ مقداری برای آن حدس زده نمی‌شود.",
+        "items": [
+          {
+            "code": "FOUNDATION_G_WITH_UNKNOWN_COMPLETENESS",
+            "category": "CAPACITY",
+            "title": "گلوگاه ظرفیت رشد با داده تکمیلی نامشخص",
+            "rationale": "تشخیص فقط به G و فهرست گلوگاه‌های ارائه‌شده متکی است.",
+            "supporting_feature_refs": [
+              "pgor.G",
+              "pgor.bottleneck_variables"
+            ],
+            "uncertainty": "HIGH"
+          }
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fdx-007-no-threshold-invention",
+      "skill_tags": [
+        "no_threshold_invention",
+        "grounding",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.P": "0.62",
+        "pgor.G": "0.59",
+        "pgor.O": "0.30",
+        "pgor.R": "0.60",
+        "pgor.E": "0.43",
+        "pgor.bottleneck_variables": [
+          "O"
+        ],
+        "pgor.data_quality_flags": [],
+        "pgor.completeness_ratio": "0.64"
+      },
+      "target_payload": {
+        "schema_version": "diagnosis-v1",
+        "summary": "O گلوگاه ثبت‌شده است. مقدار completeness_ratio ارائه شده، اما هیچ آستانه‌ای برای تفسیر خوب یا بد بودن آن در ورودی وجود ندارد.",
+        "items": [
+          {
+            "code": "FOUNDATION_O_NO_COMPLETENESS_THRESHOLD",
+            "category": "CONSTRAINT",
+            "title": "گلوگاه فرصت بدون آستانه‌سازی ساختگی",
+            "rationale": "O گلوگاه رسمی است؛ completeness_ratio فقط به‌عنوان مقدار مشاهده‌شده حفظ می‌شود و به آستانه ساختگی تبدیل نمی‌شود.",
+            "supporting_feature_refs": [
+              "pgor.O",
+              "pgor.bottleneck_variables",
+              "pgor.completeness_ratio"
+            ],
+            "uncertainty": "HIGH"
+          }
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fdx-008-do-not-recalculate-bottleneck",
+      "skill_tags": [
+        "no_pgor_recalculation",
+        "preserve_authoritative_state",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.P": "0.41",
+        "pgor.G": "0.22",
+        "pgor.O": "0.54",
+        "pgor.R": "0.57",
+        "pgor.E": "0.34",
+        "pgor.bottleneck_variables": [
+          "P"
+        ],
+        "pgor.data_quality_flags": [],
+        "pgor.completeness_ratio": "1.0"
+      },
+      "target_payload": {
+        "schema_version": "diagnosis-v1",
+        "summary": "Feature Package، P را گلوگاه رسمی اعلام کرده است. AI با مقایسه عددی مقادیر PGOR گلوگاه را دوباره محاسبه یا تغییر نمی‌دهد.",
+        "items": [
+          {
+            "code": "FOUNDATION_AUTHORITATIVE_BOTTLENECK_P",
+            "category": "NEED",
+            "title": "حفظ گلوگاه رسمی P",
+            "rationale": "مرجع خروجی، pgor.bottleneck_variables است و AI مجاز به بازتعریف نتیجه موتور قطعی PGOR نیست.",
+            "supporting_feature_refs": [
+              "pgor.P",
+              "pgor.bottleneck_variables"
+            ],
+            "uncertainty": "HIGH"
+          }
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED",
+          "AUTHORITATIVE_PGOR_PRESERVED"
+        ]
+      }
+    },
+    {
+      "example_id": "fdx-009-do-not-promote-e-to-bottleneck",
+      "skill_tags": [
+        "no_pgor_recalculation",
+        "task_boundary",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.P": "0.60",
+        "pgor.G": "0.56",
+        "pgor.O": "0.58",
+        "pgor.R": "0.36",
+        "pgor.E": "0.19",
+        "pgor.bottleneck_variables": [
+          "R"
+        ],
+        "pgor.data_quality_flags": [],
+        "pgor.completeness_ratio": "1.0"
+      },
+      "target_payload": {
+        "schema_version": "diagnosis-v1",
+        "summary": "R گلوگاه رسمی است. پایین‌تر بودن E مجوز تبدیل E به گلوگاه یا تغییر خروجی موتور PGOR نیست.",
+        "items": [
+          {
+            "code": "FOUNDATION_R_PRESERVE_BOTTLENECK",
+            "category": "RISK",
+            "title": "حفظ گلوگاه رسمی تاب‌آوری",
+            "rationale": "فهرست گلوگاه‌های رسمی فقط R را اعلام کرده است.",
+            "supporting_feature_refs": [
+              "pgor.R",
+              "pgor.bottleneck_variables"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED",
+          "AUTHORITATIVE_PGOR_PRESERVED"
+        ]
+      }
+    },
+    {
+      "example_id": "fdx-010-unknown-quality-flag-not-interpreted",
+      "skill_tags": [
+        "unknown_stays_unknown",
+        "data_quality_caution",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.P": "0.58",
+        "pgor.G": "0.54",
+        "pgor.O": "0.32",
+        "pgor.R": "0.57",
+        "pgor.E": "0.42",
+        "pgor.bottleneck_variables": [
+          "O"
+        ],
+        "pgor.data_quality_flags": [
+          "FOUNDATION_UNSPECIFIED_REVIEW_FLAG"
+        ],
+        "pgor.completeness_ratio": "0.88"
+      },
+      "target_payload": {
+        "schema_version": "diagnosis-v1",
+        "summary": "O گلوگاه ثبت‌شده است و یک پرچم کیفیت داده نیز وجود دارد. چون معنای آن پرچم در ورودی تعریف نشده، AI نباید معنای آن را حدس بزند.",
+        "items": [
+          {
+            "code": "FOUNDATION_O_WITH_UNINTERPRETED_QUALITY_FLAG",
+            "category": "CONSTRAINT",
+            "title": "گلوگاه فرصت با پرچم کیفیت نیازمند بررسی",
+            "rationale": "O گلوگاه رسمی است؛ وجود پرچم کیفیت فقط نیاز به احتیاط و بازبینی انسانی را تقویت می‌کند.",
+            "supporting_feature_refs": [
+              "pgor.O",
+              "pgor.bottleneck_variables",
+              "pgor.data_quality_flags"
+            ],
+            "uncertainty": "HIGH"
+          }
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED",
+          "DATA_QUALITY_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fdx-011-indicator-grounding-without-causality",
+      "skill_tags": [
+        "indicator_grounding",
+        "no_causal_claim",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.P": "0.28",
+        "pgor.G": "0.60",
+        "pgor.O": "0.57",
+        "pgor.R": "0.55",
+        "pgor.E": "0.38",
+        "pgor.bottleneck_variables": [
+          "P"
+        ],
+        "pgor.data_quality_flags": [],
+        "pgor.completeness_ratio": "1.0",
+        "indicator.P.foundation.engagement.normalized": "0.21"
+      },
+      "target_payload": {
+        "schema_version": "diagnosis-v1",
+        "summary": "P گلوگاه رسمی است و یک شاخص مرتبط نیز مقدار پایینی دارد؛ این هم‌زمانی به معنی اثبات علت نیست.",
+        "items": [
+          {
+            "code": "FOUNDATION_P_INDICATOR_GROUNDED",
+            "category": "NEED",
+            "title": "گلوگاه مشارکت با شواهد شاخص",
+            "rationale": "خروجی به مقدار P، فهرست گلوگاه‌ها و شاخص ارائه‌شده متکی است و رابطه علّی ادعا نمی‌کند.",
+            "supporting_feature_refs": [
+              "pgor.P",
+              "pgor.bottleneck_variables",
+              "indicator.P.foundation.engagement.normalized"
+            ],
+            "uncertainty": "MEDIUM"
+          }
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fdx-012-multiple-indicators-grounded",
+      "skill_tags": [
+        "multi_evidence_grounding",
+        "no_missing_fact_inference",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.P": "0.63",
+        "pgor.G": "0.61",
+        "pgor.O": "0.59",
+        "pgor.R": "0.29",
+        "pgor.E": "0.40",
+        "pgor.bottleneck_variables": [
+          "R"
+        ],
+        "pgor.data_quality_flags": [],
+        "pgor.completeness_ratio": "1.0",
+        "indicator.R.foundation.stability.normalized": "0.25",
+        "indicator.R.foundation.recovery.normalized": "0.31"
+      },
+      "target_payload": {
+        "schema_version": "diagnosis-v1",
+        "summary": "R گلوگاه رسمی است و دو شاخص ارائه‌شده شواهد مرتبط برای توصیف وضعیت هستند؛ علت‌های خارج از Feature Package اضافه نمی‌شوند.",
+        "items": [
+          {
+            "code": "FOUNDATION_R_MULTI_EVIDENCE",
+            "category": "RISK",
+            "title": "گلوگاه تاب‌آوری با چند شاهد",
+            "rationale": "R و دو شاخص مرتبط مستقیماً در ورودی وجود دارند و مبنای همین پیشنهاد تشخیصی محدود هستند.",
+            "supporting_feature_refs": [
+              "pgor.R",
+              "pgor.bottleneck_variables",
+              "indicator.R.foundation.stability.normalized",
+              "indicator.R.foundation.recovery.normalized"
+            ],
+            "uncertainty": "MEDIUM"
+          }
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    }
+  ]
+}

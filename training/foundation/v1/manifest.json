@@ -1,0 +1,50 @@
+{
+  "dataset_pack_key": "hamoon.foundation.behavior",
+  "version": "v1",
+  "status": "DRAFT_SOURCE_ONLY",
+  "approval_state": "NOT_APPROVED",
+  "runtime_training_eligible": false,
+  "human_review_required": true,
+  "contains_production_household_data": false,
+  "contains_hidden_chain_of_thought": false,
+  "description": "Day-one Hamoon behavior foundation: supervised examples that teach observable decision discipline rather than household facts or hidden chain-of-thought.",
+  "behavior_contract_path": "training/foundation/v1/behavior_contract.json",
+  "task_sources": [
+    {
+      "task_class": "DIAGNOSIS",
+      "path": "training/foundation/v1/diagnosis.json",
+      "example_count": 12,
+      "output_schema": "contracts/ai/diagnosis/v1.schema.json"
+    },
+    {
+      "task_class": "OUTCOME_INTERPRETATION",
+      "path": "training/foundation/v1/outcome_interpretation.json",
+      "example_count": 12,
+      "output_schema": "src/hamoon/infrastructure/ai/outcome_runtime.py::OUTCOME_INTERPRETATION_V1_SCHEMA"
+    }
+  ],
+  "deferred_tasks": [
+    {
+      "task_class": "PRESCRIPTION",
+      "reason": "The current prescription target schema requires policy-bearing review_schedule and success_criteria values. Foundation examples are deferred until a reviewed source for those values exists; no day-one policy is invented."
+    },
+    {
+      "task_class": "PROVIDER_MATCH_EXPLANATION",
+      "reason": "Provider selection remains human-only and no real provider integration contract is available yet."
+    }
+  ],
+  "source_contracts": [
+    "docs/HAMOON_AI_ARCHITECTURE_BASELINE.md",
+    "contracts/ai/diagnosis/v1.schema.json",
+    "src/hamoon/infrastructure/ai/outcome_runtime.py",
+    "src/hamoon/domains/prescription/domain/policy.py"
+  ],
+  "governance": {
+    "controlled_import_required_before_training": true,
+    "fabricate_learning_signal_ids": false,
+    "automatic_approval_forbidden": true,
+    "automatic_promotion_forbidden": true,
+    "evaluation_example_reuse_forbidden": true,
+    "note": "The current DB LearningDataset path is provenance-bound to curated LearningSignal records. This repository source pack must not be inserted by fabricating signal lineage."
+  }
+}

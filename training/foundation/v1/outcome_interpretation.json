@@ -1,0 +1,557 @@
+{
+  "dataset_key": "hamoon.foundation.outcome_interpretation.behavior",
+  "version": "v1",
+  "task_class": "OUTCOME_INTERPRETATION",
+  "status": "DRAFT_SOURCE_ONLY",
+  "source_type": "SYNTHETIC_FOUNDATION_INSTRUCTION",
+  "feature_schema_version": "outcome-input-v1",
+  "output_schema_version": "outcome-interpretation-v1",
+  "language": "fa",
+  "contains_production_household_data": false,
+  "contains_hidden_chain_of_thought": false,
+  "examples": [
+    {
+      "example_id": "fox-001-observed-progress-no-causality",
+      "skill_tags": [
+        "observed_change_only",
+        "no_causal_claim",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.pre.P": "0.64",
+        "pgor.pre.G": "0.60",
+        "pgor.pre.O": "0.31",
+        "pgor.pre.R": "0.58",
+        "pgor.pre.E": "0.43",
+        "pgor.post.P": "0.65",
+        "pgor.post.G": "0.61",
+        "pgor.post.O": "0.44",
+        "pgor.post.R": "0.59",
+        "pgor.post.E": "0.50",
+        "pgor.delta.P": "0.01",
+        "pgor.delta.G": "0.01",
+        "pgor.delta.O": "0.13",
+        "pgor.delta.R": "0.01",
+        "pgor.delta.E": "0.07",
+        "intervention.type": "MARKET_LINKAGE",
+        "intervention.target_variable": "O",
+        "provider_result.type": "SERVICE_COMPLETION",
+        "provider_result.status": "COMPLETED",
+        "outcome.methodology_version": "observed-pgor-delta-v1",
+        "policy.causal_claim_allowed": false
+      },
+      "target_payload": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "PROGRESS",
+        "observed_change_summary": "بین دو Snapshot رسمی، افزایش مشاهده‌شده در O و E ثبت شده است. این خروجی درباره علت تغییر ادعایی نمی‌کند.",
+        "causal_claim": false,
+        "supporting_feature_refs": [
+          "pgor.delta.O",
+          "pgor.delta.E",
+          "intervention.target_variable"
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fox-002-observed-regression",
+      "skill_tags": [
+        "observed_change_only",
+        "no_causal_claim",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.pre.P": "0.69",
+        "pgor.pre.G": "0.63",
+        "pgor.pre.O": "0.57",
+        "pgor.pre.R": "0.62",
+        "pgor.pre.E": "0.51",
+        "pgor.post.P": "0.63",
+        "pgor.post.G": "0.58",
+        "pgor.post.O": "0.50",
+        "pgor.post.R": "0.54",
+        "pgor.post.E": "0.43",
+        "pgor.delta.P": "-0.06",
+        "pgor.delta.G": "-0.05",
+        "pgor.delta.O": "-0.07",
+        "pgor.delta.R": "-0.08",
+        "pgor.delta.E": "-0.08",
+        "intervention.type": "SOCIAL_SUPPORT",
+        "intervention.target_variable": "R",
+        "provider_result.type": "SERVICE_COMPLETION",
+        "provider_result.status": "COMPLETED",
+        "outcome.methodology_version": "observed-pgor-delta-v1",
+        "policy.causal_claim_allowed": false
+      },
+      "target_payload": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "REGRESSION",
+        "observed_change_summary": "در چند بُعد PGOR کاهش مشاهده‌شده بین Snapshotهای رسمی وجود دارد؛ تکمیل خدمت علت این کاهش تلقی نمی‌شود.",
+        "causal_claim": false,
+        "supporting_feature_refs": [
+          "pgor.delta.P",
+          "pgor.delta.G",
+          "pgor.delta.O",
+          "pgor.delta.R",
+          "pgor.delta.E"
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fox-003-no-significant-observed-change",
+      "skill_tags": [
+        "observed_change_only",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.pre.P": "0.61",
+        "pgor.pre.G": "0.57",
+        "pgor.pre.O": "0.52",
+        "pgor.pre.R": "0.59",
+        "pgor.pre.E": "0.46",
+        "pgor.post.P": "0.61",
+        "pgor.post.G": "0.57",
+        "pgor.post.O": "0.52",
+        "pgor.post.R": "0.59",
+        "pgor.post.E": "0.46",
+        "pgor.delta.P": "0.00",
+        "pgor.delta.G": "0.00",
+        "pgor.delta.O": "0.00",
+        "pgor.delta.R": "0.00",
+        "pgor.delta.E": "0.00",
+        "intervention.type": "COACHING",
+        "intervention.target_variable": "P",
+        "provider_result.type": "SERVICE_COMPLETION",
+        "provider_result.status": "COMPLETED",
+        "outcome.methodology_version": "observed-pgor-delta-v1",
+        "policy.causal_claim_allowed": false
+      },
+      "target_payload": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "NO_SIGNIFICANT_CHANGE",
+        "observed_change_summary": "مقادیر رسمی پیش و پس در Feature Package بدون تغییر مشاهده‌شده ثبت شده‌اند.",
+        "causal_claim": false,
+        "supporting_feature_refs": [
+          "pgor.delta.P",
+          "pgor.delta.G",
+          "pgor.delta.O",
+          "pgor.delta.R",
+          "pgor.delta.E"
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fox-004-provider-completed-but-regression",
+      "skill_tags": [
+        "provider_result_not_outcome",
+        "no_causal_claim",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.pre.P": "0.58",
+        "pgor.pre.G": "0.55",
+        "pgor.pre.O": "0.49",
+        "pgor.pre.R": "0.60",
+        "pgor.pre.E": "0.45",
+        "pgor.post.P": "0.56",
+        "pgor.post.G": "0.54",
+        "pgor.post.O": "0.47",
+        "pgor.post.R": "0.49",
+        "pgor.post.E": "0.39",
+        "pgor.delta.P": "-0.02",
+        "pgor.delta.G": "-0.01",
+        "pgor.delta.O": "-0.02",
+        "pgor.delta.R": "-0.11",
+        "pgor.delta.E": "-0.06",
+        "intervention.type": "RISK_REDUCTION",
+        "intervention.target_variable": "R",
+        "provider_result.type": "SERVICE_COMPLETION",
+        "provider_result.status": "COMPLETED",
+        "outcome.methodology_version": "observed-pgor-delta-v1",
+        "policy.causal_claim_allowed": false
+      },
+      "target_payload": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "REGRESSION",
+        "observed_change_summary": "Provider Result تکمیل خدمت را گزارش می‌کند، اما Snapshotهای رسمی کاهش R و E را نشان می‌دهند؛ Result با Outcome یکی نیست.",
+        "causal_claim": false,
+        "supporting_feature_refs": [
+          "provider_result.status",
+          "pgor.delta.R",
+          "pgor.delta.E"
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fox-005-provider-failed-but-observed-progress",
+      "skill_tags": [
+        "provider_result_not_outcome",
+        "no_causal_claim",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.pre.P": "0.62",
+        "pgor.pre.G": "0.58",
+        "pgor.pre.O": "0.34",
+        "pgor.pre.R": "0.56",
+        "pgor.pre.E": "0.42",
+        "pgor.post.P": "0.63",
+        "pgor.post.G": "0.59",
+        "pgor.post.O": "0.46",
+        "pgor.post.R": "0.57",
+        "pgor.post.E": "0.49",
+        "pgor.delta.P": "0.01",
+        "pgor.delta.G": "0.01",
+        "pgor.delta.O": "0.12",
+        "pgor.delta.R": "0.01",
+        "pgor.delta.E": "0.07",
+        "intervention.type": "EMPLOYMENT",
+        "intervention.target_variable": "O",
+        "provider_result.type": "SERVICE_EXECUTION",
+        "provider_result.status": "FAILED",
+        "outcome.methodology_version": "observed-pgor-delta-v1",
+        "policy.causal_claim_allowed": false
+      },
+      "target_payload": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "PROGRESS",
+        "observed_change_summary": "با وجود وضعیت FAILED در Provider Result، افزایش مشاهده‌شده O و E در Snapshotهای رسمی ثبت شده است؛ هیچ رابطه علّی به Provider نسبت داده نمی‌شود.",
+        "causal_claim": false,
+        "supporting_feature_refs": [
+          "provider_result.status",
+          "pgor.delta.O",
+          "pgor.delta.E"
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fox-006-missing-provider-result-needs-data",
+      "skill_tags": [
+        "unknown_stays_unknown",
+        "provider_result_not_invented",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.pre.P": "0.60",
+        "pgor.pre.G": "0.56",
+        "pgor.pre.O": "0.45",
+        "pgor.pre.R": "0.57",
+        "pgor.pre.E": "0.44",
+        "pgor.post.P": "0.60",
+        "pgor.post.G": "0.56",
+        "pgor.post.O": "0.46",
+        "pgor.post.R": "0.57",
+        "pgor.post.E": "0.44",
+        "pgor.delta.P": "0.00",
+        "pgor.delta.G": "0.00",
+        "pgor.delta.O": "0.01",
+        "pgor.delta.R": "0.00",
+        "pgor.delta.E": "0.00",
+        "intervention.type": "TRAINING",
+        "intervention.target_variable": "G",
+        "provider_result.type": null,
+        "provider_result.status": null,
+        "outcome.methodology_version": "observed-pgor-delta-v1",
+        "policy.causal_claim_allowed": false
+      },
+      "target_payload": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "NEEDS_MORE_DATA",
+        "observed_change_summary": "تغییر مشاهده‌شده بسیار محدود است و Provider Result در ورودی موجود نیست؛ وضعیت Provider حدس زده نمی‌شود.",
+        "causal_claim": false,
+        "supporting_feature_refs": [
+          "provider_result.status",
+          "pgor.delta.O",
+          "pgor.delta.E"
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fox-007-partial-provider-result-progress-still-observed",
+      "skill_tags": [
+        "provider_result_not_outcome",
+        "observed_change_only",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.pre.P": "0.59",
+        "pgor.pre.G": "0.55",
+        "pgor.pre.O": "0.36",
+        "pgor.pre.R": "0.56",
+        "pgor.pre.E": "0.42",
+        "pgor.post.P": "0.60",
+        "pgor.post.G": "0.56",
+        "pgor.post.O": "0.47",
+        "pgor.post.R": "0.57",
+        "pgor.post.E": "0.48",
+        "pgor.delta.P": "0.01",
+        "pgor.delta.G": "0.01",
+        "pgor.delta.O": "0.11",
+        "pgor.delta.R": "0.01",
+        "pgor.delta.E": "0.06",
+        "intervention.type": "MARKET_LINKAGE",
+        "intervention.target_variable": "O",
+        "provider_result.type": "PARTIAL_UPDATE",
+        "provider_result.status": "NEEDS_INFORMATION",
+        "outcome.methodology_version": "observed-pgor-delta-v1",
+        "policy.causal_claim_allowed": false
+      },
+      "target_payload": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "PROGRESS",
+        "observed_change_summary": "O و E افزایش مشاهده‌شده دارند، در حالی که Provider Result هنوز نیازمند اطلاعات است. Outcome فقط از تغییر مشاهده‌شده گزارش می‌شود.",
+        "causal_claim": false,
+        "supporting_feature_refs": [
+          "provider_result.status",
+          "pgor.delta.O",
+          "pgor.delta.E"
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fox-008-large-improvement-not-auto-goal-achieved",
+      "skill_tags": [
+        "no_threshold_invention",
+        "no_goal_inference",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.pre.P": "0.55",
+        "pgor.pre.G": "0.52",
+        "pgor.pre.O": "0.25",
+        "pgor.pre.R": "0.54",
+        "pgor.pre.E": "0.36",
+        "pgor.post.P": "0.62",
+        "pgor.post.G": "0.60",
+        "pgor.post.O": "0.55",
+        "pgor.post.R": "0.60",
+        "pgor.post.E": "0.57",
+        "pgor.delta.P": "0.07",
+        "pgor.delta.G": "0.08",
+        "pgor.delta.O": "0.30",
+        "pgor.delta.R": "0.06",
+        "pgor.delta.E": "0.21",
+        "intervention.type": "MARKET_LINKAGE",
+        "intervention.target_variable": "O",
+        "provider_result.type": "SERVICE_COMPLETION",
+        "provider_result.status": "COMPLETED",
+        "outcome.methodology_version": "observed-pgor-delta-v1",
+        "policy.causal_claim_allowed": false
+      },
+      "target_payload": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "PROGRESS",
+        "observed_change_summary": "بهبود مشاهده‌شده در چند بُعد ثبت شده است، اما هیچ هدف یا آستانه مصوبی در ورودی وجود ندارد که GOAL_ACHIEVED را اثبات کند.",
+        "causal_claim": false,
+        "supporting_feature_refs": [
+          "pgor.delta.O",
+          "pgor.delta.E"
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fox-009-completed-service-zero-change",
+      "skill_tags": [
+        "provider_result_not_outcome",
+        "no_causal_claim",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.pre.P": "0.63",
+        "pgor.pre.G": "0.58",
+        "pgor.pre.O": "0.51",
+        "pgor.pre.R": "0.61",
+        "pgor.pre.E": "0.48",
+        "pgor.post.P": "0.63",
+        "pgor.post.G": "0.58",
+        "pgor.post.O": "0.51",
+        "pgor.post.R": "0.61",
+        "pgor.post.E": "0.48",
+        "pgor.delta.P": "0.00",
+        "pgor.delta.G": "0.00",
+        "pgor.delta.O": "0.00",
+        "pgor.delta.R": "0.00",
+        "pgor.delta.E": "0.00",
+        "intervention.type": "SKILLS_TRAINING",
+        "intervention.target_variable": "G",
+        "provider_result.type": "SERVICE_COMPLETION",
+        "provider_result.status": "COMPLETED",
+        "outcome.methodology_version": "observed-pgor-delta-v1",
+        "policy.causal_claim_allowed": false
+      },
+      "target_payload": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "NO_SIGNIFICANT_CHANGE",
+        "observed_change_summary": "تکمیل خدمت گزارش شده، اما در Snapshotهای رسمی تغییر مشاهده‌شده‌ای ثبت نشده است؛ تکمیل خدمت به‌تنهایی Outcome مثبت نیست.",
+        "causal_claim": false,
+        "supporting_feature_refs": [
+          "provider_result.status",
+          "pgor.delta.G",
+          "pgor.delta.E"
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fox-010-mixed-change-needs-human-interpretation",
+      "skill_tags": [
+        "mixed_evidence",
+        "no_forced_conclusion",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.pre.P": "0.57",
+        "pgor.pre.G": "0.54",
+        "pgor.pre.O": "0.47",
+        "pgor.pre.R": "0.55",
+        "pgor.pre.E": "0.43",
+        "pgor.post.P": "0.62",
+        "pgor.post.G": "0.55",
+        "pgor.post.O": "0.42",
+        "pgor.post.R": "0.51",
+        "pgor.post.E": "0.43",
+        "pgor.delta.P": "0.05",
+        "pgor.delta.G": "0.01",
+        "pgor.delta.O": "-0.05",
+        "pgor.delta.R": "-0.04",
+        "pgor.delta.E": "0.00",
+        "intervention.type": "COACHING",
+        "intervention.target_variable": "P",
+        "provider_result.type": "SERVICE_COMPLETION",
+        "provider_result.status": "COMPLETED",
+        "outcome.methodology_version": "observed-pgor-delta-v1",
+        "policy.causal_claim_allowed": false
+      },
+      "target_payload": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "NEEDS_MORE_DATA",
+        "observed_change_summary": "تغییرات مشاهده‌شده مختلط‌اند: P افزایش و O و R کاهش یافته‌اند، در حالی که E بدون تغییر است. نتیجه قطعی بدون بررسی انسانی تحمیل نمی‌شود.",
+        "causal_claim": false,
+        "supporting_feature_refs": [
+          "pgor.delta.P",
+          "pgor.delta.O",
+          "pgor.delta.R",
+          "pgor.delta.E"
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fox-011-unknown-methodology-label-not-semanticized",
+      "skill_tags": [
+        "unknown_stays_unknown",
+        "observed_change_only",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.pre.P": "0.60",
+        "pgor.pre.G": "0.57",
+        "pgor.pre.O": "0.39",
+        "pgor.pre.R": "0.58",
+        "pgor.pre.E": "0.44",
+        "pgor.post.P": "0.61",
+        "pgor.post.G": "0.58",
+        "pgor.post.O": "0.49",
+        "pgor.post.R": "0.59",
+        "pgor.post.E": "0.50",
+        "pgor.delta.P": "0.01",
+        "pgor.delta.G": "0.01",
+        "pgor.delta.O": "0.10",
+        "pgor.delta.R": "0.01",
+        "pgor.delta.E": "0.06",
+        "intervention.type": "NETWORKING",
+        "intervention.target_variable": "O",
+        "provider_result.type": "SERVICE_COMPLETION",
+        "provider_result.status": "COMPLETED",
+        "outcome.methodology_version": "foundation-methodology-label-without-extra-semantics",
+        "policy.causal_claim_allowed": false
+      },
+      "target_payload": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "PROGRESS",
+        "observed_change_summary": "O و E افزایش مشاهده‌شده دارند. نام methodology به‌خودی‌خود معنای اضافی یا ادعای علّی ایجاد نمی‌کند.",
+        "causal_claim": false,
+        "supporting_feature_refs": [
+          "pgor.delta.O",
+          "pgor.delta.E",
+          "outcome.methodology_version"
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    },
+    {
+      "example_id": "fox-012-positive-change-completed-service-causal-claim-false",
+      "skill_tags": [
+        "causal_claim_false",
+        "provider_result_not_outcome",
+        "human_review"
+      ],
+      "input_payload": {
+        "pgor.pre.P": "0.56",
+        "pgor.pre.G": "0.50",
+        "pgor.pre.O": "0.48",
+        "pgor.pre.R": "0.57",
+        "pgor.pre.E": "0.41",
+        "pgor.post.P": "0.57",
+        "pgor.post.G": "0.62",
+        "pgor.post.O": "0.49",
+        "pgor.post.R": "0.58",
+        "pgor.post.E": "0.48",
+        "pgor.delta.P": "0.01",
+        "pgor.delta.G": "0.12",
+        "pgor.delta.O": "0.01",
+        "pgor.delta.R": "0.01",
+        "pgor.delta.E": "0.07",
+        "intervention.type": "VOCATIONAL_TRAINING",
+        "intervention.target_variable": "G",
+        "provider_result.type": "SERVICE_COMPLETION",
+        "provider_result.status": "COMPLETED",
+        "outcome.methodology_version": "observed-pgor-delta-v1",
+        "policy.causal_claim_allowed": false
+      },
+      "target_payload": {
+        "schema_version": "outcome-interpretation-v1",
+        "classification": "PROGRESS",
+        "observed_change_summary": "G و E افزایش مشاهده‌شده دارند و Provider Result نیز تکمیل خدمت را گزارش می‌کند؛ این هم‌زمانی اثبات رابطه علّی نیست.",
+        "causal_claim": false,
+        "supporting_feature_refs": [
+          "pgor.delta.G",
+          "pgor.delta.E",
+          "provider_result.status"
+        ],
+        "review_flags": [
+          "HUMAN_REVIEW_REQUIRED"
+        ]
+      }
+    }
+  ]
+}
