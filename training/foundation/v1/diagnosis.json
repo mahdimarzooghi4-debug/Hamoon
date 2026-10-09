@@ -310,8 +310,8 @@
         "human_review"
       ],
       "input_payload": {
-        "pgor.P": "0.41",
-        "pgor.G": "0.22",
+        "pgor.P": "0.22",
+        "pgor.G": "0.24",
         "pgor.O": "0.54",
         "pgor.R": "0.57",
         "pgor.E": "0.34",
@@ -323,13 +323,13 @@
       },
       "target_payload": {
         "schema_version": "diagnosis-v1",
-        "summary": "Feature Package، P را گلوگاه رسمی اعلام کرده است. AI با مقایسه عددی مقادیر PGOR گلوگاه را دوباره محاسبه یا تغییر نمی‌دهد.",
+        "summary": "Feature Package، P را گلوگاه رسمی اعلام کرده است. AI از مقادیر PGOR برای ساخت گلوگاه تازه یا تغییر نتیجه موتور قطعی استفاده نمی‌کند.",
         "items": [
           {
             "code": "FOUNDATION_AUTHORITATIVE_BOTTLENECK_P",
             "category": "NEED",
             "title": "حفظ گلوگاه رسمی P",
-            "rationale": "مرجع خروجی، pgor.bottleneck_variables است و AI مجاز به بازتعریف نتیجه موتور قطعی PGOR نیست.",
+            "rationale": "مرجع خروجی، pgor.bottleneck_variables است؛ مقادیر عددی فقط شواهد همراه‌اند و AI نتیجه موتور قطعی PGOR را بازنویسی نمی‌کند.",
             "supporting_feature_refs": [
               "pgor.P",
               "pgor.bottleneck_variables"
@@ -338,8 +338,7 @@
           }
         ],
         "review_flags": [
-          "HUMAN_REVIEW_REQUIRED",
-          "AUTHORITATIVE_PGOR_PRESERVED"
+          "HUMAN_REVIEW_REQUIRED"
         ]
       }
     },
@@ -379,16 +378,15 @@
           }
         ],
         "review_flags": [
-          "HUMAN_REVIEW_REQUIRED",
-          "AUTHORITATIVE_PGOR_PRESERVED"
+          "HUMAN_REVIEW_REQUIRED"
         ]
       }
     },
     {
-      "example_id": "fdx-010-unknown-quality-flag-not-interpreted",
+      "example_id": "fdx-010-unresolved-observation-flag",
       "skill_tags": [
+        "canonical_data_quality_flag",
         "unknown_stays_unknown",
-        "data_quality_caution",
         "human_review"
       ],
       "input_payload": {
@@ -401,19 +399,19 @@
           "O"
         ],
         "pgor.data_quality_flags": [
-          "FOUNDATION_UNSPECIFIED_REVIEW_FLAG"
+          "HAS_UNRESOLVED_OBSERVATION"
         ],
         "pgor.completeness_ratio": "0.88"
       },
       "target_payload": {
         "schema_version": "diagnosis-v1",
-        "summary": "O گلوگاه ثبت‌شده است و یک پرچم کیفیت داده نیز وجود دارد. چون معنای آن پرچم در ورودی تعریف نشده، AI نباید معنای آن را حدس بزند.",
+        "summary": "O گلوگاه ثبت‌شده است و Feature Package وجود مشاهده حل‌نشده را اعلام می‌کند. AI نباید مقدار یا نتیجه آن مشاهده را حدس بزند.",
         "items": [
           {
-            "code": "FOUNDATION_O_WITH_UNINTERPRETED_QUALITY_FLAG",
+            "code": "FOUNDATION_O_WITH_UNRESOLVED_OBSERVATION",
             "category": "CONSTRAINT",
-            "title": "گلوگاه فرصت با پرچم کیفیت نیازمند بررسی",
-            "rationale": "O گلوگاه رسمی است؛ وجود پرچم کیفیت فقط نیاز به احتیاط و بازبینی انسانی را تقویت می‌کند.",
+            "title": "گلوگاه فرصت با مشاهده حل‌نشده",
+            "rationale": "O گلوگاه رسمی است و HAS_UNRESOLVED_OBSERVATION فقط وجود مورد حل‌نشده را نشان می‌دهد؛ مقدار، جهت یا اثر آن از داده موجود استنتاج نمی‌شود.",
             "supporting_feature_refs": [
               "pgor.O",
               "pgor.bottleneck_variables",
@@ -423,8 +421,7 @@
           }
         ],
         "review_flags": [
-          "HUMAN_REVIEW_REQUIRED",
-          "DATA_QUALITY_REVIEW_REQUIRED"
+          "HUMAN_REVIEW_REQUIRED"
         ]
       }
     },

@@ -70,7 +70,10 @@ def test_foundation_diagnosis_examples_are_grounded_and_human_reviewed() -> None
         assert isinstance(input_payload, dict)
         assert isinstance(target, dict)
         assert target["schema_version"] == "diagnosis-v1"
-        assert "HUMAN_REVIEW_REQUIRED" in target["review_flags"]
+        assert target["review_flags"] == ["HUMAN_REVIEW_REQUIRED"]
+        assert set(input_payload["pgor.data_quality_flags"]) <= {
+            "HAS_UNRESOLVED_OBSERVATION"
+        }
 
         for item in target["items"]:
             for ref in item["supporting_feature_refs"]:
