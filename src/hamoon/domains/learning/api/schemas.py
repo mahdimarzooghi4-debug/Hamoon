@@ -7,7 +7,10 @@ from hamoon.domains.intelligence.domain.decisions import (
     LearningSignalQuality,
     LearningSignalType,
 )
-from hamoon.domains.learning.domain.entities import DatasetVersionStatus
+from hamoon.domains.learning.domain.entities import (
+    DatasetSourceKind,
+    DatasetVersionStatus,
+)
 from hamoon.infrastructure.ai.contracts import AITaskClass
 
 
@@ -58,6 +61,11 @@ class CreateOutcomeDatasetRequest(BaseModel):
     signal_ids: list[UUID] = Field(min_length=1)
 
 
+class ImportFoundationDatasetRequest(BaseModel):
+    task_class: AITaskClass
+    source_version: str = Field(min_length=1, max_length=100)
+
+
 class LearningDatasetData(BaseModel):
     id: UUID
     dataset_key: str
@@ -67,6 +75,10 @@ class LearningDatasetData(BaseModel):
     status: DatasetVersionStatus
     manifest_ref: str
     manifest_digest: str
+    source_kind: DatasetSourceKind
+    source_ref: str | None
+    source_digest: str | None
+    source_approval_ref: str | None
     item_count: int
     created_at: datetime
     created_by: UUID

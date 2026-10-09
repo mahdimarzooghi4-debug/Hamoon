@@ -29,6 +29,10 @@ def _dataset(model: LearningDatasetVersionModel) -> LearningDatasetVersion:
         created_by=model.created_by,
         approved_at=model.approved_at,
         approved_by=model.approved_by,
+        source_kind=model.source_kind,
+        source_ref=model.source_ref,
+        source_digest=model.source_digest,
+        source_approval_ref=model.source_approval_ref,
     )
 
 
@@ -38,11 +42,16 @@ def _item(model: LearningDatasetItemModel) -> LearningDatasetItem:
         dataset_version_id=model.dataset_version_id,
         ordinal=model.ordinal,
         learning_signal_id=model.learning_signal_id,
-        signal_type=LearningSignalType(model.signal_type),
+        signal_type=(
+            LearningSignalType(model.signal_type)
+            if model.signal_type is not None
+            else None
+        ),
         signal_label=model.signal_label,
         input_payload=model.input_payload,
         target_payload=model.target_payload,
         source_refs=tuple(model.source_refs),
+        source_key=model.source_key,
     )
 
 
@@ -69,6 +78,10 @@ class SqlAlchemyLearningDatasetRepository:
                 created_by=dataset.created_by,
                 approved_at=dataset.approved_at,
                 approved_by=dataset.approved_by,
+                source_kind=dataset.source_kind,
+                source_ref=dataset.source_ref,
+                source_digest=dataset.source_digest,
+                source_approval_ref=dataset.source_approval_ref,
             )
         )
         for item in items:
@@ -78,11 +91,16 @@ class SqlAlchemyLearningDatasetRepository:
                     dataset_version_id=item.dataset_version_id,
                     ordinal=item.ordinal,
                     learning_signal_id=item.learning_signal_id,
-                    signal_type=item.signal_type.value,
+                    signal_type=(
+                        item.signal_type.value
+                        if item.signal_type is not None
+                        else None
+                    ),
                     signal_label=item.signal_label,
                     input_payload=item.input_payload,
                     target_payload=item.target_payload,
                     source_refs=list(item.source_refs),
+                    source_key=item.source_key,
                 )
             )
 
