@@ -1,10 +1,10 @@
 {
   "dataset_pack_key": "hamoon.foundation.behavior",
   "version": "v1",
-  "status": "DRAFT_SOURCE_ONLY",
-  "approval_state": "NOT_APPROVED",
+  "status": "APPROVED_SOURCE_ONLY",
+  "approval_state": "HUMAN_APPROVED_SOURCE",
   "runtime_training_eligible": false,
-  "human_review_required": true,
+  "human_review_required": false,
   "contains_production_household_data": false,
   "contains_hidden_chain_of_thought": false,
   "description": "Day-one Hamoon behavior foundation: supervised examples that teach observable decision discipline rather than household facts or hidden chain-of-thought.",
@@ -45,6 +45,12 @@
     "automatic_approval_forbidden": true,
     "automatic_promotion_forbidden": true,
     "evaluation_example_reuse_forbidden": true,
-    "note": "The current DB LearningDataset path is provenance-bound to curated LearningSignal records. This repository source pack must not be inserted by fabricating signal lineage."
+    "note": "Human approval applies to this repository source pack only. No LearningDatasetVersion(APPROVED), TrainingRun, EvaluationRun, Candidate, Routing Policy, or Production activation is created by this approval."
+  },
+  "human_approval": {
+    "status": "APPROVED",
+    "scope": "FOUNDATION_SOURCE_CONTENT",
+    "recorded_on": "2026-10-09",
+    "authorization_note": "Explicit human approval was provided in the project conversation."
   }
 }

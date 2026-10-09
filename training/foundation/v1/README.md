@@ -1,6 +1,6 @@
 # Hamoon Foundation Behavior Dataset v1
 
-Status: **DRAFT SOURCE ONLY — NOT APPROVED FOR TRAINING**
+Status: **HUMAN-APPROVED SOURCE ONLY — NOT YET A RUNTIME TRAINING DATASET**
 
 This directory records the first day-one supervised behavior source pack for Hamoon.
 
@@ -31,7 +31,7 @@ The current Prescription target schema requires `review_schedule` and `success_c
 
 ## Governance boundary
 
-These files are **not** a `LearningDatasetVersion(APPROVED)` and are not automatically consumable by the Internal Training Control Plane.
+These files have received explicit human approval as the Foundation source content. They are still **not** a `LearningDatasetVersion(APPROVED)` and are not automatically consumable by the Internal Training Control Plane.
 
 The current database learning dataset model is provenance-bound to curated `LearningSignal` records. Do **not** fabricate signal IDs to import this source pack.
 
@@ -45,3 +45,18 @@ A future controlled import must:
 Repository commit history is the source version history for this draft source pack.
 
 See `manifest.json` and `behavior_contract.json`.
+
+
+## Human approval
+
+Explicit human approval of the Foundation source content was recorded on 2026-10-09.
+
+Approval scope is limited to this repository source pack. It does not authorize:
+
+- fabricating LearningSignal lineage;
+- creating an APPROVED runtime LearningDatasetVersion without a controlled import path;
+- executing Training;
+- executing Evaluation;
+- promoting a Candidate or Routing Policy;
+- merging this PR;
+- deploying Stage or Production.

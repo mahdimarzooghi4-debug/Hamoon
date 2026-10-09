@@ -14,10 +14,12 @@ def _load(name: str) -> dict[str, object]:
 def test_foundation_pack_is_draft_synthetic_and_not_runtime_eligible() -> None:
     manifest = _load("manifest.json")
 
-    assert manifest["status"] == "DRAFT_SOURCE_ONLY"
-    assert manifest["approval_state"] == "NOT_APPROVED"
+    assert manifest["status"] == "APPROVED_SOURCE_ONLY"
+    assert manifest["approval_state"] == "HUMAN_APPROVED_SOURCE"
     assert manifest["runtime_training_eligible"] is False
-    assert manifest["human_review_required"] is True
+    assert manifest["human_review_required"] is False
+    assert manifest["human_approval"]["status"] == "APPROVED"
+    assert manifest["human_approval"]["scope"] == "FOUNDATION_SOURCE_CONTENT"
     assert manifest["contains_production_household_data"] is False
     assert manifest["contains_hidden_chain_of_thought"] is False
 

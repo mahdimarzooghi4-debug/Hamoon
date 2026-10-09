@@ -1,6 +1,6 @@
 # PR #13 — Foundation Behavior Dataset v1 — Content Review
 
-Status: **Reviewed / Draft remains open**
+Status: **Reviewed + Human-approved source / Draft remains open**
 
 Reviewed HEAD before fixes: `e5c3d310cb7948ec030352c3b073e2992e02912b`
 
@@ -51,3 +51,10 @@ The example was corrected to a consistent Feature Package while preserving the i
 ## Approval boundary
 
 This review does **not** approve the Dataset for training and does not authorize model training, evaluation, promotion, Stage, Release, or Production.
+
+
+## Human approval record
+
+On 2026-10-09, explicit human approval was provided for the Foundation Behavior Dataset v1 source content.
+
+This approval closes the content-approval gate for the repository source pack only. The runtime governance boundary remains unchanged: no runtime LearningDatasetVersion has been created or approved, no TrainingRun is authorized by this record, and no merge or deployment is implied.
