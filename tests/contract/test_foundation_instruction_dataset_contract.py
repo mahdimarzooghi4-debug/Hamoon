@@ -136,3 +136,34 @@ def test_prescription_foundation_is_explicitly_deferred_not_fabricated() -> None
     assert "PRESCRIPTION" in deferred
     assert "review_schedule" in deferred["PRESCRIPTION"]
     assert "success_criteria" in deferred["PRESCRIPTION"]
+
+
+def test_foundation_source_has_controlled_runtime_import_path() -> None:
+    routes = Path("src/hamoon/domains/learning/api/routes.py").read_text(
+        encoding="utf-8"
+    )
+    handlers = Path(
+        "src/hamoon/domains/learning/application/handlers.py"
+    ).read_text(encoding="utf-8")
+    migration = Path(
+        "migrations/versions/20261009_0038_foundation_dataset_provenance.py"
+    ).read_text(encoding="utf-8")
+    dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
+
+    assert '"/api/v1/admin/learning/foundation-datasets/import"' in routes
+    assert "ImportApprovedFoundationDatasetHandler" in handlers
+    assert "DatasetVersionStatus.DRAFT" in handlers
+    assert "learning_signal_id=None" in handlers
+    assert "APPROVED_FOUNDATION_SOURCE" in migration
+    assert "COPY training ./training" in dockerfile
+
+    import_block = handlers.split(
+        "class ImportApprovedFoundationDatasetHandler:",
+        maxsplit=1,
+    )[1].split(
+        "AUTO_CURATED_SIGNAL_SELECTION_POLICY_VERSION",
+        maxsplit=1,
+    )[0]
+    assert ".approve(" not in import_block
+    assert "DatasetVersionStatus.APPROVED" not in import_block
+    assert "promote_routing_policy" not in import_block

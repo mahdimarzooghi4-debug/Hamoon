@@ -48,6 +48,15 @@ class CreateReviewedDecisionDatasetCommand:
 
 
 @dataclass(frozen=True, slots=True)
+class ImportApprovedFoundationDatasetCommand:
+    task_class: AITaskClass
+    source_version: str
+    actor_id: UUID
+    request_id: str
+    correlation_id: str
+
+
+@dataclass(frozen=True, slots=True)
 class ApproveDatasetCommand:
     dataset_id: UUID
     actor_id: UUID

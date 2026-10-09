@@ -22,6 +22,7 @@ RUN apt-get update \
 COPY pyproject.toml uv.lock README.md alembic.ini ./
 COPY requirements ./requirements
 COPY migrations ./migrations
+COPY training ./training
 COPY src ./src
 
 RUN uv sync --frozen --no-dev --no-editable \

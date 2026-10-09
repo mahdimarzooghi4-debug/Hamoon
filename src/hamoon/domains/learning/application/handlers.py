@@ -27,10 +27,19 @@ from hamoon.domains.learning.application.commands import (
     CreateAutomaticDatasetForCuratedSignalCommand,
     CreateEvaluationRunCommand,
     CreateOutcomeDatasetCommand,
+    ImportApprovedFoundationDatasetCommand,
     CreateReviewedDecisionDatasetCommand,
     CurateLearningSignalCommand,
 )
+from hamoon.domains.learning.application.foundation_source import (
+    FOUNDATION_SOURCE_SELECTION_POLICY_VERSION,
+    FoundationSourceLoader,
+    attest_foundation_dataset,
+    foundation_runtime_manifest_digest,
+    foundation_source_refs,
+)
 from hamoon.domains.learning.domain.entities import (
+    DatasetSourceKind,
     DatasetVersionStatus,
     LearningDatasetItem,
     LearningDatasetVersion,
@@ -577,6 +586,142 @@ class CreateReviewedDecisionDatasetHandler:
 
 
 
+class ImportApprovedFoundationDatasetHandler:
+    def __init__(
+        self,
+        *,
+        datasets: LearningDatasetRepository,
+        source_loader: FoundationSourceLoader,
+        events: DomainEventRecorder,
+        audits: AuditRecorder,
+    ) -> None:
+        self._datasets = datasets
+        self._source_loader = source_loader
+        self._events = events
+        self._audits = audits
+
+    async def handle(
+        self,
+        command: ImportApprovedFoundationDatasetCommand,
+    ) -> tuple[LearningDatasetVersion, tuple[LearningDatasetItem, ...]]:
+        source = self._source_loader.load(
+            task_class=command.task_class,
+            source_version=command.source_version.strip(),
+        )
+        existing = await self._datasets.get_by_key_version(
+            dataset_key=source.dataset_key,
+            version=source.version,
+        )
+        if existing is not None:
+            existing_items = await self._datasets.list_items(existing.id)
+            if (
+                existing.source_kind
+                is not DatasetSourceKind.APPROVED_FOUNDATION_SOURCE
+            ):
+                raise LearningDatasetError("FOUNDATION_SOURCE_VERSION_CONFLICT")
+            attest_foundation_dataset(
+                dataset=existing,
+                items=existing_items,
+                source=source,
+            )
+            return existing, tuple(existing_items)
+
+        dataset_id = uuid4()
+        items = tuple(
+            LearningDatasetItem(
+                id=uuid4(),
+                dataset_version_id=dataset_id,
+                ordinal=ordinal,
+                learning_signal_id=None,
+                signal_type=None,
+                signal_label=None,
+                input_payload=dict(example.input_payload),
+                target_payload=dict(example.target_payload),
+                source_refs=foundation_source_refs(
+                    source,
+                    example_id=example.example_id,
+                ),
+                source_key=example.example_id,
+            )
+            for ordinal, example in enumerate(source.examples, start=1)
+        )
+        now = datetime.now(UTC)
+        dataset = LearningDatasetVersion(
+            id=dataset_id,
+            dataset_key=source.dataset_key,
+            version=source.version,
+            purpose=source.task_class.value,
+            selection_policy_version=(
+                FOUNDATION_SOURCE_SELECTION_POLICY_VERSION
+            ),
+            status=DatasetVersionStatus.DRAFT,
+            manifest_ref=f"db://learning-datasets/{dataset_id}/items",
+            manifest_digest=foundation_runtime_manifest_digest(source),
+            created_at=now,
+            created_by=command.actor_id,
+            source_kind=DatasetSourceKind.APPROVED_FOUNDATION_SOURCE,
+            source_ref=source.source_ref,
+            source_digest=source.source_digest,
+            source_approval_ref=source.approval_ref,
+        )
+        await self._datasets.add(dataset, items)
+
+        event_id = uuid4()
+        await self._events.record(
+            DomainEventRecord(
+                event_id=event_id,
+                event_type="DatasetVersionCreated",
+                event_version=1,
+                aggregate_type="LEARNING_DATASET",
+                aggregate_id=dataset.id,
+                aggregate_version=1,
+                actor_id=command.actor_id,
+                occurred_at=now,
+                recorded_at=now,
+                correlation_id=command.correlation_id,
+                causation_id=None,
+                payload={
+                    "dataset_id": str(dataset.id),
+                    "dataset_key": dataset.dataset_key,
+                    "version": dataset.version,
+                    "purpose": dataset.purpose,
+                    "selection_policy_version": (
+                        dataset.selection_policy_version
+                    ),
+                    "source_kind": dataset.source_kind.value,
+                    "source_ref": dataset.source_ref,
+                    "source_digest": dataset.source_digest,
+                    "source_approval_ref": dataset.source_approval_ref,
+                    "item_count": len(items),
+                    "manifest_digest": dataset.manifest_digest,
+                },
+            )
+        )
+        await self._audits.record(
+            AuditRecord(
+                id=uuid4(),
+                actor_id=command.actor_id,
+                action="learning.foundation_dataset.import",
+                resource_type="LEARNING_DATASET",
+                resource_id=dataset.id,
+                request_id=command.request_id,
+                correlation_id=command.correlation_id,
+                created_at=now,
+                purpose="AI_TRAINING_DATASET",
+                metadata={
+                    "event_id": str(event_id),
+                    "task_class": source.task_class.value,
+                    "source_ref": source.source_ref,
+                    "source_digest": source.source_digest,
+                    "source_approval_ref": source.approval_ref,
+                    "item_count": len(items),
+                    "manifest_digest": dataset.manifest_digest,
+                },
+            )
+        )
+        return dataset, items
+
+
 AUTO_CURATED_SIGNAL_SELECTION_POLICY_VERSION = "curated-signal-event-v1"
 
 _AUTO_REVIEWED_DATASET_TASK_BY_SIGNAL = {
@@ -709,11 +854,13 @@ class ApproveDatasetHandler:
         signals: LearningSignalRepository,
         events: DomainEventRecorder,
         audits: AuditRecorder,
+        foundation_sources: FoundationSourceLoader | None = None,
     ) -> None:
         self._datasets = datasets
         self._signals = signals
         self._events = events
         self._audits = audits
+        self._foundation_sources = foundation_sources
 
     async def handle(
         self,
@@ -723,14 +870,47 @@ class ApproveDatasetHandler:
         if dataset is None:
             raise LearningDatasetError("LEARNING_DATASET_NOT_FOUND")
 
-        for item in await self._datasets.list_items(dataset.id):
-            signal = await self._signals.get(item.learning_signal_id)
-            if signal is None:
-                raise LearningDatasetError("DATASET_LEARNING_SIGNAL_NOT_FOUND")
-            if signal.quality_status is not LearningSignalQuality.CURATED:
+        items = await self._datasets.list_items(dataset.id)
+        if dataset.source_kind is DatasetSourceKind.CURATED_LEARNING_SIGNAL:
+            for item in items:
+                if item.learning_signal_id is None:
+                    raise LearningDatasetError(
+                        "DATASET_LEARNING_SIGNAL_PROVENANCE_REQUIRED"
+                    )
+                signal = await self._signals.get(item.learning_signal_id)
+                if signal is None:
+                    raise LearningDatasetError(
+                        "DATASET_LEARNING_SIGNAL_NOT_FOUND"
+                    )
+                if signal.quality_status is not LearningSignalQuality.CURATED:
+                    raise LearningDatasetError(
+                        "DATASET_LEARNING_SIGNAL_NOT_CURATED"
+                    )
+        elif (
+            dataset.source_kind
+            is DatasetSourceKind.APPROVED_FOUNDATION_SOURCE
+        ):
+            if self._foundation_sources is None:
                 raise LearningDatasetError(
-                    "DATASET_LEARNING_SIGNAL_NOT_CURATED"
+                    "FOUNDATION_SOURCE_ATTESTOR_REQUIRED"
                 )
+            try:
+                task_class = AITaskClass(dataset.purpose)
+            except ValueError as exc:
+                raise LearningDatasetError(
+                    "FOUNDATION_TASK_CLASS_UNSUPPORTED"
+                ) from exc
+            source = self._foundation_sources.load(
+                task_class=task_class,
+                source_version=dataset.version,
+            )
+            attest_foundation_dataset(
+                dataset=dataset,
+                items=items,
+                source=source,
+            )
+        else:
+            raise LearningDatasetError("DATASET_SOURCE_KIND_INVALID")
 
         now = datetime.now(UTC)
         try:

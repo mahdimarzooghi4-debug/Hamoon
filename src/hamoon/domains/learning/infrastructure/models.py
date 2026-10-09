@@ -5,7 +5,10 @@ from pydantic import JsonValue
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, JSON, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from hamoon.domains.learning.domain.entities import DatasetVersionStatus
+from hamoon.domains.learning.domain.entities import (
+    DatasetSourceKind,
+    DatasetVersionStatus,
+)
 from hamoon.infrastructure.db.base import Base
 
 
@@ -40,6 +43,16 @@ class LearningDatasetVersionModel(Base):
         ForeignKey("actor.id", ondelete="RESTRICT"),
         nullable=True,
     )
+    source_kind: Mapped[DatasetSourceKind] = mapped_column(
+        Enum(DatasetSourceKind, name="learning_dataset_source_kind"),
+        nullable=False,
+    )
+    source_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    source_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source_approval_ref: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
 
 
 class LearningDatasetItemModel(Base):
@@ -55,6 +68,11 @@ class LearningDatasetItemModel(Base):
             "ordinal",
             name="uq_learning_dataset_ordinal",
         ),
+        UniqueConstraint(
+            "dataset_version_id",
+            "source_key",
+            name="uq_learning_dataset_source_key",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -64,13 +82,14 @@ class LearningDatasetItemModel(Base):
         index=True,
     )
     ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
-    learning_signal_id: Mapped[UUID] = mapped_column(
+    learning_signal_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("learning_signal.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
-    signal_type: Mapped[str] = mapped_column(String(100), nullable=False)
-    signal_label: Mapped[str] = mapped_column(String(100), nullable=False)
+    signal_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    signal_label: Mapped[str | None] = mapped_column(String(100), nullable=True)
     input_payload: Mapped[dict[str, JsonValue]] = mapped_column(JSON, nullable=False)
     target_payload: Mapped[dict[str, JsonValue]] = mapped_column(JSON, nullable=False)
     source_refs: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    source_key: Mapped[str | None] = mapped_column(String(200), nullable=True)

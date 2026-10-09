@@ -30,6 +30,7 @@ from hamoon.domains.learning.api.schemas import (
     CreateEvaluationRunRequest,
     CreateOutcomeDatasetRequest,
     CreateReviewedDecisionDatasetRequest,
+    ImportFoundationDatasetRequest,
     CurateLearningSignalRequest,
     LearningDatasetData,
     LearningDatasetExportCase,
@@ -47,7 +48,11 @@ from hamoon.domains.learning.application.commands import (
     CreateEvaluationRunCommand,
     CreateOutcomeDatasetCommand,
     CreateReviewedDecisionDatasetCommand,
+    ImportApprovedFoundationDatasetCommand,
     CurateLearningSignalCommand,
+)
+from hamoon.domains.learning.application.foundation_source import (
+    FoundationSourceLoader,
 )
 from hamoon.domains.learning.application.handlers import (
     ApproveDatasetHandler,
@@ -56,6 +61,7 @@ from hamoon.domains.learning.application.handlers import (
     CreateOutcomeDatasetHandler,
     CreateReviewedDecisionDatasetHandler,
     CurateLearningSignalHandler,
+    ImportApprovedFoundationDatasetHandler,
 )
 from hamoon.domains.learning.domain.entities import DatasetVersionStatus
 from hamoon.domains.learning.domain.errors import (
@@ -259,6 +265,10 @@ async def list_learning_datasets(
                 status=dataset.status,
                 manifest_ref=dataset.manifest_ref,
                 manifest_digest=dataset.manifest_digest,
+                source_kind=dataset.source_kind,
+                source_ref=dataset.source_ref,
+                source_digest=dataset.source_digest,
+                source_approval_ref=dataset.source_approval_ref,
                 item_count=counts.get(dataset.id, 0),
                 created_at=dataset.created_at,
                 created_by=dataset.created_by,
@@ -326,6 +336,10 @@ async def create_learning_dataset(
             status=dataset.status,
             manifest_ref=dataset.manifest_ref,
             manifest_digest=dataset.manifest_digest,
+            source_kind=dataset.source_kind,
+            source_ref=dataset.source_ref,
+            source_digest=dataset.source_digest,
+            source_approval_ref=dataset.source_approval_ref,
             item_count=len(items),
             created_at=dataset.created_at,
             created_by=dataset.created_by,
@@ -392,6 +406,75 @@ async def create_reviewed_decision_dataset(
             status=dataset.status,
             manifest_ref=dataset.manifest_ref,
             manifest_digest=dataset.manifest_digest,
+            source_kind=dataset.source_kind,
+            source_ref=dataset.source_ref,
+            source_digest=dataset.source_digest,
+            source_approval_ref=dataset.source_approval_ref,
+            item_count=len(items),
+            created_at=dataset.created_at,
+            created_by=dataset.created_by,
+            approved_at=dataset.approved_at,
+            approved_by=dataset.approved_by,
+        )
+    )
+
+
+@router.post(
+    "/api/v1/admin/learning/foundation-datasets/import",
+    response_model=LearningDatasetResponse,
+)
+async def import_foundation_dataset(
+    body: ImportFoundationDatasetRequest,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.ADMIN)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> LearningDatasetResponse:
+    request_id = current_request_id() or "unknown"
+    correlation_id = current_correlation_id() or request_id
+    repository = SqlAlchemyLearningDatasetRepository(session)
+    try:
+        async with session.begin():
+            dataset, items = await ImportApprovedFoundationDatasetHandler(
+                datasets=repository,
+                source_loader=FoundationSourceLoader(),
+                events=SqlAlchemyDomainEventRecorder(session),
+                audits=SqlAlchemyAuditRecorder(session),
+            ).handle(
+                ImportApprovedFoundationDatasetCommand(
+                    task_class=body.task_class,
+                    source_version=body.source_version,
+                    actor_id=context.actor_id,
+                    request_id=request_id,
+                    correlation_id=correlation_id,
+                )
+            )
+    except LearningDatasetError as exc:
+        code = str(exc)
+        raise HTTPException(
+            status_code=(
+                status.HTTP_409_CONFLICT
+                if code == "FOUNDATION_SOURCE_VERSION_CONFLICT"
+                else status.HTTP_422_UNPROCESSABLE_ENTITY
+            ),
+            detail={"code": code},
+        ) from exc
+
+    return LearningDatasetResponse(
+        data=LearningDatasetData(
+            id=dataset.id,
+            dataset_key=dataset.dataset_key,
+            version=dataset.version,
+            purpose=dataset.purpose,
+            selection_policy_version=dataset.selection_policy_version,
+            status=dataset.status,
+            manifest_ref=dataset.manifest_ref,
+            manifest_digest=dataset.manifest_digest,
+            source_kind=dataset.source_kind,
+            source_ref=dataset.source_ref,
+            source_digest=dataset.source_digest,
+            source_approval_ref=dataset.source_approval_ref,
             item_count=len(items),
             created_at=dataset.created_at,
             created_by=dataset.created_by,
@@ -423,6 +506,7 @@ async def approve_learning_dataset(
                 signals=SqlAlchemyLearningSignalRepository(session),
                 events=SqlAlchemyDomainEventRecorder(session),
                 audits=SqlAlchemyAuditRecorder(session),
+                foundation_sources=FoundationSourceLoader(),
             ).handle(
                 ApproveDatasetCommand(
                     dataset_id=dataset_id,
@@ -447,6 +531,10 @@ async def approve_learning_dataset(
             status=dataset.status,
             manifest_ref=dataset.manifest_ref,
             manifest_digest=dataset.manifest_digest,
+            source_kind=dataset.source_kind,
+            source_ref=dataset.source_ref,
+            source_digest=dataset.source_digest,
+            source_approval_ref=dataset.source_approval_ref,
             item_count=len(items),
             created_at=dataset.created_at,
             created_by=dataset.created_by,
@@ -481,7 +569,7 @@ async def export_learning_dataset(
         classification = item.target_payload.get("classification")
         cases.append(
             LearningDatasetExportCase(
-                case_id=str(item.id),
+                case_id=item.source_key or str(item.id),
                 input=item.input_payload,
                 target=item.target_payload,
                 expert_classification=(

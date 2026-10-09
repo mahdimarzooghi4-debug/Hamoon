@@ -14,6 +14,11 @@ class DatasetVersionStatus(StrEnum):
     RETIRED = "RETIRED"
 
 
+class DatasetSourceKind(StrEnum):
+    CURATED_LEARNING_SIGNAL = "CURATED_LEARNING_SIGNAL"
+    APPROVED_FOUNDATION_SOURCE = "APPROVED_FOUNDATION_SOURCE"
+
+
 @dataclass(frozen=True, slots=True)
 class LearningDatasetVersion:
     id: UUID
@@ -28,6 +33,10 @@ class LearningDatasetVersion:
     created_by: UUID
     approved_at: datetime | None = None
     approved_by: UUID | None = None
+    source_kind: DatasetSourceKind = DatasetSourceKind.CURATED_LEARNING_SIGNAL
+    source_ref: str | None = None
+    source_digest: str | None = None
+    source_approval_ref: str | None = None
 
     def approve(
         self,
@@ -50,9 +59,10 @@ class LearningDatasetItem:
     id: UUID
     dataset_version_id: UUID
     ordinal: int
-    learning_signal_id: UUID
-    signal_type: LearningSignalType
-    signal_label: str
+    learning_signal_id: UUID | None
+    signal_type: LearningSignalType | None
+    signal_label: str | None
     input_payload: dict[str, JsonValue]
     target_payload: dict[str, JsonValue]
     source_refs: tuple[str, ...]
+    source_key: str | None = None
