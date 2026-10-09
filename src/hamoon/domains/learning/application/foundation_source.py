@@ -158,8 +158,13 @@ def _validate_example(
 
 
 class FoundationSourceLoader:
-    def __init__(self, root: Path = Path("training/foundation")) -> None:
+    def __init__(
+        self,
+        root: Path = Path("training/foundation"),
+        repository_root: Path = Path("."),
+    ) -> None:
         self._root = root
+        self._repository_root = repository_root
 
     def load(
         self,
@@ -176,13 +181,20 @@ class FoundationSourceLoader:
 
         version_dir = self._root / source_version
         manifest_path = version_dir / "manifest.json"
+        behavior_contract_path = version_dir / "behavior_contract.json"
         task_path = version_dir / filename
+        approval_relative_path = approval_ref.removeprefix("repo://")
+        approval_path = self._repository_root / approval_relative_path
         try:
+            manifest_bytes = manifest_path.read_bytes()
+            behavior_contract_bytes = behavior_contract_path.read_bytes()
+            task_bytes = task_path.read_bytes()
+            approval_bytes = approval_path.read_bytes()
             manifest = _FoundationManifest.model_validate_json(
-                manifest_path.read_text(encoding="utf-8")
+                manifest_bytes
             )
             task_dataset = _TaskDataset.model_validate_json(
-                task_path.read_text(encoding="utf-8")
+                task_bytes
             )
         except FileNotFoundError as exc:
             raise LearningDatasetError("FOUNDATION_SOURCE_FILE_MISSING") from exc
@@ -222,6 +234,7 @@ class FoundationSourceLoader:
         if (
             task_dataset.version != source_version
             or task_dataset.task_class != task_class.value
+            or task_dataset.status != "APPROVED_SOURCE_ONLY"
             or not task_dataset.dataset_key.strip()
             or not task_dataset.examples
         ):
@@ -247,7 +260,18 @@ class FoundationSourceLoader:
                 )
             )
 
-        source_digest = hashlib.sha256(task_path.read_bytes()).hexdigest()
+        digest = hashlib.sha256()
+        for relative_name, content in (
+            ("manifest.json", manifest_bytes),
+            ("behavior_contract.json", behavior_contract_bytes),
+            (filename, task_bytes),
+            (approval_relative_path, approval_bytes),
+        ):
+            digest.update(relative_name.encode("utf-8"))
+            digest.update(b"\0")
+            digest.update(content)
+            digest.update(b"\0")
+        source_digest = digest.hexdigest()
         return ApprovedFoundationSource(
             task_class=task_class,
             dataset_key=task_dataset.dataset_key.strip(),

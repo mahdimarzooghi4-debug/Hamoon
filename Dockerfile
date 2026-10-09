@@ -23,6 +23,7 @@ COPY pyproject.toml uv.lock README.md alembic.ini ./
 COPY requirements ./requirements
 COPY migrations ./migrations
 COPY training ./training
+COPY docs/approvals ./docs/approvals
 COPY src ./src
 
 RUN uv sync --frozen --no-dev --no-editable \

@@ -11,7 +11,7 @@ def _load(name: str) -> dict[str, object]:
     return json.loads((ROOT / name).read_text(encoding="utf-8"))
 
 
-def test_foundation_pack_is_draft_synthetic_and_not_runtime_eligible() -> None:
+def test_foundation_pack_is_human_approved_source_not_runtime_eligible() -> None:
     manifest = _load("manifest.json")
 
     assert manifest["status"] == "APPROVED_SOURCE_ONLY"
@@ -57,7 +57,7 @@ def test_foundation_behavior_contract_preserves_hamoon_safety_boundaries() -> No
 def test_foundation_diagnosis_examples_are_grounded_and_human_reviewed() -> None:
     dataset = _load("diagnosis.json")
     assert dataset["task_class"] == "DIAGNOSIS"
-    assert dataset["status"] == "DRAFT_SOURCE_ONLY"
+    assert dataset["status"] == "APPROVED_SOURCE_ONLY"
     assert dataset["contains_production_household_data"] is False
     assert dataset["contains_hidden_chain_of_thought"] is False
 
@@ -85,7 +85,7 @@ def test_foundation_diagnosis_examples_are_grounded_and_human_reviewed() -> None
 def test_foundation_outcome_examples_never_claim_causality() -> None:
     dataset = _load("outcome_interpretation.json")
     assert dataset["task_class"] == "OUTCOME_INTERPRETATION"
-    assert dataset["status"] == "DRAFT_SOURCE_ONLY"
+    assert dataset["status"] == "APPROVED_SOURCE_ONLY"
     assert dataset["contains_production_household_data"] is False
     assert dataset["contains_hidden_chain_of_thought"] is False
 
@@ -156,6 +156,7 @@ def test_foundation_source_has_controlled_runtime_import_path() -> None:
     assert "learning_signal_id=None" in handlers
     assert "APPROVED_FOUNDATION_SOURCE" in migration
     assert "COPY training ./training" in dockerfile
+    assert "COPY docs/approvals ./docs/approvals" in dockerfile
 
     import_block = handlers.split(
         "class ImportApprovedFoundationDatasetHandler:",

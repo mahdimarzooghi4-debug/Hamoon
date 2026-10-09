@@ -2,7 +2,7 @@
   "dataset_key": "hamoon.foundation.diagnosis.behavior",
   "version": "v1",
   "task_class": "DIAGNOSIS",
-  "status": "DRAFT_SOURCE_ONLY",
+  "status": "APPROVED_SOURCE_ONLY",
   "source_type": "SYNTHETIC_FOUNDATION_INSTRUCTION",
   "feature_schema_version": "diagnosis-input-v1",
   "output_schema_version": "diagnosis-v1",

@@ -2,7 +2,7 @@
   "dataset_key": "hamoon.foundation.outcome_interpretation.behavior",
   "version": "v1",
   "task_class": "OUTCOME_INTERPRETATION",
-  "status": "DRAFT_SOURCE_ONLY",
+  "status": "APPROVED_SOURCE_ONLY",
   "source_type": "SYNTHETIC_FOUNDATION_INSTRUCTION",
   "feature_schema_version": "outcome-input-v1",
   "output_schema_version": "outcome-interpretation-v1",

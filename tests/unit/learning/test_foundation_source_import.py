@@ -1,4 +1,6 @@
 from dataclasses import replace
+from pathlib import Path
+import shutil
 from uuid import UUID
 
 import pytest
@@ -218,3 +220,42 @@ async def test_foundation_approval_fails_if_imported_item_drifted() -> None:
 
     assert datasets.dataset is not None
     assert datasets.dataset.status is DatasetVersionStatus.DRAFT
+
+
+def test_foundation_source_digest_covers_approval_evidence(
+    tmp_path: Path,
+) -> None:
+    training_root = tmp_path / "training" / "foundation"
+    approval_root = tmp_path / "docs" / "approvals"
+    training_root.parent.mkdir(parents=True, exist_ok=True)
+    approval_root.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(
+        Path("training/foundation/v1"),
+        training_root / "v1",
+    )
+    approval_name = (
+        "HAMOON-FOUNDATION-BEHAVIOR-DATASET-V1-HUMAN-APPROVAL.md"
+    )
+    approval_source = Path("docs/approvals") / approval_name
+    approval_target = approval_root / approval_name
+    shutil.copyfile(approval_source, approval_target)
+
+    loader = FoundationSourceLoader(
+        root=training_root,
+        repository_root=tmp_path,
+    )
+    before = loader.load(
+        task_class=AITaskClass.DIAGNOSIS,
+        source_version="v1",
+    )
+
+    approval_target.write_text(
+        approval_target.read_text(encoding="utf-8") + "\nreview-drift\n",
+        encoding="utf-8",
+    )
+    after = loader.load(
+        task_class=AITaskClass.DIAGNOSIS,
+        source_version="v1",
+    )
+
+    assert before.source_digest != after.source_digest
