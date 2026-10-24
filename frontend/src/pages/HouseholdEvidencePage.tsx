@@ -197,10 +197,12 @@ export function HouseholdEvidencePage({ householdId }: { householdId: string }) 
   const [stage, setStage] = useState<"hashing" | "initiating" | "uploading" | "scanning" | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const loadEvidence = useCallback(async () => {
     setEvidenceState({ kind: "loading" });
+    setDownloadError(null);
     try {
       setEvidenceState({ kind: "ready", items: await getHouseholdEvidence(householdId) });
     } catch (error: unknown) {
@@ -327,7 +329,7 @@ export function HouseholdEvidencePage({ householdId }: { householdId: string }) 
   async function downloadEvidence(item: EvidenceRecord) {
     if (!isAvailable(item) || downloadingId !== null) return;
     setDownloadingId(item.id);
-    setActionError(null);
+    setDownloadError(null);
     try {
       const target = await getEvidenceDownloadTarget(item.id);
       const anchor = document.createElement("a");
@@ -339,7 +341,7 @@ export function HouseholdEvidencePage({ householdId }: { householdId: string }) 
       anchor.click();
       anchor.remove();
     } catch (error: unknown) {
-      setActionError(actionErrorMessage(error));
+      setDownloadError(actionErrorMessage(error));
     } finally {
       setDownloadingId(null);
     }
@@ -478,6 +480,7 @@ export function HouseholdEvidencePage({ householdId }: { householdId: string }) 
             تازه‌سازی فهرست
           </Button>
         </div>
+        {downloadError ? <div className="inline-alert" role="alert">{downloadError}</div> : null}
 
         <div className="evidence-list-controls">
           <label className="evidence-search">
