@@ -43,6 +43,10 @@ export interface LearningDataset {
   status: DatasetStatus;
   manifest_ref: string;
   manifest_digest: string;
+  source_kind: "CURATED_LEARNING_SIGNAL" | "APPROVED_FOUNDATION_SOURCE";
+  source_ref: string | null;
+  source_digest: string | null;
+  source_approval_ref: string | null;
   item_count: number;
   created_at: string;
   created_by: string;
@@ -242,6 +246,26 @@ export async function createOutcomeDataset(input: {
         version: input.version,
         selection_policy_version: input.selectionPolicyVersion,
         signal_ids: input.signalIds,
+      }),
+    },
+  );
+  return response.data;
+}
+
+/**
+ * Explicit ADMIN import of the human-approved foundation source package.
+ * Creates only a DRAFT dataset; separate approval/training/evaluation gates remain.
+ */
+export async function importFoundationDataset(
+  taskClass: "DIAGNOSIS" | "OUTCOME_INTERPRETATION",
+): Promise<LearningDataset> {
+  const response = await requestJson<DataResponse<LearningDataset>>(
+    "/api/v1/admin/learning/foundation-datasets/import",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        task_class: taskClass,
+        source_version: "v1",
       }),
     },
   );
