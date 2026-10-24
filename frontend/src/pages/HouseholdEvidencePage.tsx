@@ -129,13 +129,16 @@ function mediaTypeFor(file: File): string {
   return file.type;
 }
 
-function sha256Hex(file: File): Promise<string> {
+async function sha256Hex(file: File): Promise<string> {
   if (!globalThis.crypto?.subtle) {
     throw new Error("SECURE_HASHING_UNAVAILABLE");
   }
-  return globalThis.crypto.subtle.digest("SHA-256", file.arrayBuffer()).then((digest) =>
-    Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join(""),
-  );
+  const content = await file.arrayBuffer();
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", content);
+  return Array.from(
+    new Uint8Array(digest),
+    (byte) => byte.toString(16).padStart(2, "0"),
+  ).join("");
 }
 
 function sizeLabel(bytes: number): string {
@@ -172,8 +175,8 @@ export function HouseholdEvidencePage({ householdId }: { householdId: string }) 
   const [evidenceState, setEvidenceState] = useState<EvidenceState>({ kind: "loading" });
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [evidenceType, setEvidenceType] = useState<EvidenceType>("DOCUMENT");
-  const [sensitivity, setSensitivity] = useState<EvidenceSensitivity>("CONFIDENTIAL");
+  const [evidenceType, setEvidenceType] = useState<EvidenceType | "">("");
+  const [sensitivity, setSensitivity] = useState<EvidenceSensitivity | "">("");
   const [file, setFile] = useState<File | null>(null);
   const [fileInputVersion, setFileInputVersion] = useState(0);
   const [filter, setFilter] = useState<EvidenceFilter>("ALL");
@@ -249,6 +252,11 @@ export function HouseholdEvidencePage({ householdId }: { householdId: string }) 
   async function submitUpload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy || file === null || title.trim().length === 0) return;
+    if (evidenceType === "" || sensitivity === "") {
+      setActionError("نوع مدرک و سطح حساسیت را پیش از بارگذاری انتخاب کنید.");
+      setActionSuccess(null);
+      return;
+    }
     const mediaType = mediaTypeFor(file);
     if (!allowedMediaTypes.has(mediaType)) {
       setActionError("فقط فایل‌های PDF، PNG، JPG و TXT در این بخش پذیرفته می‌شوند.");
@@ -380,13 +388,15 @@ export function HouseholdEvidencePage({ householdId }: { householdId: string }) 
               </label>
               <label>
                 <span>نوع مدرک</span>
-                <select value={evidenceType} onChange={(event) => setEvidenceType(event.target.value as EvidenceType)}>
+                <select required value={evidenceType} onChange={(event) => setEvidenceType(event.target.value as EvidenceType | "")}>
+                  <option value="">انتخاب نوع مدرک</option>
                   {Object.entries(evidenceTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </label>
               <label>
                 <span>سطح حساسیت</span>
-                <select value={sensitivity} onChange={(event) => setSensitivity(event.target.value as EvidenceSensitivity)}>
+                <select required value={sensitivity} onChange={(event) => setSensitivity(event.target.value as EvidenceSensitivity | "")}>
+                  <option value="">انتخاب سطح حساسیت</option>
                   {Object.entries(sensitivityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </label>
@@ -423,7 +433,7 @@ export function HouseholdEvidencePage({ householdId }: { householdId: string }) 
               </div>
             ) : null}
             <div className="evidence-form-actions">
-              <Button type="submit" disabled={busy || file === null || title.trim().length === 0}>
+              <Button type="submit" disabled={busy || file === null || title.trim().length === 0 || evidenceType === "" || sensitivity === ""}>
                 {busy ? "در حال ثبت مدرک…" : "بارگذاری و بررسی"}
               </Button>
               <span>فقط فایل‌های مجاز؛ لینک بارگذاری کوتاه‌عمر و یک‌بارمصرف است.</span>
