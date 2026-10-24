@@ -8,9 +8,11 @@ import {
 
 import { ApiError } from "../api/client";
 import {
+  createHousehold,
   getHousehold,
   getHouseholds,
   type HouseholdSummary,
+  type CreatedHousehold,
   type HouseholdStatus,
   type PGORVariable,
 } from "../api/households";
@@ -120,6 +122,11 @@ export function HouseholdsPage() {
   const [state, setState] = useState<ListState>({ kind: "loading" });
   const [query, setQuery] = useState("");
   const [preview, setPreview] = useState<PreviewState>({ kind: "closed" });
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newCaseCode, setNewCaseCode] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createdCase, setCreatedCase] = useState<CreatedHousehold | null>(null);
 
   const load = useCallback(async (value: string) => {
     setState({ kind: "loading" });
@@ -163,6 +170,35 @@ export function HouseholdsPage() {
     }
   }
 
+  async function submitCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const caseCode = newCaseCode.trim();
+    if (!caseCode || caseCode.length > 100 || creating) return;
+
+    setCreating(true);
+    setCreateError(null);
+    setCreatedCase(null);
+    try {
+      const created = await createHousehold(caseCode);
+      setCreatedCase(created);
+      setNewCaseCode("");
+      setQuery("");
+      await load("");
+    } catch (error: unknown) {
+      if (error instanceof ApiError && error.code === "HOUSEHOLD_CASE_CODE_EXISTS") {
+        setCreateError("این کد پرونده قبلاً ثبت شده است. کد دیگری وارد کنید.");
+      } else if (error instanceof ApiError && error.status === 403) {
+        setCreateError("نقش یا دامنه سازمانی شما مجوز ایجاد پرونده ندارد.");
+      } else if (error instanceof ApiError && error.code === "AUTH_REQUIRED") {
+        setCreateError("برای ثبت پرونده، ورود سازمانی معتبر لازم است.");
+      } else {
+        setCreateError("ثبت پرونده انجام نشد. وضعیت را بررسی کنید و تنها در صورت نیاز دوباره اقدام کنید.");
+      }
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <div className="page-stack">
       <header className="page-heading">
@@ -171,7 +207,60 @@ export function HouseholdsPage() {
           <h1>پرونده‌های من</h1>
           <p>فقط پرونده‌هایی که assignment فعال برای شما دارند نمایش داده می‌شوند.</p>
         </div>
+        <Button
+          type="button"
+          variant="secondary"
+          aria-expanded={createOpen}
+          onClick={() => setCreateOpen((value) => !value)}
+        >
+          ثبت پرونده اولیه
+        </Button>
       </header>
+
+      {createOpen ? (
+        <Panel aria-label="ثبت اولیه پرونده خانوار">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">گام اولیه تشکیل پرونده · فقط قرارداد معتبر Backend</span>
+              <h2>ایجاد پرونده پیش‌نویس</h2>
+            </div>
+            <Badge tone="warning">هنوز بدون ارزیابی و PGOR</Badge>
+          </div>
+          <p>
+            تنها کد پرونده ثبت می‌شود. تخصیص مددکار و دامنه سازمانی توسط سرور انجام
+            می‌شود؛ هویت، اعضای خانوار، داده میدانی و مدارک باید جداگانه از منابع
+            واقعی و تأییدشده تکمیل شوند.
+          </p>
+          <form className="case-search" onSubmit={(event) => void submitCreate(event)}>
+            <label htmlFor="new-case-code">کد پرونده جدید</label>
+            <div className="case-search__controls">
+              <input
+                id="new-case-code"
+                type="text"
+                dir="ltr"
+                autoComplete="off"
+                maxLength={100}
+                required
+                value={newCaseCode}
+                onChange={(event) => setNewCaseCode(event.target.value)}
+                placeholder="کد پرونده اختصاص‌یافته توسط سازمان"
+              />
+              <Button disabled={creating || !newCaseCode.trim()} type="submit">
+                {creating ? "در حال ثبت…" : "ایجاد پیش‌نویس"}
+              </Button>
+            </div>
+          </form>
+          {createError ? <div className="inline-alert" role="alert">{createError}</div> : null}
+          {createdCase ? (
+            <div role="status">
+              <Badge tone="success">پرونده پیش‌نویس ایجاد شد</Badge>{" "}
+              <AppLink className="text-link" to={householdPath(createdCase.id)}>
+                باز کردن پرونده {createdCase.case_code}
+              </AppLink>
+            </div>
+          ) : null}
+        </Panel>
+      ) : null}
 
       <section className="metric-grid" aria-label="خلاصه پرونده‌ها">
         <MetricCard label="پرونده‌های این فهرست" value={state.kind === "ready" ? summary.total : "—"} />
