@@ -4,7 +4,11 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from hamoon.domains.evidence.domain.entities import Evidence, EvidenceUploadSession
+from hamoon.domains.evidence.domain.entities import (
+    Evidence,
+    EvidenceSensitivity,
+    EvidenceUploadSession,
+)
 from hamoon.domains.evidence.infrastructure.models import (
     EvidenceModel,
     EvidenceUploadSessionModel,
@@ -96,6 +100,28 @@ class SqlAlchemyEvidenceRepository:
     async def get(self, evidence_id: UUID) -> Evidence | None:
         model = await self._session.get(EvidenceModel, evidence_id)
         return None if model is None else _evidence(model)
+
+    async def list_for_household(
+        self,
+        household_id: UUID,
+        *,
+        limit: int,
+        include_highly_sensitive: bool,
+    ) -> list[Evidence]:
+        statement = select(EvidenceModel).where(
+            EvidenceModel.household_id == household_id,
+        )
+        if not include_highly_sensitive:
+            statement = statement.where(
+                EvidenceModel.sensitivity_class != EvidenceSensitivity.HIGHLY_SENSITIVE,
+            )
+        result = await self._session.execute(
+            statement.order_by(
+                EvidenceModel.recorded_at.desc(),
+                EvidenceModel.id.desc(),
+            ).limit(limit)
+        )
+        return [_evidence(item) for item in result.scalars().all()]
 
     async def save(
         self,
