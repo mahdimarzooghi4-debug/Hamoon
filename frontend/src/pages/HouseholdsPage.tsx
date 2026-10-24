@@ -183,7 +183,8 @@ export function HouseholdsPage() {
       setCreatedCase(created);
       setNewCaseCode("");
       setQuery("");
-      await load("");
+      // A successful POST must not be reported as failure if list refresh fails.
+      void load("");
     } catch (error: unknown) {
       if (error instanceof ApiError && error.code === "HOUSEHOLD_CASE_CODE_EXISTS") {
         setCreateError("این کد پرونده قبلاً ثبت شده است. کد دیگری وارد کنید.");
