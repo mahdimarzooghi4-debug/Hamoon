@@ -82,13 +82,23 @@ const recordedAtFormatter = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
 });
 
 function lifecycleTone(
-  status: EvidenceLifecycleStatus,
+  item: EvidenceRecord,
 ): "success" | "warning" | "neutral" | "danger" {
-  if (status === "AVAILABLE") return "success";
-  if (status === "QUARANTINED" || status === "SCAN_FAILED" || status === "REJECTED") {
+  if (isAvailable(item)) return "success";
+  if (
+    item.lifecycle_status === "QUARANTINED"
+    || item.lifecycle_status === "SCAN_FAILED"
+    || item.lifecycle_status === "REJECTED"
+    || item.scan_status === "FAILED"
+    || item.scan_status === "INFECTED"
+  ) {
     return "danger";
   }
-  if (status === "PENDING_UPLOAD" || status === "UPLOADED" || status === "SCANNING") {
+  if (
+    item.lifecycle_status === "PENDING_UPLOAD"
+    || item.lifecycle_status === "UPLOADED"
+    || item.lifecycle_status === "SCANNING"
+  ) {
     return "warning";
   }
   return "neutral";
@@ -113,6 +123,8 @@ function isBlocked(item: EvidenceRecord): boolean {
     || item.lifecycle_status === "REJECTED"
     || item.lifecycle_status === "UPLOAD_FAILED"
     || item.lifecycle_status === "ARCHIVED"
+    || item.scan_status === "FAILED"
+    || item.scan_status === "INFECTED"
   );
 }
 
@@ -298,6 +310,8 @@ export function HouseholdEvidencePage({ householdId }: { householdId: string }) 
       }
       setTitle("");
       setDescription("");
+      setEvidenceType("");
+      setSensitivity("");
       setFile(null);
       setFileInputVersion((value) => value + 1);
       await loadEvidence();
@@ -515,7 +529,7 @@ export function HouseholdEvidencePage({ householdId }: { householdId: string }) 
                     <td>{evidenceTypeLabels[item.evidence_type]}</td>
                     <td>{recordedAtFormatter.format(new Date(item.recorded_at))}</td>
                     <td>{sensitivityLabels[item.sensitivity_class]}</td>
-                    <td><Badge tone={lifecycleTone(item.lifecycle_status)}>{lifecycleLabels[item.lifecycle_status]}</Badge></td>
+                    <td><Badge tone={lifecycleTone(item)}>{lifecycleLabels[item.lifecycle_status]}</Badge></td>
                     <td>{sizeLabel(item.size_bytes ?? item.expected_size_bytes)}</td>
                     <td>
                       {isAvailable(item) ? (
