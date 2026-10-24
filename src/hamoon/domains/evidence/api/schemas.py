@@ -53,6 +53,10 @@ class EvidenceResponse(BaseModel):
     data: EvidenceData
 
 
+class EvidenceListResponse(BaseModel):
+    data: list[EvidenceData]
+
+
 class FinalizeEvidenceRequest(BaseModel):
     expected_sha256: str = Field(
         min_length=64,
