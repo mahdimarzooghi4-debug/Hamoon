@@ -7,6 +7,7 @@ import { AuthCallbackPage } from "../pages/AuthCallbackPage";
 import { EmpowermentOverviewPage } from "../pages/EmpowermentOverviewPage";
 import { HomePage } from "../pages/HomePage";
 import { HouseholdPage } from "../pages/HouseholdPage";
+import { HouseholdEvidencePage } from "../pages/HouseholdEvidencePage";
 import { HouseholdsPage } from "../pages/HouseholdsPage";
 import { LearningGovernancePage } from "../pages/LearningGovernancePage";
 import { RoleHomePage } from "../pages/RoleHomePage";
@@ -27,6 +28,12 @@ export function App() {
     page = <WorkQueuePage />;
   } else if (path === "/households") {
     page = <HouseholdsPage />;
+  } else if (path.startsWith("/households/") && path.endsWith("/evidence")) {
+    page = (
+      <HouseholdEvidencePage
+        householdId={path.slice("/households/".length, -"/evidence".length)}
+      />
+    );
   } else if (path.startsWith("/households/")) {
     page = <HouseholdPage householdId={path.slice("/households/".length)} />;
   } else if (path === "/admin/learning") {
