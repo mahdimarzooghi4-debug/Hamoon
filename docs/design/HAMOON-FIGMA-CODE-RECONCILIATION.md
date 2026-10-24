@@ -15,7 +15,7 @@ Baseline: `main` @ `586103470739110229264d49e2d2ac45975ae991`
 
 | Canonical frame(s) | React location | Status |
 | --- | --- | --- |
-| `55:176` Login | `auth/oidc.ts`, `pages/AccessGatePage.tsx` | Functional OIDC match; local-login mock in Figma NOT authorized |
+| `55:176` Login | `auth/oidc.ts`, `pages/AccessGatePage.tsx` | OIDC-only canonical design reconciled 2026-10-24; local credential mock hidden |
 | `23:3020` Home | `pages/HomePage.tsx`, `layout/AppShell.tsx` | Functional data, visual mismatch; never render decorative threshold labels as policy |
 | `31:1661`, `31:1993` Work queue / detail | `pages/WorkQueuePage.tsx` | Queue+claim implemented; drawer parity pending |
 | `31:4556`, `31:4896` Cases / preview | `pages/HouseholdsPage.tsx` | Read/preview implemented |
@@ -38,7 +38,7 @@ Baseline: `main` @ `586103470739110229264d49e2d2ac45975ae991`
 - No Backend endpoints or policy rules are invented in this slice.
 
 ## Remaining hard blockers / follow-up
-1. Reconcile Figma login visual with OIDC-only security boundary (no local-login form).
+1. COMPLETE on 2026-10-24: canonical login frame `55:176` now hides divider `55:212`, local credentials `55:216` and obsolete mock errors `55:235`; subtitle `55:205` explicitly states OIDC-only. Screenshot visually checked. No password handling added to app.
 2. Make case onboarding stages 2/3 only after inspecting authoritative identity, member, observation, evidence and human-acceptance contracts.
 3. Implement data correction and evidence workspace after API/role/security review.
 4. Align dashboard layout, brand asset, responsive styles, canonical drawers, and all real API Loading/Empty/Error/Forbidden/409 states.
