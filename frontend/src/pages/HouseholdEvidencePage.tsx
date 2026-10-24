@@ -91,6 +91,7 @@ function lifecycleTone(
     || item.lifecycle_status === "REJECTED"
     || item.scan_status === "FAILED"
     || item.scan_status === "INFECTED"
+    || (item.lifecycle_status === "AVAILABLE" && item.scan_status !== "CLEAN")
   ) {
     return "danger";
   }
@@ -110,9 +111,12 @@ function isAvailable(item: EvidenceRecord): boolean {
 
 function isProcessing(item: EvidenceRecord): boolean {
   return (
-    item.lifecycle_status === "PENDING_UPLOAD"
-    || item.lifecycle_status === "UPLOADED"
-    || item.lifecycle_status === "SCANNING"
+    !isBlocked(item)
+    && (
+      item.lifecycle_status === "PENDING_UPLOAD"
+      || item.lifecycle_status === "UPLOADED"
+      || item.lifecycle_status === "SCANNING"
+    )
   );
 }
 
@@ -125,6 +129,7 @@ function isBlocked(item: EvidenceRecord): boolean {
     || item.lifecycle_status === "ARCHIVED"
     || item.scan_status === "FAILED"
     || item.scan_status === "INFECTED"
+    || (item.lifecycle_status === "AVAILABLE" && item.scan_status !== "CLEAN")
   );
 }
 
@@ -373,10 +378,10 @@ export function HouseholdEvidencePage({ householdId }: { householdId: string }) 
       </header>
 
       <section className="metric-grid evidence-metrics" aria-label="خلاصه مدارک">
-        <MetricCard label="کل مدارک قابل مشاهده" value={evidenceState.kind === "ready" ? metrics.total : "—"} />
+        <MetricCard label="مدارک قابل مشاهده (حداکثر ۲۰۰)" value={evidenceState.kind === "ready" ? metrics.total : "—"} />
         <MetricCard label="در دسترس" value={evidenceState.kind === "ready" ? metrics.available : "—"} />
         <MetricCard label="در انتظار بررسی" value={evidenceState.kind === "ready" ? metrics.processing : "—"} />
-        <MetricCard label="نیازمند بررسی" value={evidenceState.kind === "ready" ? metrics.blocked : "—"} />
+        <MetricCard label="مسدود یا بایگانی" value={evidenceState.kind === "ready" ? metrics.blocked : "—"} />
       </section>
 
       <div className="evidence-workspace-grid">
