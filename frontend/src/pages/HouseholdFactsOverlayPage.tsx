@@ -22,10 +22,18 @@ export function HouseholdFactsOverlayPage({ householdId }: { householdId: string
     const priorInert = header?.inert ?? false;
     const priorAriaHidden = header?.getAttribute("aria-hidden") ?? null;
     const priorOverflow = document.body.style.overflow;
-    const recalculate = () => setTopOffset(Math.max(0, header?.getBoundingClientRect().bottom ?? 0));
-
+    const recalculate = () => {
+      const next = Math.max(0, header?.getBoundingClientRect().bottom ?? 0);
+      setTopOffset((previous) => Math.abs(previous - next) < 0.5 ? previous : next);
+    };
+    // The sticky header may settle after OIDC navigation, font load or a
+    // responsive reflow. Its position, not a fixed guessed height, anchors
+    // the dialog; subsequent layout changes must keep the backdrop aligned.
+    const headerObserver = header ? new ResizeObserver(recalculate) : null;
+    if (header && headerObserver) headerObserver.observe(header);
     recalculate();
     window.addEventListener("resize", recalculate);
+    window.addEventListener("scroll", recalculate, { passive: true });
     document.body.style.overflow = "hidden";
     // The header is visually retained like Figma, but cannot be interacted with
     // while the modal is open. Restore previous DOM state on any navigation.
@@ -33,10 +41,15 @@ export function HouseholdFactsOverlayPage({ householdId }: { householdId: string
       header.inert = true;
       header.setAttribute("aria-hidden", "true");
     }
-    const animation = requestAnimationFrame(() => dialogRef.current?.focus());
+    const animation = requestAnimationFrame(() => {
+      recalculate();
+      dialogRef.current?.focus();
+    });
     return () => {
       cancelAnimationFrame(animation);
+      headerObserver?.disconnect();
       window.removeEventListener("resize", recalculate);
+      window.removeEventListener("scroll", recalculate);
       document.body.style.overflow = priorOverflow;
       if (background) background.inert = priorBackgroundInert;
       if (header) {
