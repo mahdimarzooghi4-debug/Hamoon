@@ -89,7 +89,7 @@ async function login(page, user) {
   await page.locator("#kc-login").click();
   try {
     await page.waitForURL(
-      (url) => url.origin === WEB && /^\\/households\\/?$/.test(url.pathname),
+      (url) => url.origin === WEB && (url.pathname === "/households" || url.pathname === "/households/"),
       { timeout: 30000, waitUntil: "domcontentloaded" },
     );
   } catch {
