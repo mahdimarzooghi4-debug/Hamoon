@@ -3,6 +3,7 @@ from typing import Protocol
 from uuid import UUID
 
 from hamoon.domains.family_data.domain.entities import (
+    AcceptedStateChange,
     CurrentAcceptedFact,
     DataSource,
     FactValidationState,
@@ -71,3 +72,14 @@ class AcceptedStateRepository(Protocol):
         reason_text: str | None,
         event_id: UUID,
     ) -> None: ...
+
+
+class AcceptedStateHistoryRepository(Protocol):
+    async def list_history(
+        self,
+        *,
+        household_id: UUID,
+        fact_type: str,
+        limit: int,
+        before_version: int | None,
+    ) -> tuple[list[AcceptedStateChange], bool]: ...

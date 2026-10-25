@@ -1,7 +1,7 @@
 from typing import Annotated, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import JsonValue
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +13,8 @@ from hamoon.domains.family_data.api.schemas import (
     AcceptedFactData,
     AcceptedFactResponse,
     AcceptedStateResponse,
+    AcceptedStateHistoryEntryData,
+    AcceptedStateHistoryResponse,
     ChangeValidationRequest,
     DataSourceData,
     DataSourceListResponse,
@@ -301,6 +303,61 @@ async def get_accepted_state(
             )
             for item in items
         ]
+    )
+
+
+
+@router.get(
+    "/api/v1/households/{household_id}/accepted-state/{fact_type}/history",
+    response_model=AcceptedStateHistoryResponse,
+)
+async def get_accepted_state_history(
+    household_id: UUID,
+    fact_type: str,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    before_version: Annotated[int | None, Query(ge=1)] = None,
+) -> AcceptedStateHistoryResponse:
+    await require_household_assignment(
+        session=session,
+        context=context,
+        household_id=household_id,
+    )
+    # Historical acceptance is an auditable human decision, not an
+    # automatic SUPERSEDED validation transition or PGOR recalculation.
+    normalized_fact_type = fact_type.upper()
+    history, has_more = await SqlAlchemyAcceptedStateRepository(
+        session
+    ).list_history(
+        household_id=household_id,
+        fact_type=normalized_fact_type,
+        limit=limit,
+        before_version=before_version,
+    )
+    return AcceptedStateHistoryResponse(
+        data=[
+            AcceptedStateHistoryEntryData(
+                id=change.id,
+                household_id=change.household_id,
+                fact_type=change.fact_type,
+                previous_fact_id=change.previous_fact_id,
+                new_fact_id=change.new_fact_id,
+                projection_version=change.projection_version,
+                reason_code=change.reason_code,
+                reason_text=change.reason_text,
+                changed_by=change.changed_by,
+                changed_at=change.changed_at,
+                domain_event_id=change.domain_event_id,
+            )
+            for change in history
+        ],
+        next_before_version=(
+            history[-1].projection_version if has_more and history else None
+        ),
     )
 
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { ApiError } from "../api/client";
+import { AcceptedStateHistoryPanel } from "../components/AcceptedStateHistory";
 import {
   changeFactValidation,
   getAcceptedFacts,
@@ -125,6 +126,7 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
   const [reasonCode, setReasonCode] = useState("");
   const [reasonText, setReasonText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [historyRevision, setHistoryRevision] = useState(0);
   const inFlightRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -136,6 +138,7 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
         getHousehold(householdId), getDataSources(), getHouseholdFacts(householdId), getAcceptedFacts(householdId),
       ]);
       setState({ kind: "ready", household, sources, facts, accepted });
+      setHistoryRevision((value) => value + 1);
     } catch (cause: unknown) {
       if (cause instanceof ApiError && cause.code === "AUTH_REQUIRED") setState({ kind: "auth-required" });
       else if (cause instanceof ApiError && cause.status === 403) setState({ kind: "forbidden" });
@@ -356,6 +359,15 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
             </div>
           )}
         </Panel>
+      ) : null}
+      {current ? (
+        <AcceptedStateHistoryPanel
+          householdId={householdId}
+          factType={current.fact_type}
+          currentFactId={current.fact_id}
+          facts={facts}
+          refreshToken={historyRevision}
+        />
       ) : null}
     </div>
   );

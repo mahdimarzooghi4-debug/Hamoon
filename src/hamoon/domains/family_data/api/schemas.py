@@ -98,6 +98,25 @@ class AcceptedFactData(BaseModel):
     projected_at: datetime
 
 
+class AcceptedStateHistoryEntryData(BaseModel):
+    id: UUID
+    household_id: UUID
+    fact_type: str
+    previous_fact_id: UUID | None
+    new_fact_id: UUID
+    projection_version: int
+    reason_code: str
+    reason_text: str | None
+    changed_by: UUID
+    changed_at: datetime
+    domain_event_id: UUID
+
+
+class AcceptedStateHistoryResponse(BaseModel):
+    data: list[AcceptedStateHistoryEntryData]
+    next_before_version: int | None
+
+
 class AcceptedFactResponse(BaseModel):
     data: AcceptedFactData
 

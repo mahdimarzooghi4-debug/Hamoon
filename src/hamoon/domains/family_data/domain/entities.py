@@ -140,6 +140,23 @@ class CurrentAcceptedFact:
     changed_by: UUID
 
 
+@dataclass(frozen=True, slots=True)
+class AcceptedStateChange:
+    """A persisted human decision, not an inferred fact supersession."""
+
+    id: UUID
+    household_id: UUID
+    fact_type: str
+    previous_fact_id: UUID | None
+    new_fact_id: UUID
+    projection_version: int
+    reason_code: str
+    reason_text: str | None
+    changed_by: UUID
+    changed_at: datetime
+    domain_event_id: UUID
+
+
 def validate_fact_value(value_type: FactValueType, value: object) -> None:
     from hamoon.domains.family_data.domain.errors import InvalidFactValueError
 

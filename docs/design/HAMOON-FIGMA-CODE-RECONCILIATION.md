@@ -20,7 +20,7 @@ Baseline: `main` @ `586103470739110229264d49e2d2ac45975ae991`
 | `31:1661`, `31:1993` Work queue / detail | `pages/WorkQueuePage.tsx` | Queue+claim implemented; drawer parity pending |
 | `31:4556`, `31:4896` Cases / preview | `pages/HouseholdsPage.tsx` | Read/preview implemented |
 | `59:5703`, `59:5897`, `59:6131` Case creation | `pages/HouseholdsPage.tsx` + `api/households.ts` | **Slice 1:** server-scoped draft case creation only; members/identity/observations remain out of this endpoint |
-| `37:5908` through `37:6493` Data correction | `pages/HouseholdFactsPage.tsx`, `api/familyData.ts` | **Slice 3:** current accepted fact, new PENDING fact, explicit human validation and versioned accepted-state resolution; full visual parity and backend supersession lineage not claimed |
+| `37:5908` through `37:6493` Data correction | `pages/HouseholdFactsPage.tsx`, `components/AcceptedStateHistory.tsx`, `api/familyData.ts` | **Slices 3–4:** current accepted fact, new PENDING fact, human validation/resolve, and paginated persisted acceptance-decision history; visual parity and fact supersession lineage not claimed |
 | `77:70` Evidence | `pages/HouseholdEvidencePage.tsx`, `api/evidence.ts`, `domains/evidence/api/routes.py` | **Slice 2:** private listing, upload-init/content/finalize, SHA-256 verification, scan/quarantine state, and capability-based download; highly-sensitive rows are omitted without scope |
 | `29:2244` Household detail | `pages/HouseholdPage.tsx` | Read workspace implemented; visual parity pending |
 | `40:4302` through `40:5016` Diagnosis | `components/DiagnosisSection.tsx` | Functional proposals, human decision and history |
@@ -65,3 +65,10 @@ No Production deployment, Stage/Release gates, model promotion, or Figma LEGACY 
 - Current accepted value is never overwritten on initial recording. Old facts remain in history. supersedes_fact_id is NOT written by this UI because the current POST contract does not expose it; complete correction lineage remains open.
 - No client PGOR/E recomputation, AI acceptance, fabricated identity, guessed source, automatic validation, automatic supersession or provider selection.
 - Figma sample identity/employment/numbers are display-only, never runtime data. Browser parity and authorized end-to-end QA remain release gates.
+
+
+## Slice 4 — Accepted State decision history (Figma 37:6493)
+- Adds read-only, CASEWORKER-and-household-assignment-scoped GET `/api/v1/households/{id}/accepted-state/{fact_type}/history` backed by existing `accepted_state_change` rows. SQL filters by household and fact type before bounded pagination (1..100, default 50), with version cursor.
+- Displays actual previous/new fact identifiers, known values from existing household facts, persisted human reason code/text, actor identifier, decision time and domain-event identifier. No invented names or inferred reason if absent.
+- Accepted State history is not the same as the `supersedes_fact_id` fact lineage or the validation state machine. A historical accepted version is not automatically marked SUPERSEDED. No automatic PGOR recalculation.
+- No new database migration, acceptance rule, or write command. The screen still requires authorized authenticated browser comparison to claim full Figma parity.
