@@ -68,7 +68,7 @@ No Production deployment, Stage/Release gates, model promotion, or Figma LEGACY 
 
 
 ## Slice 4 — Accepted State decision history (Figma 37:6493)
-- Adds read-only, CASEWORKER-and-household-assignment-scoped GET `/api/v1/households/{id}/accepted-state/{fact_type}/history` backed by existing `accepted_state_change` rows. SQL filters by household and fact type before bounded pagination (1..100, default 50), with version cursor.
+- Adds read-only, CASEWORKER-and-household-assignment-scoped GET `/api/v1/households/{id}/accepted-state/{fact_type}/history` backed by existing `accepted_state_change` rows. SQL filters by household and fact type before bounded pagination (1..100, default 50), with composite (version, change-ID) cursor.
 - Displays actual previous/new fact identifiers, known values from existing household facts, persisted human reason code/text, actor identifier, decision time and domain-event identifier. No invented names or inferred reason if absent.
 - Accepted State history is not the same as the `supersedes_fact_id` fact lineage or the validation state machine. A historical accepted version is not automatically marked SUPERSEDED. No automatic PGOR recalculation.
 - No new database migration, acceptance rule, or write command. The screen still requires authorized authenticated browser comparison to claim full Figma parity.

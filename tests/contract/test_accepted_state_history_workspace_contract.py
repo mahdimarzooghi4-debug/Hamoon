@@ -14,8 +14,10 @@ def test_history_ui_uses_scoped_api_and_version_cursor() -> None:
     page = read("frontend/src/pages/HouseholdFactsPage.tsx")
     assert '"/accepted-state/" + encodeURIComponent(factType)' in api
     assert 'query.set("before_version", String(beforeVersion))' in api
-    assert 'getAcceptedHistory(householdId, factType, cursor)' in component
+    assert 'query.set("before_id", beforeId)' in api
+    assert 'getAcceptedHistory(householdId, factType, cursor, cursorId)' in component
     assert "response.next_before_version" in component
+    assert "response.next_before_id" in component
     assert "generation === generationRef.current" in component
     assert "item.reason_code" in component
     assert "item.reason_text" in component

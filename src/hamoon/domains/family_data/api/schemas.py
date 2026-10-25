@@ -115,6 +115,7 @@ class AcceptedStateHistoryEntryData(BaseModel):
 class AcceptedStateHistoryResponse(BaseModel):
     data: list[AcceptedStateHistoryEntryData]
     next_before_version: int | None
+    next_before_id: UUID | None
 
 
 class AcceptedFactResponse(BaseModel):

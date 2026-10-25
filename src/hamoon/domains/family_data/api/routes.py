@@ -321,7 +321,13 @@ async def get_accepted_state_history(
     session: Annotated[AsyncSession, Depends(get_db_session)],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     before_version: Annotated[int | None, Query(ge=1)] = None,
+    before_id: UUID | None = None,
 ) -> AcceptedStateHistoryResponse:
+    if (before_version is None) != (before_id is None):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "INVALID_HISTORY_CURSOR"},
+        )
     await require_household_assignment(
         session=session,
         context=context,
@@ -337,6 +343,7 @@ async def get_accepted_state_history(
         fact_type=normalized_fact_type,
         limit=limit,
         before_version=before_version,
+        before_id=before_id,
     )
     return AcceptedStateHistoryResponse(
         data=[
@@ -358,6 +365,7 @@ async def get_accepted_state_history(
         next_before_version=(
             history[-1].projection_version if has_more and history else None
         ),
+        next_before_id=history[-1].id if has_more and history else None,
     )
 
 

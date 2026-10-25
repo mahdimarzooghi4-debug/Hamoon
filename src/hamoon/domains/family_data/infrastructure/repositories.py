@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.domains.family_data.domain.entities import (
@@ -269,15 +269,19 @@ class SqlAlchemyAcceptedStateRepository:
         fact_type: str,
         limit: int,
         before_version: int | None,
+        before_id: UUID | None,
     ) -> tuple[list[AcceptedStateChange], bool]:
         # The household/type predicate MUST be applied in SQL before LIMIT.
         statement = select(AcceptedStateChangeModel).where(
             AcceptedStateChangeModel.household_id == household_id,
             AcceptedStateChangeModel.fact_type == fact_type,
         )
-        if before_version is not None:
+        if before_version is not None and before_id is not None:
             statement = statement.where(
-                AcceptedStateChangeModel.projection_version < before_version
+                tuple_(
+                    AcceptedStateChangeModel.projection_version,
+                    AcceptedStateChangeModel.id,
+                ) < tuple_(before_version, before_id)
             )
         statement = statement.order_by(
             AcceptedStateChangeModel.projection_version.desc(),

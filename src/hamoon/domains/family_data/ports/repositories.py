@@ -82,4 +82,5 @@ class AcceptedStateHistoryRepository(Protocol):
         fact_type: str,
         limit: int,
         before_version: int | None,
+        before_id: UUID | None,
     ) -> tuple[list[AcceptedStateChange], bool]: ...

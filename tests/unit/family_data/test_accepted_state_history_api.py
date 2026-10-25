@@ -93,6 +93,7 @@ async def test_history_sql_scopes_before_pagination_and_uses_version_cursor() ->
         fact_type="EMPLOYMENT_STATUS",
         limit=2,
         before_version=10,
+        before_id=UUID("99999999-9999-9999-9999-999999999999"),
     )
     assert [item.projection_version for item in changes] == [9, 8]
     assert has_more is True
@@ -105,7 +106,8 @@ async def test_history_sql_scopes_before_pagination_and_uses_version_cursor() ->
     )
     assert str(HOUSEHOLD) in sql
     assert "EMPLOYMENT_STATUS" in sql
-    assert "projection_version < 10" in sql
+    assert "projection_version, accepted_state_change.id" in sql
+    assert " < (10," in sql
     assert "LIMIT 3" in sql
     assert "projection_version DESC" in sql
 
@@ -130,11 +132,13 @@ async def test_history_endpoint_checks_assignment_and_returns_a_real_cursor(
             fact_type: str,
             limit: int,
             before_version: int | None,
+            before_id: UUID | None,
         ) -> tuple[list[AcceptedStateChange], bool]:
             assert household_id == HOUSEHOLD
             assert fact_type == "EMPLOYMENT_STATUS"
             assert limit == 2
             assert before_version == 10
+            assert before_id == UUID("99999999-9999-9999-9999-999999999999")
             return [_change(9), _change(8)], True
 
     monkeypatch.setattr(routes, "require_household_assignment", require_scope)
@@ -148,9 +152,11 @@ async def test_history_endpoint_checks_assignment_and_returns_a_real_cursor(
         cast(AsyncSession, object()),
         limit=2,
         before_version=10,
+        before_id=UUID("99999999-9999-9999-9999-999999999999"),
     )
     assert scopes == [HOUSEHOLD]
     assert result.next_before_version == 8
+    assert result.next_before_id == _change(8).id
     assert [row.projection_version for row in result.data] == [9, 8]
     assert result.data[0].reason_text == "reviewed source"
     assert result.data[0].changed_by == ACTOR
@@ -181,6 +187,7 @@ async def test_unassigned_household_never_reads_history(
             cast(AsyncSession, object()),
             limit=50,
             before_version=None,
+            before_id=None,
         )
     assert exc.value.status_code == 404
 
@@ -206,3 +213,13 @@ def test_history_route_is_role_gated_and_query_bounded() -> None:
     assert any(getattr(item, "le", None) == 100 for item in limit.field_info.metadata)
     assert any(getattr(item, "ge", None) == 1 for item in before.field_info.metadata)
     assert route.methods == {"GET"}
+
+
+@pytest.mark.asyncio
+async def test_partial_cursor_fails_closed() -> None:
+    with pytest.raises(HTTPException) as exc:
+        await routes.get_accepted_state_history(
+            HOUSEHOLD, "EMPLOYMENT_STATUS", _context(),
+            cast(AsyncSession, object()), limit=50, before_version=10, before_id=None,
+        )
+    assert exc.value.status_code == 422

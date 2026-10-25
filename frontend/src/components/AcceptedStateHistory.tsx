@@ -6,7 +6,7 @@ import { Button, EmptyState, ErrorState, LoadingState, Panel } from "../design-s
 type HistoryState =
   | { kind: "loading" }
   | { kind: "error" }
-  | { kind: "ready"; items: AcceptedStateChange[]; nextBeforeVersion: number | null };
+  | { kind: "ready"; items: AcceptedStateChange[]; nextBeforeVersion: number | null; nextBeforeId: string | null };
 
 const formatter = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { dateStyle: "medium", timeStyle: "short" });
 
@@ -47,7 +47,7 @@ export function AcceptedStateHistoryPanel({
     void getAcceptedHistory(householdId, factType).then(
       (response) => {
         if (generation === generationRef.current) {
-          setState({ kind: "ready", items: response.data, nextBeforeVersion: response.next_before_version });
+          setState({ kind: "ready", items: response.data, nextBeforeVersion: response.next_before_version, nextBeforeId: response.next_before_id });
         }
       },
       () => {
@@ -58,21 +58,23 @@ export function AcceptedStateHistoryPanel({
   }, [householdId, factType, refreshToken]);
 
   async function loadMore() {
-    if (state.kind !== "ready" || state.nextBeforeVersion === null || inFlightRef.current) return;
+    if (state.kind !== "ready" || state.nextBeforeVersion === null || state.nextBeforeId === null || inFlightRef.current) return;
     inFlightRef.current = true;
     setLoadingMore(true);
     setLoadError(false);
     const generation = generationRef.current;
     const cursor = state.nextBeforeVersion;
+    const cursorId = state.nextBeforeId;
     try {
-      const response = await getAcceptedHistory(householdId, factType, cursor);
+      const response = await getAcceptedHistory(householdId, factType, cursor, cursorId);
       if (generation === generationRef.current) {
         setState((previous) => {
-          if (previous.kind !== "ready" || previous.nextBeforeVersion !== cursor) return previous;
+          if (previous.kind !== "ready" || (previous.nextBeforeVersion !== cursor || previous.nextBeforeId !== cursorId)) return previous;
           return {
             kind: "ready",
             items: [...previous.items, ...response.data],
             nextBeforeVersion: response.next_before_version,
+            nextBeforeId: response.next_before_id,
           };
         });
       }
@@ -144,7 +146,7 @@ export function AcceptedStateHistoryPanel({
               </article>
             );
           })}
-          {state.nextBeforeVersion !== null ? (
+          {state.nextBeforeVersion !== null && state.nextBeforeId !== null ? (
             <div className="fact-more">
               <Button variant="secondary" disabled={loadingMore} onClick={() => void loadMore()}>
                 {loadingMore ? "در حال دریافت…" : "نمایش تصمیم‌های قدیمی‌تر"}
