@@ -248,7 +248,7 @@ async function run() {
   await page.getByText("QA_BEFORE", { exact: true }).first().waitFor();
   await assertNoHorizontalOverflow(page, "desktop");
   await assertCorrectionSheetLayout(page, "desktop");
-  await page.screenshot({ path: new URL("correction-desktop-before.png", artifacts).pathname, fullPage: true });
+  await page.screenshot({ path: new URL("correction-desktop-before.png", artifacts).pathname });
 
   await page.getByLabel("مقدار پیشنهادی جدید · کد").fill("QA_AFTER");
   await page.getByLabel("منبع فعال داده").selectOption(source.id);
@@ -284,11 +284,14 @@ async function run() {
   assert.equal(history.data[0].new_fact_id, correction.id);
   assert.equal(history.data[0].previous_fact_id, initial.data.id);
   await page.getByText("تاریخچه پذیرش داده").waitFor();
-  await page.screenshot({ path: new URL("correction-desktop-accepted.png", artifacts).pathname, fullPage: true });
+  await page.screenshot({ path: new URL("correction-desktop-accepted.png", artifacts).pathname });
   await page.setViewportSize({ width: 390, height: 844 });
   await assertNoHorizontalOverflow(page, "mobile");
   await assertCorrectionSheetLayout(page, "mobile");
-  await page.screenshot({ path: new URL("correction-mobile-accepted.png", artifacts).pathname, fullPage: true });
+  // The fixed drawer lives in the viewport; full-page screenshots of the
+  // underlying scrollable case would misrepresent the visible overlay.
+  await page.locator(".fact-route__dialog").evaluate((element) => { element.scrollTop = 0; });
+  await page.screenshot({ path: new URL("correction-mobile-accepted.png", artifacts).pathname });
 
   // Browser Back/Forward and deep-link reload must not strand a modal or
   // unlock background controls. Escape and explicit close return to the case.
@@ -298,6 +301,12 @@ async function run() {
     document.querySelector(".fact-workspace")?.getAttribute("data-operation-busy") === "false",
   );
   await page.getByRole("dialog", { name: "اصلاح و اعتبارسنجی اطلاعات" }).focus();
+  await page.keyboard.press("Tab");
+  assert.equal(
+    await page.evaluate(() => document.activeElement?.getAttribute("aria-label")),
+    "بستن پنل اصلاح",
+    "Tab must remain within the modal and start at its close control",
+  );
   await page.keyboard.press("Escape");
   await page.getByRole("dialog", { name: "اصلاح و اعتبارسنجی اطلاعات" }).waitFor({ state: "detached" });
   assert.equal(new URL(page.url()).pathname, `/households/${householdId}`);
