@@ -27,7 +27,7 @@ class SqlAlchemyIdentityRepository:
         # across replicas *before* looking up the unique account.
         # This PostgreSQL transaction lock releases at the caller's commit.
         lock_key = int.from_bytes(
-            sha256(f"{issuer}\\0{subject}".encode("utf-8")).digest()[:8],
+            sha256(f"{len(issuer)}:{issuer}{subject}".encode()).digest()[:8],
             byteorder="big",
             signed=True,
         )
