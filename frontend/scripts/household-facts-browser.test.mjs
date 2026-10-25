@@ -87,7 +87,24 @@ async function login(page, user) {
   await page.locator("#username").fill(user.username);
   await page.locator("#password").fill(user.password);
   await page.locator("#kc-login").click();
-  await page.waitForURL(`${WEB}/households`, { timeout: 45000 });
+  try {
+    await page.waitForURL(
+      (url) => url.origin === WEB && /^\\/households\\/?$/.test(url.pathname),
+      { timeout: 30000, waitUntil: "domcontentloaded" },
+    );
+  } catch {
+    // Capture only synthetic UI; mask password and never log callback query tokens.
+    await page.screenshot({
+      path: new URL("oidc-login-diagnostic.png", artifacts).pathname,
+      mask: [page.locator("#password")],
+    });
+    const location = new URL(page.url());
+    const errors = await page.locator("#input-error, #kc-error-message, [role=alert]")
+      .allInnerTexts().catch(() => []);
+    throw new Error(
+      `OIDC browser did not return to /households; path=${location.origin}${location.pathname}; alerts=${JSON.stringify(errors.slice(0, 3))}`,
+    );
+  }
   await page.waitForFunction(() => Boolean(sessionStorage.getItem("hamoon.access_token")));
   // This is a real PKCE-issued session; the token is never printed or persisted.
   const token = await page.evaluate(() => sessionStorage.getItem("hamoon.access_token"));
