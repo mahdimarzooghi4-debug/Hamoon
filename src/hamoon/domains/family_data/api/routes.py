@@ -37,7 +37,9 @@ from hamoon.domains.family_data.application.handlers import (
     ResolveAcceptedFactHandler,
 )
 from hamoon.domains.family_data.domain.errors import (
+    CorrectionValueTypeMismatchError,
     DataSourceNotFoundError,
+    InvalidCorrectionLinkError,
     FactNotValidatedError,
     FactTypeMismatchError,
     HouseholdFactNotFoundError,
@@ -79,6 +81,9 @@ def _fact_data(fact: object, validation: object) -> FactData:
         version=typed_fact.version,
         validation_status=typed_validation.status,
         validation_version=typed_validation.version,
+        supersedes_fact_id=typed_fact.supersedes_fact_id,
+        correction_reason_code=typed_fact.correction_reason_code,
+        correction_reason_text=typed_fact.correction_reason_text,
     )
 
 
@@ -129,6 +134,7 @@ async def record_fact(
         validations=validations,
         events=SqlAlchemyDomainEventRecorder(session),
         audits=SqlAlchemyAuditRecorder(session),
+        accepted_state=SqlAlchemyAcceptedStateRepository(session),
     )
 
     try:
@@ -148,6 +154,10 @@ async def record_fact(
                     source_id=body.source_id,
                     source_detail=body.source_detail,
                     effective_from=body.effective_from,
+                    supersedes_fact_id=body.supersedes_fact_id,
+                    expected_accepted_projection_version=body.expected_accepted_projection_version,
+                    correction_reason_code=body.correction_reason_code,
+                    correction_reason_text=body.correction_reason_text,
                     request_id=request_id,
                     correlation_id=correlation_id,
                 )
@@ -163,6 +173,31 @@ async def record_fact(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"code": "INVALID_FACT_VALUE"},
+        ) from exc
+    except HouseholdFactNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "RESOURCE_NOT_FOUND"},
+        ) from exc
+    except FactTypeMismatchError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "FACT_TYPE_MISMATCH"},
+        ) from exc
+    except CorrectionValueTypeMismatchError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "CORRECTION_VALUE_TYPE_MISMATCH"},
+        ) from exc
+    except InvalidCorrectionLinkError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "INVALID_CORRECTION_LINK"},
+        ) from exc
+    except ProjectionVersionConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "VERSION_CONFLICT"},
         ) from exc
 
     return FactResponse(data=_fact_data(fact, validation))

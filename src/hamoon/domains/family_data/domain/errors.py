@@ -24,3 +24,11 @@ class FactTypeMismatchError(ValueError):
 
 class ProjectionVersionConflictError(ValueError):
     """Accepted-state projection changed since the caller last read it."""
+
+
+class InvalidCorrectionLinkError(ValueError):
+    """A correction must bind to the current same-household/type accepted fact."""
+
+
+class CorrectionValueTypeMismatchError(ValueError):
+    """Correction value type must match the referenced fact value type."""

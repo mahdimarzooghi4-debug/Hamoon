@@ -14,7 +14,9 @@ from hamoon.domains.family_data.domain.entities import (
     validate_fact_value,
 )
 from hamoon.domains.family_data.domain.errors import (
+    CorrectionValueTypeMismatchError,
     DataSourceNotFoundError,
+    InvalidCorrectionLinkError,
     FactNotValidatedError,
     FactTypeMismatchError,
     HouseholdFactNotFoundError,
@@ -45,7 +47,9 @@ class RecordHouseholdFactHandler:
         validations: FactValidationRepository,
         events: DomainEventRecorder,
         audits: AuditRecorder,
+        accepted_state: AcceptedStateRepository | None = None,
     ) -> None:
+        self._accepted_state = accepted_state
         self._sources = sources
         self._facts = facts
         self._validations = validations
@@ -58,6 +62,50 @@ class RecordHouseholdFactHandler:
             raise DataSourceNotFoundError(str(command.source_id))
 
         validate_fact_value(command.value_type, command.value)
+
+        if command.supersedes_fact_id is None:
+            if any(
+                item is not None
+                for item in (
+                    command.expected_accepted_projection_version,
+                    command.correction_reason_code,
+                    command.correction_reason_text,
+                )
+            ):
+                raise InvalidCorrectionLinkError("Correction fields require a referenced fact.")
+        else:
+            if (
+                command.expected_accepted_projection_version is None
+                or command.expected_accepted_projection_version < 1
+                or not command.correction_reason_code
+                or not command.correction_reason_code.strip()
+                or not command.correction_reason_text
+                or not command.correction_reason_text.strip()
+            ):
+                raise InvalidCorrectionLinkError("Linked corrections require version and reason.")
+            prior = await self._facts.get_for_household(
+                household_id=command.household_id,
+                fact_id=command.supersedes_fact_id,
+            )
+            if prior is None:
+                raise HouseholdFactNotFoundError(str(command.supersedes_fact_id))
+            if prior.fact_type != command.fact_type:
+                raise FactTypeMismatchError(command.fact_type)
+            if prior.value_type != command.value_type:
+                raise CorrectionValueTypeMismatchError(command.value_type)
+            if self._accepted_state is None:
+                raise InvalidCorrectionLinkError("Accepted-state repository unavailable.")
+            accepted = await self._accepted_state.get(
+                household_id=command.household_id,
+                fact_type=command.fact_type,
+            )
+            if (
+                accepted is None
+                or accepted.fact_id != prior.id
+                or accepted.projection_version
+                != command.expected_accepted_projection_version
+            ):
+                raise ProjectionVersionConflictError("Accepted fact changed since correction was prepared.")
 
         now = datetime.now(UTC)
         fact = HouseholdFact(
@@ -73,8 +121,10 @@ class RecordHouseholdFactHandler:
             recorded_at=now,
             recorded_by=command.actor_id,
             version=1,
-            supersedes_fact_id=None,
+            supersedes_fact_id=command.supersedes_fact_id,
             schema_version=1,
+            correction_reason_code=command.correction_reason_code,
+            correction_reason_text=command.correction_reason_text,
         )
         validation = FactValidationState(
             fact_id=fact.id,
@@ -113,6 +163,10 @@ class RecordHouseholdFactHandler:
                     "effective_from": fact.effective_from.isoformat(),
                     "validation_status": validation.status.value,
                     "version": fact.version,
+                    "supersedes_fact_id": (
+                        str(fact.supersedes_fact_id) if fact.supersedes_fact_id else None
+                    ),
+                    "correction_reason_code": fact.correction_reason_code,
                 },
             )
         )
@@ -131,6 +185,10 @@ class RecordHouseholdFactHandler:
                     "event_id": str(event_id),
                     "source_type": source.source_type.value,
                     "validation_status": validation.status.value,
+                    "supersedes_fact_id": (
+                        str(fact.supersedes_fact_id) if fact.supersedes_fact_id else None
+                    ),
+                    "correction_reason_code": fact.correction_reason_code,
                 },
             )
         )

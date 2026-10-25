@@ -103,6 +103,8 @@ function errorMessage(error: unknown): string {
     if (error.code === "VERSION_CONFLICT" || error.status === 409) {
       return "نسخه داده تغییر کرده است. اطلاعات را تازه‌سازی و تصمیم را مجدداً بررسی کنید.";
     }
+    if (error.code === "CORRECTION_VALUE_TYPE_MISMATCH") return "نوع مقدار جدید باید با واقعیت قبلی سازگار باشد.";
+    if (error.code === "INVALID_CORRECTION_LINK" || error.code === "FACT_TYPE_MISMATCH") return "پیوند اصلاح معتبر نیست؛ داده پذیرفته‌شده را تازه‌سازی کنید.";
     if (error.code === "FACT_NOT_VALIDATED") return "فقط واقعیت اعتبارسنجی‌شده قابل انتخاب به‌عنوان داده پذیرفته‌شده است.";
     if (error.code === "INVALID_FACT_VALIDATION_TRANSITION") return "این تغییر وضعیت مجاز نیست؛ تاریخچه را تازه‌سازی کنید.";
     if (error.code === "DATA_SOURCE_NOT_FOUND") return "منبع انتخاب‌شده فعال یا معتبر نیست؛ فهرست منابع را تازه‌سازی کنید.";
@@ -207,6 +209,10 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
         source_id: sourceId,
         source_detail: sourceDetail.trim() || null,
         effective_from: effectiveFrom.trim(),
+        supersedes_fact_id: current.fact_id,
+        expected_accepted_projection_version: current.projection_version,
+        correction_reason_code: reasonCode,
+        correction_reason_text: reasonText.trim(),
       });
       setRawValue("");
       return "واقعیت جدید با شناسه " + created.id + " در انتظار اعتبارسنجی ثبت شد؛ داده پذیرفته‌شده تغییری نکرده است.";
@@ -308,7 +314,7 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
                 <textarea required maxLength={1000} rows={2} value={reasonText} disabled={busy} onChange={(event) => setReasonText(event.target.value)} placeholder="توضیح واقعی تصمیم مددکار" />
               </label>
             </div>
-            <p className="fact-caution">ثبت، صرفاً یک واقعیت جدید با وضعیت PENDING_VALIDATION می‌سازد. تأیید یا تغییر Accepted State به اقدام انسانی جداگانه نیاز دارد.</p>
+            <p className="fact-caution">این اصلاح به شناسه واقعیت پذیرفته‌شده فعلی و نسخه Projection آن متصل می‌شود. دلیل اصلاح نیز روی خود واقعیت ثبت می‌شود. ثبت، فقط یک واقعیت جدید با وضعیت PENDING_VALIDATION می‌سازد؛ هیچ تغییر خودکار در Accepted State، اعتبارسنجی واقعیت قبلی یا PGOR رخ نمی‌دهد.</p>
             <Button type="submit" disabled={busy || !canRecord}>{busy ? "در حال ثبت…" : "ثبت واقعیت در انتظار بررسی"}</Button>
           </form>
         </Panel>
@@ -335,7 +341,10 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
                       <span>اثر: {dateTime.format(new Date(fact.effective_from))}</span>
                       <span>ثبت: {dateTime.format(new Date(fact.recorded_at))}</span>
                       <span>نسخه اعتبارسنجی: {fact.validation_version.toLocaleString("fa-IR")}</span>
+                      {fact.supersedes_fact_id ? <span>ارجاع اصلاح به واقعیت قبلی: <bdi dir="ltr">{fact.supersedes_fact_id}</bdi></span> : null}
+                      {fact.correction_reason_code ? <span>کد دلیل اصلاح: {fact.correction_reason_code}</span> : null}
                     </div>
+                    {fact.correction_reason_text ? <p className="fact-caution">توضیح ثبت‌شده اصلاح: {fact.correction_reason_text}</p> : null}
                     {canValidate ? (
                       <div className="fact-actions">
                         <Button disabled={busy || !canReview} onClick={() => void run(async () => { await changeFactValidation(householdId, fact, "VALIDATED", reasonCode, reasonText.trim()); return "اعتبارسنجی انسانی ثبت شد؛ داده پذیرفته‌شده هنوز تغییر نکرده است."; })}>تأیید اعتبار</Button>

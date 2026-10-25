@@ -20,7 +20,7 @@ Baseline: `main` @ `586103470739110229264d49e2d2ac45975ae991`
 | `31:1661`, `31:1993` Work queue / detail | `pages/WorkQueuePage.tsx` | Queue+claim implemented; drawer parity pending |
 | `31:4556`, `31:4896` Cases / preview | `pages/HouseholdsPage.tsx` | Read/preview implemented |
 | `59:5703`, `59:5897`, `59:6131` Case creation | `pages/HouseholdsPage.tsx` + `api/households.ts` | **Slice 1:** server-scoped draft case creation only; members/identity/observations remain out of this endpoint |
-| `37:5908` through `37:6493` Data correction | `pages/HouseholdFactsPage.tsx`, `components/AcceptedStateHistory.tsx`, `api/familyData.ts` | **Slices 3–4:** current accepted fact, new PENDING fact, human validation/resolve, and paginated persisted acceptance-decision history; visual parity and fact supersession lineage not claimed |
+| `37:5908` through `37:6493` Data correction | `pages/HouseholdFactsPage.tsx`, `components/AcceptedStateHistory.tsx`, `api/familyData.ts` | **Slices 3–5:** current accepted fact, linked PENDING correction with persisted reason and explicit source version, human validation/resolve, and paginated persisted acceptance-decision history; visual parity and historical PGOR impact not claimed |
 | `77:70` Evidence | `pages/HouseholdEvidencePage.tsx`, `api/evidence.ts`, `domains/evidence/api/routes.py` | **Slice 2:** private listing, upload-init/content/finalize, SHA-256 verification, scan/quarantine state, and capability-based download; highly-sensitive rows are omitted without scope |
 | `29:2244` Household detail | `pages/HouseholdPage.tsx` | Read workspace implemented; visual parity pending |
 | `40:4302` through `40:5016` Diagnosis | `components/DiagnosisSection.tsx` | Functional proposals, human decision and history |
@@ -40,7 +40,7 @@ Baseline: `main` @ `586103470739110229264d49e2d2ac45975ae991`
 ## Remaining hard blockers / follow-up
 1. COMPLETE on 2026-10-24: canonical login frame `55:176` now hides divider `55:212`, local credentials `55:216` and obsolete mock errors `55:235`; subtitle `55:205` explicitly states OIDC-only. Screenshot visually checked. No password handling added to app.
 2. Make case onboarding stages 2/3 only after inspecting authoritative identity, member, observation, evidence and human-acceptance contracts.
-3. Data correction has a first backend-led workspace. Full correction lineage (supersedes_fact_id), historical PGOR impact and final Figma drawer parity remain open. Evidence UI exists; browser screenshot/pixel comparison and production scanner/storage configuration validation remain release gates.
+3. Data correction has a backend-led workspace with linked correction lineage. Historical PGOR impact analysis and final Figma drawer parity remain open. Evidence UI exists; browser screenshot/pixel comparison and production scanner/storage configuration validation remain release gates.
 4. Align dashboard layout, brand asset, responsive styles, canonical drawers, and all real API Loading/Empty/Error/Forbidden/409 states.
 5. Run browser screenshot comparisons at representative desktop/mobile viewports. Static source review and CI frontend build are necessary but not sufficient for visual acceptance.
 
@@ -72,3 +72,10 @@ No Production deployment, Stage/Release gates, model promotion, or Figma LEGACY 
 - Displays actual previous/new fact identifiers, known values from existing household facts, persisted human reason code/text, actor identifier, decision time and domain-event identifier. No invented names or inferred reason if absent.
 - Accepted State history is not the same as the `supersedes_fact_id` fact lineage or the validation state machine. A historical accepted version is not automatically marked SUPERSEDED. No automatic PGOR recalculation.
 - No new database migration, acceptance rule, or write command. The screen still requires authorized authenticated browser comparison to claim full Figma parity.
+
+
+## Slice 5 — Persisted fact correction lineage (Figma 37:6098 / 37:6493)
+- The existing `household_fact.supersedes_fact_id` foreign key now binds a proposed correction to the explicitly selected **current Accepted Fact** of the same household, fact type and value type. The caller supplies the observed Accepted State projection version; a stale version or changed accepted fact fails with 409, wrong-household references are hidden as 404, and incompatible type fails with 422.
+- The correction reason code/text are persisted on the new fact using migration `20261025_0039` and read only through the existing assigned-household facts endpoint. The reason code and prior fact identifier also appear in the domain event and audit metadata; free-text reason is not copied to general audit metadata.
+- Existing unlinked fact-record clients remain supported. Linked correction requires the reference, expected version and nonblank reason together; no fabricated data or implicit supersession. The old fact remains unchanged; the new fact starts PENDING_VALIDATION and requires separate human validation and Accepted State resolution.
+- The UI sends the real accepted fact ID and projection version and renders stored lineage/reason. An Accepted State change that races with the record request may still require re-review: no automatic acceptance or PGOR recalculation is permitted. Authenticated browser visual comparison is still pending.

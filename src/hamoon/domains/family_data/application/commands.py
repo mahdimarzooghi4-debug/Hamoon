@@ -20,6 +20,10 @@ class RecordHouseholdFactCommand:
     effective_from: datetime
     request_id: str
     correlation_id: str
+    supersedes_fact_id: UUID | None = None
+    expected_accepted_projection_version: int | None = None
+    correction_reason_code: str | None = None
+    correction_reason_text: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

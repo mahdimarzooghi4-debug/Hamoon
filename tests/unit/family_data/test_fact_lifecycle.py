@@ -1,4 +1,6 @@
+from dataclasses import replace
 from datetime import UTC, datetime
+from uuid import uuid4
 from uuid import UUID
 
 import pytest
@@ -22,7 +24,14 @@ from hamoon.domains.family_data.domain.entities import (
     HouseholdFact,
     SourceType,
 )
-from hamoon.domains.family_data.domain.errors import FactNotValidatedError
+from hamoon.domains.family_data.domain.errors import (
+    CorrectionValueTypeMismatchError,
+    FactNotValidatedError,
+    FactTypeMismatchError,
+    HouseholdFactNotFoundError,
+    InvalidCorrectionLinkError,
+    ProjectionVersionConflictError,
+)
 from hamoon.domains.operations.domain.entities import (
     WorkItem,
     WorkItemStatus,
@@ -185,6 +194,7 @@ def make_record_handler(
     validations: FakeValidationRepository,
     events: FakeEventRecorder,
     audits: FakeAuditRecorder,
+    accepted: FakeAcceptedStateRepository | None = None,
 ) -> RecordHouseholdFactHandler:
     return RecordHouseholdFactHandler(
         sources=FakeSourceRepository(),
@@ -192,6 +202,7 @@ def make_record_handler(
         validations=validations,
         events=events,
         audits=audits,
+        accepted_state=accepted,
     )
 
 
@@ -407,3 +418,177 @@ async def test_disputed_household_fact_creates_and_resolves_conflict_task() -> N
     )
     assert resolved.status is FactValidationStatus.VALIDATED
     assert work_items.items[task.id].status is WorkItemStatus.COMPLETED
+
+
+
+def _correction_fixture() -> tuple[
+    FakeFactRepository, FakeValidationRepository, FakeAcceptedStateRepository,
+    FakeEventRecorder, FakeAuditRecorder, HouseholdFact,
+]:
+    facts = FakeFactRepository()
+    validations = FakeValidationRepository()
+    accepted = FakeAcceptedStateRepository()
+    events = FakeEventRecorder()
+    audits = FakeAuditRecorder()
+    previous = HouseholdFact(
+        id=uuid4(),
+        household_id=HOUSEHOLD_ID,
+        fact_type="EMPLOYMENT_STATUS",
+        value_type=FactValueType.CODE,
+        value="OLD",
+        source_id=SOURCE_ID,
+        effective_from=datetime.now(UTC),
+        recorded_at=datetime.now(UTC),
+        recorded_by=ACTOR_ID,
+    )
+    facts.items[previous.id] = previous
+    accepted.items[(HOUSEHOLD_ID, "EMPLOYMENT_STATUS")] = CurrentAcceptedFact(
+        household_id=HOUSEHOLD_ID,
+        fact_type="EMPLOYMENT_STATUS",
+        fact_id=previous.id,
+        accepted_value=previous.value,
+        source_id=SOURCE_ID,
+        effective_from=previous.effective_from,
+        projection_version=3,
+        projected_at=datetime.now(UTC),
+        changed_by=ACTOR_ID,
+    )
+    return facts, validations, accepted, events, audits, previous
+
+
+def _correction_command(previous: HouseholdFact) -> RecordHouseholdFactCommand:
+    return RecordHouseholdFactCommand(
+        household_id=HOUSEHOLD_ID,
+        actor_id=ACTOR_ID,
+        fact_type="EMPLOYMENT_STATUS",
+        value_type=FactValueType.CODE,
+        value="NEW",
+        source_id=SOURCE_ID,
+        source_detail="reviewed source",
+        effective_from=datetime.now(UTC),
+        request_id="req-correction",
+        correlation_id="corr-correction",
+        supersedes_fact_id=previous.id,
+        expected_accepted_projection_version=3,
+        correction_reason_code="NEW_EVIDENCE",
+        correction_reason_text="Human reviewed evidence",
+    )
+
+
+@pytest.mark.asyncio
+async def test_linked_correction_is_persisted_pending_without_mutating_accepted_state() -> None:
+    facts, validations, accepted, events, audits, previous = _correction_fixture()
+    before = accepted.items[(HOUSEHOLD_ID, "EMPLOYMENT_STATUS")]
+    fact = await make_record_handler(
+        facts, validations, events, audits, accepted
+    ).handle(_correction_command(previous))
+
+    assert fact.supersedes_fact_id == previous.id
+    assert fact.correction_reason_code == "NEW_EVIDENCE"
+    assert fact.correction_reason_text == "Human reviewed evidence"
+    assert fact.value == "NEW"
+    assert facts.items[previous.id] == previous
+    assert accepted.items[(HOUSEHOLD_ID, "EMPLOYMENT_STATUS")] == before
+    state = await validations.get_state(fact.id)
+    assert state is not None
+    assert state.status is FactValidationStatus.PENDING_VALIDATION
+    assert events.items[0].payload["supersedes_fact_id"] == str(previous.id)
+    assert events.items[0].payload["correction_reason_code"] == "NEW_EVIDENCE"
+    assert audits.items[0].metadata["supersedes_fact_id"] == str(previous.id)
+    assert "Human reviewed evidence" not in str(audits.items[0].metadata)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("variant", "error_type"),
+    [
+        ("foreign_household", HouseholdFactNotFoundError),
+        ("wrong_type", FactTypeMismatchError),
+        ("wrong_value_type", CorrectionValueTypeMismatchError),
+        ("stale_version", ProjectionVersionConflictError),
+        ("different_current_fact", ProjectionVersionConflictError),
+        ("missing_reason", InvalidCorrectionLinkError),
+        ("missing_link", InvalidCorrectionLinkError),
+    ],
+)
+async def test_invalid_correction_fails_without_writes(
+    variant: str, error_type: type[Exception]
+) -> None:
+    facts, validations, accepted, events, audits, previous = _correction_fixture()
+    command = _correction_command(previous)
+    if variant == "foreign_household":
+        foreign = replace(previous, id=uuid4(), household_id=uuid4())
+        facts.items[foreign.id] = foreign
+        command = replace(command, supersedes_fact_id=foreign.id)
+    elif variant == "wrong_type":
+        other = replace(previous, id=uuid4(), fact_type="OTHER")
+        facts.items[other.id] = other
+        command = replace(command, supersedes_fact_id=other.id)
+    elif variant == "wrong_value_type":
+        command = replace(command, value_type=FactValueType.STRING)
+    elif variant == "stale_version":
+        command = replace(command, expected_accepted_projection_version=2)
+    elif variant == "different_current_fact":
+        accepted.items[(HOUSEHOLD_ID, "EMPLOYMENT_STATUS")] = replace(
+            accepted.items[(HOUSEHOLD_ID, "EMPLOYMENT_STATUS")], fact_id=uuid4()
+        )
+    elif variant == "missing_reason":
+        command = replace(command, correction_reason_text=None)
+    elif variant == "missing_link":
+        command = replace(command, supersedes_fact_id=None)
+
+    with pytest.raises(error_type):
+        await make_record_handler(
+            facts, validations, events, audits, accepted
+        ).handle(command)
+    assert len(facts.items) == (2 if variant == "foreign_household" or variant == "wrong_type" else 1)
+    assert validations.items == {}
+    assert events.items == []
+    assert audits.items == []
+
+
+def test_correction_api_schema_requires_link_version_and_reason_together() -> None:
+    from pydantic import ValidationError
+    from hamoon.domains.family_data.api.schemas import RecordFactRequest
+
+    previous = uuid4()
+    payload = {
+        "fact_type": "employment_status",
+        "value_type": "CODE",
+        "value": "NEW",
+        "source_id": SOURCE_ID,
+        "effective_from": datetime.now(UTC),
+        "supersedes_fact_id": previous,
+        "expected_accepted_projection_version": 3,
+        "correction_reason_code": "NEW_EVIDENCE",
+        "correction_reason_text": "Human reviewed evidence",
+    }
+    valid = RecordFactRequest.model_validate(payload)
+    assert valid.fact_type == "EMPLOYMENT_STATUS"
+    assert valid.supersedes_fact_id == previous
+
+    for field in (
+        "supersedes_fact_id",
+        "expected_accepted_projection_version",
+        "correction_reason_code",
+        "correction_reason_text",
+    ):
+        with pytest.raises(ValidationError):
+            RecordFactRequest.model_validate({
+                key: value for key, value in payload.items() if key != field
+            })
+    with pytest.raises(ValidationError):
+        RecordFactRequest.model_validate({
+            **payload, "correction_reason_text": "   "
+        })
+    # Existing unlinked fact-record contract remains valid.
+    unlinked = RecordFactRequest.model_validate({
+        key: value for key, value in payload.items()
+        if key not in (
+            "supersedes_fact_id",
+            "expected_accepted_projection_version",
+            "correction_reason_code",
+            "correction_reason_text",
+        )
+    })
+    assert unlinked.supersedes_fact_id is None
