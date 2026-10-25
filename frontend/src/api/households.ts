@@ -152,3 +152,28 @@ export async function getPGORTrace(snapshotId: string): Promise<PGORTrace> {
   );
   return response.data;
 }
+
+/**
+ * Starts a DRAFT household case using the existing authenticated CASEWORKER API.
+ * The server binds organizational scope and assigns the current caseworker.
+ * Identity, members, observations and accepted facts are NOT inferred here.
+ */
+export interface CreatedHousehold {
+  id: string;
+  case_code: string;
+  lifecycle_status: HouseholdStatus;
+  organizational_unit_id: string | null;
+  primary_caseworker_id: string | null;
+  version: number;
+}
+
+export async function createHousehold(caseCode: string): Promise<CreatedHousehold> {
+  const response = await requestJson<{ data: CreatedHousehold }>(
+    "/api/v1/households",
+    {
+      method: "POST",
+      body: JSON.stringify({ case_code: caseCode.trim() }),
+    },
+  );
+  return response.data;
+}

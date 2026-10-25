@@ -17,6 +17,7 @@ import {
   curateLearningSignal,
   executeInternalTrainingRun,
   exportLearningDataset,
+  importFoundationDataset,
   listEvaluations,
   listInternalTrainingRuns,
   listLearningDatasets,
@@ -204,6 +205,8 @@ export function LearningGovernancePage() {
     useState<TrainableTask>("OUTCOME_INTERPRETATION");
   const [datasetKey, setDatasetKey] = useState("outcome-interpretation");
   const [datasetVersion, setDatasetVersion] = useState("");
+  const [foundationTask, setFoundationTask] = useState<"DIAGNOSIS" | "OUTCOME_INTERPRETATION">("DIAGNOSIS");
+  const [foundationAcknowledged, setFoundationAcknowledged] = useState(false);
   const [selectionPolicyVersion, setSelectionPolicyVersion] = useState(
     "outcome-learning-selection-v1",
   );
@@ -549,6 +552,22 @@ export function LearningGovernancePage() {
         setSelectedSignalIds(new Set());
       },
       "Dataset نسخه‌دار ساخته شد و manifest آن قفل شد.",
+    );
+  }
+
+  async function submitFoundationImport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!foundationAcknowledged || busy !== null) return;
+    await runAction(
+      "import-foundation",
+      async () => {
+        const dataset = await importFoundationDataset(foundationTask);
+        if (dataset.status !== "DRAFT" || dataset.source_kind !== "APPROVED_FOUNDATION_SOURCE") {
+          throw new Error("FOUNDATION_IMPORT_DID_NOT_CREATE_DRAFT");
+        }
+        setFoundationAcknowledged(false);
+      },
+      "منبع تأییدشده به Dataset پیش‌نویس وارد شد؛ آموزش، ارزیابی و انتشار همچنان نیازمند مراحل مستقل‌اند.",
     );
   }
 
@@ -980,6 +999,52 @@ export function LearningGovernancePage() {
             </div>
           </form>
         ) : null}
+      </Panel>
+
+      <Panel className="admin-section" aria-label="ورود کنترل‌شده داده آموزشی پایه">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">Human-approved Foundation Source · v1</span>
+            <h2>ورود کنترل‌شده مجموعه آموزشی پایه</h2>
+          </div>
+          <Badge tone="warning">فقط Dataset پیش‌نویس</Badge>
+        </div>
+        <p>
+          بسته منبع تأییدشده در مخزن و با اثر انگشت SHA-256 کنترل می‌شود.
+          این اقدام صرفاً Dataset جدید با وضعیت DRAFT ایجاد می‌کند؛
+          نه Learning Signal ساختگی می‌سازد، نه Dataset را تأیید می‌کند،
+          نه آموزش یا انتشار مدل را شروع می‌کند.
+        </p>
+        <form className="admin-filter-bar" onSubmit={(event) => void submitFoundationImport(event)}>
+          <label htmlFor="foundation-task">
+            <span>نوع داده آموزشی مصوب</span>
+            <select
+              id="foundation-task"
+              value={foundationTask}
+              onChange={(event) =>
+                setFoundationTask(event.target.value as "DIAGNOSIS" | "OUTCOME_INTERPRETATION")
+              }
+            >
+              <option value="DIAGNOSIS">تشخیص · ۱۲ نمونه</option>
+              <option value="OUTCOME_INTERPRETATION">تفسیر Outcome · ۱۲ نمونه</option>
+            </select>
+          </label>
+          <label>
+            <span>نسخه منبع</span>
+            <input type="text" value="v1" readOnly aria-label="نسخه قفل‌شده منبع" />
+          </label>
+          <label className="foundation-acknowledgement">
+            <input
+              type="checkbox"
+              checked={foundationAcknowledged}
+              onChange={(event) => setFoundationAcknowledged(event.target.checked)}
+            />
+            <span>می‌پذیرم که این اقدام فقط ورود منبع انسانیِ مصوب به Dataset پیش‌نویس است.</span>
+          </label>
+          <Button type="submit" disabled={!foundationAcknowledged || busy !== null}>
+            {busy === "import-foundation" ? "در حال ورود و تصدیق منبع…" : "ورود منبع به DRAFT"}
+          </Button>
+        </form>
       </Panel>
 
       <Panel className="admin-section">
