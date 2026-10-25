@@ -53,3 +53,35 @@ def test_figma_right_sheet_geometry_is_asserted_without_mock_data() -> None:
     assert "assertCorrectionSheetLayout(page, \"mobile\")" in browser
     assert "width: min(920px, 100vw)" in css
     assert "page.route(" not in browser
+
+
+
+def test_real_household_overlay_modal_and_accessibility_contract() -> None:
+    app = (ROOT / "frontend/src/app/App.tsx").read_text(encoding="utf-8")
+    overlay = (ROOT / "frontend/src/pages/HouseholdFactsOverlayPage.tsx").read_text(
+        encoding="utf-8"
+    )
+    page = (ROOT / "frontend/src/pages/HouseholdFactsPage.tsx").read_text(
+        encoding="utf-8"
+    )
+    browser = (ROOT / "frontend/scripts/household-facts-browser.test.mjs").read_text(
+        encoding="utf-8"
+    )
+    assert "HouseholdFactsOverlayPage" in app
+    assert "<HouseholdPage householdId={householdId} />" in overlay
+    assert 'data-fact-background="real-household"' in overlay
+    assert 'role="dialog"' in overlay
+    assert 'aria-modal="true"' in overlay
+    assert 'ref={backgroundRef} aria-hidden="true"' in overlay
+    assert "background.inert = true" in overlay
+    assert "background.inert = priorBackgroundInert" in overlay
+    assert "header.inert = true" in overlay
+    assert "header.inert = priorInert" in overlay
+    assert "onKeyDown={onDialogKeyDown}" in overlay
+    assert 'event.key === "Escape"' in overlay
+    assert "data-operation-busy={busy}" in page
+    assert 'assertCorrectionSheetLayout(page, "desktop")' in browser
+    assert 'assertCorrectionSheetLayout(page, "mobile")' in browser
+    assert "await page.reload()" in browser
+    assert 'page.keyboard.press("Escape")' in browser
+    assert "page.route(" not in browser
