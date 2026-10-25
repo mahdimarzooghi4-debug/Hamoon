@@ -39,14 +39,17 @@ def test_figma_right_sheet_geometry_is_asserted_without_mock_data() -> None:
     page = (ROOT / "frontend/src/pages/HouseholdFactsPage.tsx").read_text(
         encoding="utf-8"
     )
+    overlay = (ROOT / "frontend/src/pages/HouseholdFactsOverlayPage.tsx").read_text(
+        encoding="utf-8"
+    )
     css = (ROOT / "frontend/src/styles.css").read_text(encoding="utf-8")
     assert 'data-figma-panel="correction-right-sheet"' in page
-    assert 'className="fact-context"' in page
+    assert 'className="fact-context"' not in page
+    assert 'className="fact-route__dialog"' in overlay
+    assert "<HouseholdPage householdId={householdId} />" in overlay
     assert "state.household.case_code" in page
-    assert "state.household.lifecycle_status" in page
     assert "current.accepted_value" in page
     assert "assertCorrectionSheetLayout(page, \"desktop\")" in browser
     assert "assertCorrectionSheetLayout(page, \"mobile\")" in browser
-    assert "grid-template-columns: minmax(0, 920px) minmax(0, 1fr)" in css
-    assert ".fact-workspace .fact-context { display: none; }" in css
+    assert "width: min(920px, 100vw)" in css
     assert "page.route(" not in browser

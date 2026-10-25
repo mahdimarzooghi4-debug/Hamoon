@@ -3700,3 +3700,87 @@ a {
   .fact-workspace .hm-panel { padding: 15px; }
   .fact-workspace .fact-history-meta { overflow-wrap: anywhere; }
 }
+
+
+/* Slice 8: a real, route-addressable sheet over the authenticated household page.
+   Background has the same live API as /households/:id, but is inert while editing. */
+.app-main:has(.fact-route) {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+.fact-route {
+  min-height: calc(100dvh - var(--fact-overlay-top, 76px));
+  background: #f7fbfe;
+}
+.fact-route__background {
+  width: min(calc(100% - 48px), var(--hamoon-content-width));
+  margin: 0 auto;
+  padding: 32px 0 56px;
+  min-height: calc(100dvh - var(--fact-overlay-top, 76px));
+}
+.fact-route__backdrop {
+  position: fixed;
+  z-index: 30;
+  top: var(--fact-overlay-top, 76px);
+  inset-inline: 0;
+  bottom: 0;
+  background: rgb(7 30 49 / 45%);
+}
+.fact-route__dialog {
+  position: fixed;
+  z-index: 31;
+  top: var(--fact-overlay-top, 76px);
+  right: 0;
+  bottom: 0;
+  width: min(920px, 100vw);
+  max-width: 100vw;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #f7fbfe;
+  border-inline-end: 1px solid #dcecf7;
+  box-shadow: -12px 0 42px rgb(7 30 49 / 20%);
+  direction: rtl;
+}
+.fact-route__dialog:focus { outline: none; }
+.fact-route__dialog:focus-visible { outline: 2px solid var(--hamoon-cyan); outline-offset: -3px; }
+.fact-route__close {
+  position: absolute;
+  z-index: 2;
+  top: 15px;
+  left: 15px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dcecf7;
+  border-radius: 12px;
+  background: white;
+  color: var(--hamoon-blue);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.fact-route__close:focus-visible {
+  outline: 3px solid var(--hamoon-cyan);
+  outline-offset: 2px;
+}
+.fact-route .fact-workspace {
+  display: block;
+  min-height: auto;
+  background: #f7fbfe;
+}
+.fact-route .fact-workspace .fact-page {
+  border: 0;
+  box-shadow: none;
+  padding-top: 62px;
+}
+@media (max-width: 980px) {
+  .fact-route__background { width: min(calc(100% - 24px), var(--hamoon-content-width)); }
+  .fact-route__dialog { width: 100vw; border: 0; }
+}
+@media (max-width: 600px) {
+  .fact-route .fact-workspace .fact-page { padding: 62px 12px 32px; }
+}
