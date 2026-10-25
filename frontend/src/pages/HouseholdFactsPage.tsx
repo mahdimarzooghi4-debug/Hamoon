@@ -212,7 +212,7 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
     <div className="page-stack fact-page">
       <header className="page-heading">
         <div>
-          <AppLink className="text-link" to={"/households/" + householdId}>بازگشت به پرونده ←</AppLink>
+          <AppLink className="text-link" to={`/households/${householdId}`}>بازگشت به پرونده ←</AppLink>
           <span className="eyebrow">اصلاح داده خانوار · نگاشت فیگما 37:5908 / 37:6098 / 37:6288 / 37:6493</span>
           <h1>اصلاح و اعتبارسنجی اطلاعات</h1>
           <p>پرونده {state.household.case_code} · داده پیشین حفظ می‌شود و هیچ مقدار جدیدی خودکار پذیرفته نمی‌شود.</p>
