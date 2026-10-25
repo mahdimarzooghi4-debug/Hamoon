@@ -8,7 +8,7 @@ import { EmpowermentOverviewPage } from "../pages/EmpowermentOverviewPage";
 import { HomePage } from "../pages/HomePage";
 import { HouseholdPage } from "../pages/HouseholdPage";
 import { HouseholdEvidencePage } from "../pages/HouseholdEvidencePage";
-import { HouseholdFactsPage } from "../pages/HouseholdFactsPage";
+import { HouseholdFactsOverlayPage } from "../pages/HouseholdFactsOverlayPage";
 import { HouseholdsPage } from "../pages/HouseholdsPage";
 import { LearningGovernancePage } from "../pages/LearningGovernancePage";
 import { RoleHomePage } from "../pages/RoleHomePage";
@@ -30,7 +30,7 @@ export function App() {
   } else if (path === "/households") {
     page = <HouseholdsPage />;
   } else if (path.startsWith("/households/") && path.endsWith("/facts")) {
-    page = <HouseholdFactsPage householdId={path.slice("/households/".length, -"/facts".length)} />;
+    page = <HouseholdFactsOverlayPage householdId={path.slice("/households/".length, -"/facts".length)} />;
   } else if (path.startsWith("/households/") && path.endsWith("/evidence")) {
     page = (
       <HouseholdEvidencePage

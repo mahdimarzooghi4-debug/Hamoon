@@ -139,33 +139,42 @@ async function assertNoHorizontalOverflow(page, label) {
 async function assertCorrectionSheetLayout(page, mode) {
   const layout = await page.evaluate(() => {
     const sheet = document.querySelector(".fact-page");
-    const context = document.querySelector(".fact-context");
-    const workspace = document.querySelector(".fact-workspace");
-    if (!(sheet instanceof HTMLElement) || !(context instanceof HTMLElement)
-      || !(workspace instanceof HTMLElement)) return null;
-    const sheetBox = sheet.getBoundingClientRect();
-    const contextBox = context.getBoundingClientRect();
+    const dialog = document.querySelector(".fact-route__dialog");
+    const background = document.querySelector(".fact-route__background");
+    const backdrop = document.querySelector(".fact-route__backdrop");
+    const topbar = document.querySelector(".topbar");
+    if (!(sheet instanceof HTMLElement) || !(dialog instanceof HTMLElement)
+      || !(background instanceof HTMLElement) || !(backdrop instanceof HTMLElement)
+      || !(topbar instanceof HTMLElement)) return null;
+    const panel = dialog.getBoundingClientRect();
+    const back = background.getBoundingClientRect();
+    const shade = backdrop.getBoundingClientRect();
     return {
-      sheetLeft: sheetBox.left,
-      sheetRight: sheetBox.right,
-      sheetWidth: sheetBox.width,
-      contextRight: contextBox.right,
-      contextDisplay: getComputedStyle(context).display,
+      dialogLeft: panel.left, dialogRight: panel.right, dialogWidth: panel.width,
+      dialogTop: panel.top, backdropTop: shade.top,
+      backdropWidth: shade.width, backgroundWidth: back.width,
+      backgroundInert: background.inert, topbarInert: topbar.inert,
+      topbarBottom: topbar.getBoundingClientRect().bottom,
       viewportWidth: document.documentElement.clientWidth,
-      workspaceWidth: workspace.getBoundingClientRect().width,
+      dialogScroll: getComputedStyle(dialog).overflowY,
+      backgroundCaseVisible: background.textContent?.includes("QA-BROWSER-") ?? false,
     };
   });
-  assert.ok(layout, "Missing real correction sheet/context DOM");
-  assert.ok(layout.sheetWidth <= layout.viewportWidth + 1, "Correction sheet exceeds viewport");
+  assert.ok(layout, "Real overlay needs dialog, backdrop, header, and household background");
+  assert.ok(layout.backgroundInert, "Live household canvas must be keyboard inert");
+  assert.ok(layout.topbarInert, "Header must be inert while dialog is open");
+  assert.ok(layout.backgroundCaseVisible, "Underlying page must be a real household view");
+  assert.ok(layout.dialogScroll === "auto", "Dialog must independently scroll");
+  assert.ok(Math.abs(layout.dialogTop - layout.topbarBottom) <= 2, "Dialog must start below live header");
+  assert.ok(Math.abs(layout.backdropTop - layout.dialogTop) <= 2, "Backdrop must align with dialog");
+  assert.ok(Math.abs(layout.backdropWidth - layout.viewportWidth) <= 2, "Backdrop covers the entire context");
+  assert.ok(Math.abs(layout.dialogRight - layout.viewportWidth) <= 2, "Sheet must be right aligned");
   if (mode === "desktop") {
-    assert.notEqual(layout.contextDisplay, "none", "Desktop must show case context");
-    assert.ok(layout.sheetLeft >= 200, "Correction sheet must be right-aligned, not full-width");
-    assert.ok(layout.sheetWidth >= 820 && layout.sheetWidth <= 930, "Figma-aligned right sheet width");
-    assert.ok(Math.abs(layout.contextRight - layout.sheetLeft) <= 2, "Context must meet sheet edge");
+    assert.ok(layout.dialogLeft >= 200, "Desktop must reveal household content at left");
+    assert.ok(layout.dialogWidth >= 820 && layout.dialogWidth <= 930, "Figma-inspired 920px sheet width");
   } else {
-    assert.equal(layout.contextDisplay, "none", "Mobile must use full-width correction sheet");
-    assert.ok(layout.sheetLeft >= -1 && layout.sheetLeft <= 1, "Mobile sheet starts at viewport edge");
-    assert.ok(Math.abs(layout.sheetWidth - layout.viewportWidth) <= 2, "Mobile sheet fits viewport");
+    assert.ok(layout.dialogLeft >= -1 && layout.dialogLeft <= 1, "Mobile sheet starts at viewport edge");
+    assert.ok(Math.abs(layout.dialogWidth - layout.viewportWidth) <= 2, "Mobile sheet occupies viewport width");
   }
 }
 
@@ -227,13 +236,19 @@ async function run() {
   });
   assert.equal(acceptedInitial.data.projection_version, 1);
 
-  await page.goto(`${WEB}/households/${householdId}/facts`);
+  // Enter via the actual authorized household route so the canvas stays mounted
+  // behind the drawer. The /facts URL also supports direct load/reload.
+  await page.goto(`${WEB}/households/${householdId}`);
+  await page.getByRole("heading", { name: `پرونده ${code}` }).waitFor();
+  await page.getByRole("link", { name: /اصلاح و اعتبارسنجی اطلاعات/ }).click();
+  await page.getByRole("dialog", { name: "اصلاح و اعتبارسنجی اطلاعات" }).waitFor();
+  assert.equal(new URL(page.url()).pathname, `/households/${householdId}/facts`);
   await page.getByRole("heading", { name: "اصلاح و اعتبارسنجی اطلاعات" }).waitFor();
   await page.getByLabel("نوع واقعیت").selectOption("QA_BROWSER_FACT");
   await page.getByText("QA_BEFORE", { exact: true }).first().waitFor();
   await assertNoHorizontalOverflow(page, "desktop");
   await assertCorrectionSheetLayout(page, "desktop");
-  await page.screenshot({ path: new URL("correction-desktop-before.png", artifacts).pathname, fullPage: true });
+  await page.screenshot({ path: new URL("correction-desktop-before.png", artifacts).pathname });
 
   await page.getByLabel("مقدار پیشنهادی جدید · کد").fill("QA_AFTER");
   await page.getByLabel("منبع فعال داده").selectOption(source.id);
@@ -269,11 +284,45 @@ async function run() {
   assert.equal(history.data[0].new_fact_id, correction.id);
   assert.equal(history.data[0].previous_fact_id, initial.data.id);
   await page.getByText("تاریخچه پذیرش داده").waitFor();
-  await page.screenshot({ path: new URL("correction-desktop-accepted.png", artifacts).pathname, fullPage: true });
+  await page.screenshot({ path: new URL("correction-desktop-accepted.png", artifacts).pathname });
   await page.setViewportSize({ width: 390, height: 844 });
   await assertNoHorizontalOverflow(page, "mobile");
   await assertCorrectionSheetLayout(page, "mobile");
-  await page.screenshot({ path: new URL("correction-mobile-accepted.png", artifacts).pathname, fullPage: true });
+  // The fixed drawer lives in the viewport; full-page screenshots of the
+  // underlying scrollable case would misrepresent the visible overlay.
+  await page.locator(".fact-route__dialog").evaluate((element) => { element.scrollTop = 0; });
+  await page.screenshot({ path: new URL("correction-mobile-accepted.png", artifacts).pathname });
+
+  // Browser Back/Forward and deep-link reload must not strand a modal or
+  // unlock background controls. Escape and explicit close return to the case.
+  // The status message can render before its follow-up API refresh finishes.
+  // Escape must be ignored during that mutation, then close after busy clears.
+  await page.waitForFunction(() =>
+    document.querySelector(".fact-workspace")?.getAttribute("data-operation-busy") === "false",
+  );
+  await page.getByRole("dialog", { name: "اصلاح و اعتبارسنجی اطلاعات" }).focus();
+  await page.keyboard.press("Tab");
+  assert.equal(
+    await page.evaluate(() => document.activeElement?.getAttribute("aria-label")),
+    "بستن پنل اصلاح",
+    "Tab must remain within the modal and start at its close control",
+  );
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog", { name: "اصلاح و اعتبارسنجی اطلاعات" }).waitFor({ state: "detached" });
+  assert.equal(new URL(page.url()).pathname, `/households/${householdId}`);
+  await page.getByRole("heading", { name: `پرونده ${code}` }).waitFor();
+  assert.equal(await page.locator(".topbar").evaluate((el) => el.inert), false);
+
+  await page.goto(`${WEB}/households/${householdId}/facts`);
+  await page.getByRole("dialog", { name: "اصلاح و اعتبارسنجی اطلاعات" }).waitFor();
+  await page.reload();
+  await page.getByRole("heading", { name: "اصلاح و اعتبارسنجی اطلاعات" }).waitFor();
+  await page.getByRole("button", { name: "بستن پنل اصلاح" }).click();
+  assert.equal(new URL(page.url()).pathname, `/households/${householdId}`);
+  assert.equal(await page.locator(".topbar").evaluate((el) => el.inert), false);
+  // Re-enter for the existing stale-version and cross-caseworker checks.
+  await page.goto(`${WEB}/households/${householdId}/facts`);
+  await page.getByRole("dialog", { name: "اصلاح و اعتبارسنجی اطلاعات" }).waitFor();
 
   const stale = await api(page, token, `${root}/facts`, {
     method: "POST",
