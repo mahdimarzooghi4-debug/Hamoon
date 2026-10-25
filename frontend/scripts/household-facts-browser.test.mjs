@@ -292,6 +292,12 @@ async function run() {
 
   // Browser Back/Forward and deep-link reload must not strand a modal or
   // unlock background controls. Escape and explicit close return to the case.
+  // The status message can render before its follow-up API refresh finishes.
+  // Escape must be ignored during that mutation, then close after busy clears.
+  await page.waitForFunction(() =>
+    document.querySelector(".fact-workspace")?.getAttribute("data-operation-busy") === "false",
+  );
+  await page.getByRole("dialog", { name: "اصلاح و اعتبارسنجی اطلاعات" }).focus();
   await page.keyboard.press("Escape");
   await page.getByRole("dialog", { name: "اصلاح و اعتبارسنجی اطلاعات" }).waitFor({ state: "detached" });
   assert.equal(new URL(page.url()).pathname, `/households/${householdId}`);
