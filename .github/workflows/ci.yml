@@ -27,6 +27,9 @@ jobs:
       - name: Frontend access policy tests
         run: npm --prefix frontend run test:access
 
+      - name: Browser QA script syntax
+        run: node --check frontend/scripts/household-facts-browser.test.mjs
+
       - name: Frontend build
         run: npm --prefix frontend run build
 
