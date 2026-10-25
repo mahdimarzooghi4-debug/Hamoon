@@ -376,6 +376,24 @@ jobs:
           test -n "$web_container_id"
           test "$(docker inspect -f '{{.Image}}' "$web_container_id")" = "$expected_web_id"
 
+      - name: Install authenticated browser QA tooling
+        run: |
+          npm install --prefix frontend --ignore-scripts --no-audit --no-fund
+          cd frontend
+          npx playwright install --with-deps chromium
+
+      - name: Authenticated Chromium correction QA (synthetic, local-only)
+        run: npm --prefix frontend run test:browser
+
+      - name: Upload synthetic browser QA screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6 # v4.6.2
+        with:
+          name: hamoon-browser-qa-${{ github.run_id }}
+          path: frontend/browser-qa-artifacts/*.png
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Show local stack diagnostics
         if: failure()
         run: |
