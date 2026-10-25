@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
 from hamoon.domains.family_data.domain.entities import (
     FactValidationStatus,
@@ -30,6 +31,30 @@ class RecordFactRequest(BaseModel):
     source_id: UUID
     source_detail: str | None = Field(default=None, max_length=500)
     effective_from: datetime
+    supersedes_fact_id: UUID | None = None
+    expected_accepted_projection_version: int | None = Field(default=None, ge=1)
+    correction_reason_code: str | None = Field(default=None, min_length=1, max_length=100)
+    correction_reason_text: str | None = Field(default=None, min_length=1, max_length=1000)
+
+    @model_validator(mode="after")
+    def require_complete_correction(self) -> Self:
+        fields = (
+            self.expected_accepted_projection_version,
+            self.correction_reason_code,
+            self.correction_reason_text,
+        )
+        if self.supersedes_fact_id is None:
+            if any(item is not None for item in fields):
+                raise ValueError("Correction metadata requires supersedes_fact_id.")
+        elif (
+            any(item is None for item in fields)
+            or not self.correction_reason_code
+            or not self.correction_reason_code.strip()
+            or not self.correction_reason_text
+            or not self.correction_reason_text.strip()
+        ):
+            raise ValueError("Correction requires expected version and nonblank reason.")
+        return self
 
     @field_validator("fact_type")
     @classmethod
@@ -50,6 +75,9 @@ class FactData(BaseModel):
     version: int
     validation_status: FactValidationStatus
     validation_version: int
+    supersedes_fact_id: UUID | None
+    correction_reason_code: str | None
+    correction_reason_text: str | None
 
 
 class FactResponse(BaseModel):

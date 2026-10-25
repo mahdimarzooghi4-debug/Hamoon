@@ -85,6 +85,8 @@ class HouseholdFact:
     effective_to: datetime | None = None
     supersedes_fact_id: UUID | None = None
     schema_version: int = 1
+    correction_reason_code: str | None = None
+    correction_reason_text: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

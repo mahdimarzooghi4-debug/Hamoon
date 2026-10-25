@@ -46,5 +46,24 @@ def test_fact_record_does_not_auto_validate_or_auto_accept() -> None:
     assert "recordHouseholdFact(" in submit
     assert "changeFactValidation(" not in submit
     assert "resolveAcceptedFact(" not in submit
-    assert "supersedes_fact_id" not in api
+    assert "supersedes_fact_id: current.fact_id" in page
+    assert "expected_accepted_projection_version: current.projection_version" in page
+    assert "correction_reason_code: reasonCode" in page
+    assert "correction_reason_text: reasonText.trim()" in page
+    assert "supersedes_fact_id" in api
     assert "calculatePGOR" not in page
+
+
+def test_correction_lineage_is_readable_and_does_not_implicitly_change_acceptance() -> None:
+    page = read("frontend/src/pages/HouseholdFactsPage.tsx")
+    api = read("frontend/src/api/familyData.ts")
+    handler = read("src/hamoon/domains/family_data/application/handlers.py")
+    assert "fact.supersedes_fact_id" in page
+    assert "fact.correction_reason_text" in page
+    assert "correction_reason_code: string | null" in api
+    assert "correction_reason_text: string | null" in api
+    assert "supersedes_fact_id=command.supersedes_fact_id" in handler
+    record = handler.split("class RecordHouseholdFactHandler:", 1)[1].split("class ChangeFactValidationHandler:", 1)[0]
+    assert "ResolveAcceptedFactHandler(" not in record
+    assert "FactValidationStatus.PENDING_VALIDATION" in record
+    assert "PGOR" not in record

@@ -63,6 +63,8 @@ class HouseholdFactModel(Base):
         nullable=True,
     )
     schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    correction_reason_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    correction_reason_text: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
 
 class FactValidationStateModel(Base):

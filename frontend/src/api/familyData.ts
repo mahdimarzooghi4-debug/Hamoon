@@ -24,6 +24,9 @@ export interface HouseholdFact {
   version: number;
   validation_status: ValidationStatus;
   validation_version: number;
+  supersedes_fact_id: string | null;
+  correction_reason_code: string | null;
+  correction_reason_text: string | null;
 }
 
 export interface AcceptedFact {
@@ -65,6 +68,10 @@ export async function recordHouseholdFact(
     source_id: string;
     source_detail: string | null;
     effective_from: string;
+    supersedes_fact_id: string;
+    expected_accepted_projection_version: number;
+    correction_reason_code: string;
+    correction_reason_text: string;
   },
 ): Promise<HouseholdFact> {
   const response = await requestJson<{ data: HouseholdFact }>(householdPath(householdId) + "/facts", {

@@ -47,6 +47,8 @@ def _to_fact(model: HouseholdFactModel) -> HouseholdFact:
         version=model.version,
         supersedes_fact_id=model.supersedes_fact_id,
         schema_version=model.schema_version,
+        correction_reason_code=model.correction_reason_code,
+        correction_reason_text=model.correction_reason_text,
     )
 
 
@@ -114,6 +116,8 @@ class SqlAlchemyHouseholdFactRepository:
                 version=fact.version,
                 supersedes_fact_id=fact.supersedes_fact_id,
                 schema_version=fact.schema_version,
+                correction_reason_code=fact.correction_reason_code,
+                correction_reason_text=fact.correction_reason_text,
             )
         )
 
