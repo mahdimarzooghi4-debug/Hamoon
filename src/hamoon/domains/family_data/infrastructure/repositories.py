@@ -120,6 +120,9 @@ class SqlAlchemyHouseholdFactRepository:
                 correction_reason_text=fact.correction_reason_text,
             )
         )
+        # FK-linked validation records must not flush before the parent fact.
+        # The flush stays inside the caller's transaction and rolls back with it.
+        await self._session.flush()
 
     async def get_for_household(
         self,
