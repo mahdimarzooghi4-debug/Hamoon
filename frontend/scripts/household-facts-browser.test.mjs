@@ -56,8 +56,11 @@ async function provisionCaseworker() {
     method: "POST",
     body: JSON.stringify({
       username,
+      firstName: "Synthetic",
+      lastName: "Caseworker",
+      email: `${username}@example.invalid`,
       enabled: true,
-      emailVerified: false,
+      emailVerified: true,
       requiredActions: [],
       credentials: [{ type: "password", value: password, temporary: false }],
     }),
