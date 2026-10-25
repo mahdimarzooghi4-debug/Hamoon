@@ -77,6 +77,8 @@ def test_real_household_overlay_modal_and_accessibility_contract() -> None:
     assert "background.inert = priorBackgroundInert" in overlay
     assert "header.inert = true" in overlay
     assert "header.inert = priorInert" in overlay
+    assert "ResizeObserver(recalculate)" in overlay
+    assert "headerObserver?.disconnect()" in overlay
     assert "onKeyDown={onDialogKeyDown}" in overlay
     assert 'event.key === "Escape"' in overlay
     assert "data-operation-busy={busy}" in page

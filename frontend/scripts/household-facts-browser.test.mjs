@@ -137,6 +137,14 @@ async function assertNoHorizontalOverflow(page, label) {
 }
 
 async function assertCorrectionSheetLayout(page, mode) {
+  // Wait for the observed sticky header and the fixed drawer to settle after
+  // navigation/fonts/reflow. A persistent mismatch still fails this gate.
+  await page.waitForFunction(() => {
+    const dialog = document.querySelector(".fact-route__dialog");
+    const header = document.querySelector(".topbar");
+    return dialog instanceof HTMLElement && header instanceof HTMLElement
+      && Math.abs(dialog.getBoundingClientRect().top - header.getBoundingClientRect().bottom) <= 2;
+  }, null, { timeout: 5000 });
   const layout = await page.evaluate(() => {
     const sheet = document.querySelector(".fact-page");
     const dialog = document.querySelector(".fact-route__dialog");
