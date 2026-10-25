@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc --noEmit",
     "test:access": "rm -rf .tmp-auth-test && tsc src/auth/access.ts src/auth/claims.ts --target ES2022 --module ES2022 --moduleResolution Bundler --outDir .tmp-auth-test --skipLibCheck && node scripts/auth-access.test.mjs && rm -rf .tmp-auth-test",
+    "test:browser": "node scripts/household-facts-browser.test.mjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
@@ -17,6 +18,7 @@
   "devDependencies": {
     "@types/react": "18.3.18",
     "@types/react-dom": "18.3.5",
+    "playwright": "1.56.1",
     "typescript": "5.7.3",
     "vite": "5.4.14"
   }

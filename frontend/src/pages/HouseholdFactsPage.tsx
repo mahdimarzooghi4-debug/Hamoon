@@ -154,8 +154,13 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
     setSelectedType("");
     setRawValue("");
     setSourceId("");
+    setSourceDetail("");
+    setEffectiveFrom("");
     setReasonCode("");
     setReasonText("");
+    setConfirmResolveId(null);
+    setError(null);
+    setSuccess(null);
     void refresh();
   }, [refresh]);
 
@@ -306,7 +311,7 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
             </label>
             <div className="fact-reason-block">
               <strong>دلیل اصلاح و بازبینی انسانی</strong>
-              <p>کدهای زیر برچسب‌های رابط کاربری‌اند؛ دلیل تا زمان اقدام جداگانه اعتبارسنجی یا انتخاب Accepted State در ممیزی ثبت نمی‌شود و اعتبار داده را خودکار تعیین نمی‌کند.</p>
+              <p>دلیل انتخاب‌شده هنگام ثبت اصلاح روی واقعیت جدید ذخیره می‌شود؛ این ثبت به‌تنهایی اعتبارسنجی یا انتخاب Accepted State نیست. تصمیم‌های اعتبارسنجی و پذیرش، دلیل و ممیزی مستقل خود را دارند.</p>
               <div className="fact-reason-options">
                 {reasons.map(([code, label]) => <button key={code} type="button" disabled={busy} aria-pressed={reasonCode === code} className={reasonCode === code ? "evidence-filter is-active" : "evidence-filter"} onClick={() => setReasonCode(code)}>{label}</button>)}
               </div>

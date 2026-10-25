@@ -1,7 +1,8 @@
 from datetime import datetime
+from hashlib import sha256
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import BigInteger, bindparam, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.domains.identity.domain.entities import Actor, ActorStatus, ActorType
@@ -21,6 +22,21 @@ class SqlAlchemyIdentityRepository:
         display_name: str | None,
         now: datetime,
     ) -> Actor:
+        # Requests for a first-time OIDC user may arrive concurrently (e.g.
+        # browser list + create). Serialize provisioning per issuer/subject
+        # across replicas *before* looking up the unique account.
+        # This PostgreSQL transaction lock releases at the caller's commit.
+        lock_key = int.from_bytes(
+            sha256(f"{len(issuer)}:{issuer}{subject}".encode()).digest()[:8],
+            byteorder="big",
+            signed=True,
+        )
+        await self._session.execute(
+            text("SELECT pg_advisory_xact_lock(:lock_key)").bindparams(
+                bindparam("lock_key", type_=BigInteger())
+            ),
+            {"lock_key": lock_key},
+        )
         result = await self._session.execute(
             select(UserAccountModel, ActorModel)
             .join(ActorModel, ActorModel.id == UserAccountModel.actor_id)
