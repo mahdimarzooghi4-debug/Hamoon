@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { ApiError } from "../api/client";
 import {
@@ -125,9 +125,10 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
   const [reasonCode, setReasonCode] = useState("");
   const [reasonText, setReasonText] = useState("");
   const [busy, setBusy] = useState(false);
+  const inFlightRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [confirmResolve, setConfirmResolve] = useState(false);
+  const [confirmResolveId, setConfirmResolveId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -166,7 +167,9 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
   const canReview = Boolean(reasonCode && reasonText.trim());
 
   async function run(action: () => Promise<string>) {
-    if (busy) return;
+    // Lock synchronously: React state alone cannot prevent duplicate POSTs before rerender.
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setBusy(true);
     setError(null);
     setSuccess(null);
@@ -179,7 +182,8 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
       await refresh();
     } finally {
       setBusy(false);
-      setConfirmResolve(false);
+      inFlightRef.current = false;
+      setConfirmResolveId(null);
     }
   }
 
@@ -188,6 +192,10 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
     if (!canRecord || !oldFact || !current) return;
     const parsed = (() => { try { return { value: parseValue(oldFact.value_type, rawValue) }; } catch (cause) { setError(errorMessage(cause)); return null; } })();
     if (!parsed) return;
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/.test(effectiveFrom.trim()) || Number.isNaN(Date.parse(effectiveFrom.trim()))) {
+      setError("تاریخ اثر باید ISO 8601 با منطقه زمانی صریح باشد؛ منطقه زمانی حدس زده نمی‌شود.");
+      return;
+    }
     void run(async () => {
       const created = await recordHouseholdFact(householdId, {
         fact_type: current.fact_type,
@@ -235,7 +243,7 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
           <EmptyState title="هنوز داده پذیرفته‌شده وجود ندارد" description="این صفحه برای اصلاح واقعیت‌های پذیرفته‌شده است؛ هیچ نوع یا مقدار فرضی ایجاد نمی‌شود." />
         ) : (
           <label className="fact-field">نوع واقعیت
-            <select value={selectedType} disabled={busy} onChange={(event) => { setSelectedType(event.target.value); setRawValue(""); setConfirmResolve(false); }}>
+            <select value={selectedType} disabled={busy} onChange={(event) => { setSelectedType(event.target.value); setRawValue(""); setSourceId(""); setEffectiveFrom(""); setConfirmResolveId(null); }}>
               <option value="">یک داده پذیرفته‌شده انتخاب کنید</option>
               {accepted.map((item) => <option key={item.fact_type} value={item.fact_type}>{item.fact_type}</option>)}
             </select>
@@ -289,7 +297,7 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
             </label>
             <div className="fact-reason-block">
               <strong>دلیل اصلاح و بازبینی انسانی</strong>
-              <p>کدهای زیر فقط برچسب‌های ثبت دلیل در رابط کاربری‌اند؛ اعتبار داده را خودکار تعیین نمی‌کنند.</p>
+              <p>کدهای زیر برچسب‌های رابط کاربری‌اند؛ دلیل تا زمان اقدام جداگانه اعتبارسنجی یا انتخاب Accepted State در ممیزی ثبت نمی‌شود و اعتبار داده را خودکار تعیین نمی‌کند.</p>
               <div className="fact-reason-options">
                 {reasons.map(([code, label]) => <button key={code} type="button" disabled={busy} aria-pressed={reasonCode === code} className={reasonCode === code ? "evidence-filter is-active" : "evidence-filter"} onClick={() => setReasonCode(code)}>{label}</button>)}
               </div>
@@ -334,8 +342,8 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
                     ) : null}
                     {canResolve ? (
                       <div className="fact-resolve">
-                        <label><input type="checkbox" checked={confirmResolve} disabled={busy} onChange={(event) => setConfirmResolve(event.target.checked)} /> انتخاب این واقعیت به‌عنوان Accepted State را آگاهانه تأیید می‌کنم.</label>
-                        <Button disabled={busy || !canReview || !confirmResolve} onClick={() => void run(async () => {
+                        <label><input type="checkbox" checked={confirmResolveId === fact.id} disabled={busy} onChange={(event) => setConfirmResolveId(event.target.checked ? fact.id : null)} /> انتخاب این واقعیت به‌عنوان Accepted State را آگاهانه تأیید می‌کنم.</label>
+                        <Button disabled={busy || !canReview || confirmResolveId !== fact.id} onClick={() => void run(async () => {
                           await resolveAcceptedFact(householdId, fact, current.projection_version, reasonCode, reasonText.trim());
                           return "داده پذیرفته‌شده با تصمیم صریح انسانی و نسخه مورد انتظار به‌روزرسانی شد.";
                         })}>انتخاب صریح به‌عنوان داده پذیرفته‌شده</Button>
