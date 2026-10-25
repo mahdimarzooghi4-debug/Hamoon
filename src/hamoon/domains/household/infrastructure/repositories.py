@@ -43,6 +43,10 @@ class SqlAlchemyHouseholdRepository:
                 closed_at=household.closed_at,
             )
         )
+        # Flush the parent before the separately mapped case_assignment INSERT.
+        # SQLAlchemy does not infer ordering from these independent model instances.
+        # The caller still owns one atomic transaction (no early commit).
+        await self._session.flush()
 
     async def get(self, household_id: UUID) -> Household | None:
         model = await self._session.get(HouseholdModel, household_id)
