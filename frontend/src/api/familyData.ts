@@ -113,3 +113,42 @@ export async function resolveAcceptedFact(
   );
   return response.data;
 }
+
+
+/** A persisted human Accepted State decision, not an automatic supersession. */
+export interface AcceptedStateChange {
+  id: string;
+  household_id: string;
+  fact_type: string;
+  previous_fact_id: string | null;
+  new_fact_id: string;
+  projection_version: number;
+  reason_code: string;
+  reason_text: string | null;
+  changed_by: string;
+  changed_at: string;
+  domain_event_id: string;
+}
+
+export interface AcceptedHistoryPage {
+  data: AcceptedStateChange[];
+  next_before_version: number | null;
+  next_before_id: string | null;
+}
+
+export async function getAcceptedHistory(
+  householdId: string,
+  factType: string,
+  beforeVersion?: number,
+  beforeId?: string,
+): Promise<AcceptedHistoryPage> {
+  const query = new URLSearchParams({ limit: "50" });
+  if (beforeVersion !== undefined && beforeId !== undefined) {
+    query.set("before_version", String(beforeVersion));
+    query.set("before_id", beforeId);
+  }
+  return requestJson<AcceptedHistoryPage>(
+    householdPath(householdId) + "/accepted-state/" + encodeURIComponent(factType) +
+    "/history?" + query.toString(),
+  );
+}

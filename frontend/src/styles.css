@@ -3570,3 +3570,16 @@ a {
 .fact-resolve label { display: flex; align-items: flex-start; gap: 9px; font-size: 12px; line-height: 1.8; }
 @media (max-width: 900px) { .fact-current { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .fact-page .page-heading { flex-direction: column; } .fact-steps, .fact-two-col, .fact-current { grid-template-columns: minmax(0, 1fr); } .fact-history-head { align-items: flex-start; flex-direction: column; } }
+
+/* Accepted State decisions, backed by immutable persisted change rows. */
+.fact-decision-list { display: grid; gap: 12px; margin-top: 18px; }
+.fact-decision-item { display: grid; gap: 13px; border: 1px solid var(--hamoon-border); border-radius: 16px; padding: 16px; background: var(--hamoon-white); overflow-wrap: anywhere; }
+.fact-current-label, .fact-past-label { padding: 6px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+.fact-current-label { background: var(--hamoon-cyan-soft); color: var(--hamoon-blue); }
+.fact-past-label { background: var(--hamoon-page); color: var(--hamoon-muted); }
+.fact-decision-reason { background: var(--hamoon-page); padding: 12px; border-radius: 12px; }
+.fact-decision-reason strong { font-size: 12px; color: var(--hamoon-blue); }
+.fact-decision-reason p { font-size: 12px; line-height: 1.9; margin: 6px 0 0; white-space: pre-wrap; }
+.fact-more { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.fact-more span { color: var(--hamoon-danger); font-size: 12px; }
+@media (max-width: 600px) { .fact-decision-item { padding: 12px; } }

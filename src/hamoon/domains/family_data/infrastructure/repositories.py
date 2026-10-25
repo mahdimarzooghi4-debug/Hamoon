@@ -1,10 +1,11 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hamoon.domains.family_data.domain.entities import (
+    AcceptedStateChange,
     CurrentAcceptedFact,
     DataSource,
     FactValidationState,
@@ -214,6 +215,22 @@ class SqlAlchemyFactValidationRepository:
         )
 
 
+def _to_accepted_change(model: AcceptedStateChangeModel) -> AcceptedStateChange:
+    return AcceptedStateChange(
+        id=model.id,
+        household_id=model.household_id,
+        fact_type=model.fact_type,
+        previous_fact_id=model.previous_fact_id,
+        new_fact_id=model.new_fact_id,
+        projection_version=model.projection_version,
+        reason_code=model.reason_code,
+        reason_text=model.reason_text,
+        changed_by=model.changed_by,
+        changed_at=model.changed_at,
+        domain_event_id=model.domain_event_id,
+    )
+
+
 class SqlAlchemyAcceptedStateRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -244,6 +261,35 @@ class SqlAlchemyAcceptedStateRepository:
         )
         return [_to_accepted(model) for model in result.scalars().all()]
 
+
+    async def list_history(
+        self,
+        *,
+        household_id: UUID,
+        fact_type: str,
+        limit: int,
+        before_version: int | None,
+        before_id: UUID | None,
+    ) -> tuple[list[AcceptedStateChange], bool]:
+        # The household/type predicate MUST be applied in SQL before LIMIT.
+        statement = select(AcceptedStateChangeModel).where(
+            AcceptedStateChangeModel.household_id == household_id,
+            AcceptedStateChangeModel.fact_type == fact_type,
+        )
+        if before_version is not None and before_id is not None:
+            statement = statement.where(
+                tuple_(
+                    AcceptedStateChangeModel.projection_version,
+                    AcceptedStateChangeModel.id,
+                ) < tuple_(before_version, before_id)
+            )
+        statement = statement.order_by(
+            AcceptedStateChangeModel.projection_version.desc(),
+            AcceptedStateChangeModel.id.desc(),
+        ).limit(limit + 1)
+        result = await self._session.execute(statement)
+        rows = result.scalars().all()
+        return ([_to_accepted_change(row) for row in rows[:limit]], len(rows) > limit)
 
     async def context_version(self, household_id: UUID) -> int:
         result = await self._session.execute(
