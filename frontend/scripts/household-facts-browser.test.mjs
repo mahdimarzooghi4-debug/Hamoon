@@ -136,6 +136,39 @@ async function assertNoHorizontalOverflow(page, label) {
   );
 }
 
+async function assertCorrectionSheetLayout(page, mode) {
+  const layout = await page.evaluate(() => {
+    const sheet = document.querySelector(".fact-page");
+    const context = document.querySelector(".fact-context");
+    const workspace = document.querySelector(".fact-workspace");
+    if (!(sheet instanceof HTMLElement) || !(context instanceof HTMLElement)
+      || !(workspace instanceof HTMLElement)) return null;
+    const sheetBox = sheet.getBoundingClientRect();
+    const contextBox = context.getBoundingClientRect();
+    return {
+      sheetLeft: sheetBox.left,
+      sheetRight: sheetBox.right,
+      sheetWidth: sheetBox.width,
+      contextRight: contextBox.right,
+      contextDisplay: getComputedStyle(context).display,
+      viewportWidth: document.documentElement.clientWidth,
+      workspaceWidth: workspace.getBoundingClientRect().width,
+    };
+  });
+  assert.ok(layout, "Missing real correction sheet/context DOM");
+  assert.ok(layout.sheetWidth <= layout.viewportWidth + 1, "Correction sheet exceeds viewport");
+  if (mode === "desktop") {
+    assert.notEqual(layout.contextDisplay, "none", "Desktop must show case context");
+    assert.ok(layout.sheetLeft >= 200, "Correction sheet must be right-aligned, not full-width");
+    assert.ok(layout.sheetWidth >= 820 && layout.sheetWidth <= 930, "Figma-aligned right sheet width");
+    assert.ok(Math.abs(layout.contextRight - layout.sheetLeft) <= 2, "Context must meet sheet edge");
+  } else {
+    assert.equal(layout.contextDisplay, "none", "Mobile must use full-width correction sheet");
+    assert.ok(layout.sheetLeft >= -1 && layout.sheetLeft <= 1, "Mobile sheet starts at viewport edge");
+    assert.ok(Math.abs(layout.sheetWidth - layout.viewportWidth) <= 2, "Mobile sheet fits viewport");
+  }
+}
+
 async function run() {
   assert.equal(process.env.CI, "true", "Browser QA is restricted to isolated CI");
   await mkdir(artifacts, { recursive: true });
@@ -199,6 +232,7 @@ async function run() {
   await page.getByLabel("نوع واقعیت").selectOption("QA_BROWSER_FACT");
   await page.getByText("QA_BEFORE", { exact: true }).first().waitFor();
   await assertNoHorizontalOverflow(page, "desktop");
+  await assertCorrectionSheetLayout(page, "desktop");
   await page.screenshot({ path: new URL("correction-desktop-before.png", artifacts).pathname, fullPage: true });
 
   await page.getByLabel("مقدار پیشنهادی جدید · کد").fill("QA_AFTER");
@@ -238,6 +272,7 @@ async function run() {
   await page.screenshot({ path: new URL("correction-desktop-accepted.png", artifacts).pathname, fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await assertNoHorizontalOverflow(page, "mobile");
+  await assertCorrectionSheetLayout(page, "mobile");
   await page.screenshot({ path: new URL("correction-mobile-accepted.png", artifacts).pathname, fullPage: true });
 
   const stale = await api(page, token, `${root}/facts`, {

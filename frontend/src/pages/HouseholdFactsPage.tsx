@@ -231,7 +231,8 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
   if (state.kind === "error") return <ErrorState description="داده خانوار دریافت نشد." action={<Button variant="secondary" onClick={() => void refresh()}>تلاش دوباره</Button>} />;
 
   return (
-    <div className="page-stack fact-page">
+    <div className="fact-workspace" dir="rtl">
+      <div className="page-stack fact-page" data-figma-panel="correction-right-sheet">
       <header className="page-heading">
         <div>
           <AppLink className="text-link" to={`/households/${householdId}`}>بازگشت به پرونده ←</AppLink>
@@ -383,6 +384,41 @@ export function HouseholdFactsPage({ householdId }: { householdId: string }) {
           refreshToken={historyRevision}
         />
       ) : null}
+      </div>
+      <aside className="fact-context" aria-label="زمینه پرونده">
+        <div className="fact-context__content">
+          <span className="fact-context__eyebrow">نمای زمینه پرونده</span>
+          <h2>پرونده {state.household.case_code}</h2>
+          <p>این بخش فقط اطلاعات تأییدشده همین پرونده را از سرور نمایش می‌دهد. تصمیم اصلاح در پنل سمت راست انجام می‌شود.</p>
+          <dl className="fact-context__summary">
+            <div>
+              <dt>وضعیت پرونده</dt>
+              <dd>{state.household.lifecycle_status}</dd>
+            </div>
+            <div>
+              <dt>نسخه پرونده</dt>
+              <dd>{state.household.version.toLocaleString("fa-IR")}</dd>
+            </div>
+            <div>
+              <dt>تعداد انواع داده پذیرفته‌شده</dt>
+              <dd>{accepted.length.toLocaleString("fa-IR")}</dd>
+            </div>
+            {current ? (
+              <>
+                <div>
+                  <dt>نوع داده انتخاب‌شده</dt>
+                  <dd>{current.fact_type}</dd>
+                </div>
+                <div>
+                  <dt>مقدار فعلی پذیرفته‌شده</dt>
+                  <dd>{formatValue(current.accepted_value)}</dd>
+                </div>
+              </>
+            ) : null}
+          </dl>
+          <p className="fact-context__note">در این نما مقدار PGOR یا وضعیت اعتبار داده از نمونه‌های فیگما ساخته نمی‌شود.</p>
+        </div>
+      </aside>
     </div>
   );
 }

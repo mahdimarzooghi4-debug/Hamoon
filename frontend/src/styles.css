@@ -3583,3 +3583,120 @@ a {
 .fact-more { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .fact-more span { color: var(--hamoon-danger); font-size: 12px; }
 @media (max-width: 600px) { .fact-decision-item { padding: 12px; } }
+
+
+/* Figma reconciliation slice 7: right-hand correction sheet.
+   The left context is built from the actual household read model, never mock
+   family members, assumed PGOR/E, or a decorative Figma dashboard. */
+.app-main:has(.fact-workspace) {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+.fact-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 920px) minmax(0, 1fr);
+  min-height: calc(100dvh - 82px);
+  direction: rtl;
+  background: #f7fbfe;
+}
+.fact-workspace > * { min-width: 0; }
+.fact-workspace .fact-page {
+  position: relative;
+  z-index: 1;
+  align-content: start;
+  padding: 22px clamp(16px, 2vw, 30px) 52px;
+  background: #f7fbfe;
+  border-inline-end: 1px solid #dcecf7;
+  box-shadow: -10px 0 34px rgb(7 30 49 / 9%);
+}
+.fact-workspace .page-heading { gap: 14px; }
+.fact-workspace .page-heading h1 { font-size: clamp(21px, 2vw, 28px); line-height: 1.5; }
+.fact-workspace .page-heading p { font-size: 12px; line-height: 1.8; }
+.fact-workspace .fact-steps {
+  gap: 0;
+  padding: 5px 0 12px;
+  border-bottom: 1px solid #dcecf7;
+}
+.fact-workspace .fact-steps span {
+  min-width: 0;
+  padding: 12px 8px;
+  background: transparent;
+  color: var(--hamoon-muted);
+  border-top: 0;
+  border-bottom: 3px solid #dcecf7;
+  border-radius: 0;
+  font-size: 11px;
+}
+.fact-workspace .fact-steps span:nth-child(2) {
+  color: #087f89;
+  border-bottom-color: var(--hamoon-cyan);
+}
+.fact-workspace .fact-steps span:last-child { border-top: 0; }
+.fact-workspace .hm-panel { box-shadow: 0 8px 24px rgb(8 36 58 / 4%); }
+.fact-workspace .fact-current { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fact-workspace .fact-reason-block { background: #f7fbfe; }
+.fact-workspace .fact-reason-options { justify-content: flex-start; }
+.fact-workspace .fact-decision-item { background: #f9fcfe; }
+.fact-workspace .fact-history-item { background: #f9fcfe; }
+.fact-context {
+  display: grid;
+  align-items: start;
+  padding: 34px clamp(18px, 3vw, 42px);
+  background:
+    linear-gradient(150deg, rgb(7 30 49 / 89%), rgb(11 45 107 / 81%)),
+    #071e31;
+  color: white;
+}
+.fact-context__content {
+  position: sticky;
+  top: 110px;
+  display: grid;
+  gap: 18px;
+}
+.fact-context__eyebrow { color: #7dd3fc; font-size: 12px; font-weight: 800; }
+.fact-context h2 {
+  margin: 0;
+  color: #e0f2fe;
+  font-size: clamp(19px, 2vw, 25px);
+  overflow-wrap: anywhere;
+}
+.fact-context p { margin: 0; font-size: 12px; line-height: 2; color: #c5deef; }
+.fact-context__summary {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 18px;
+  border: 1px solid rgb(125 211 252 / 22%);
+  border-radius: 18px;
+  background: rgb(7 30 49 / 35%);
+}
+.fact-context__summary div { display: grid; gap: 5px; min-width: 0; }
+.fact-context__summary dt { color: #98bfda; font-size: 11px; }
+.fact-context__summary dd {
+  margin: 0;
+  color: white;
+  font-size: 13px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.fact-context .fact-context__note {
+  padding: 12px;
+  border-inline-start: 2px solid #22d3ee;
+  font-size: 11px;
+}
+@media (max-width: 980px) {
+  .fact-workspace { grid-template-columns: minmax(0, 1fr); }
+  .fact-workspace .fact-page { border: 0; box-shadow: none; }
+  .fact-workspace .fact-context { display: none; }
+}
+@media (max-width: 600px) {
+  .fact-workspace .fact-page { padding: 16px 12px 32px; gap: 14px; }
+  .fact-workspace .page-heading { flex-direction: column; }
+  .fact-workspace .fact-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .fact-workspace .fact-steps span { font-size: 10px; }
+  .fact-workspace .fact-current { grid-template-columns: minmax(0, 1fr); }
+  .fact-workspace .hm-panel { padding: 15px; }
+  .fact-workspace .fact-history-meta { overflow-wrap: anywhere; }
+}
