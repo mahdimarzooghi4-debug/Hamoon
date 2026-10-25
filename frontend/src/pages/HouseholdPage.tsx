@@ -176,6 +176,9 @@ export function HouseholdPage({ householdId }: { householdId: string }) {
               <span>واحد: {item.organizational_unit_id}</span>
             ) : null}
             <span className="ltr-value">شناسه: {item.id}</span>
+            <AppLink className="text-link" to={`/households/${item.id}/evidence`}>
+              مدارک و مستندات ←
+            </AppLink>
           </div>
         </div>
       </header>

@@ -21,7 +21,7 @@ Baseline: `main` @ `586103470739110229264d49e2d2ac45975ae991`
 | `31:4556`, `31:4896` Cases / preview | `pages/HouseholdsPage.tsx` | Read/preview implemented |
 | `59:5703`, `59:5897`, `59:6131` Case creation | `pages/HouseholdsPage.tsx` + `api/households.ts` | **Slice 1:** server-scoped draft case creation only; members/identity/observations remain out of this endpoint |
 | `37:5908` through `37:6493` Data correction | — | Missing canonical correction flow; separate authoritative fact/accepted-state contracts required |
-| `77:70` Evidence | — | UI not implemented; private evidence/scanning flow cannot be simulated |
+| `77:70` Evidence | `pages/HouseholdEvidencePage.tsx`, `api/evidence.ts`, `domains/evidence/api/routes.py` | **Slice 2:** private listing, upload-init/content/finalize, SHA-256 verification, scan/quarantine state, and capability-based download; highly-sensitive rows are omitted without scope |
 | `29:2244` Household detail | `pages/HouseholdPage.tsx` | Read workspace implemented; visual parity pending |
 | `40:4302` through `40:5016` Diagnosis | `components/DiagnosisSection.tsx` | Functional proposals, human decision and history |
 | `40:10287` through `40:11143` Prescription | `components/PrescriptionSection.tsx` | Functional proposals, review, interventions and history |
@@ -40,8 +40,19 @@ Baseline: `main` @ `586103470739110229264d49e2d2ac45975ae991`
 ## Remaining hard blockers / follow-up
 1. COMPLETE on 2026-10-24: canonical login frame `55:176` now hides divider `55:212`, local credentials `55:216` and obsolete mock errors `55:235`; subtitle `55:205` explicitly states OIDC-only. Screenshot visually checked. No password handling added to app.
 2. Make case onboarding stages 2/3 only after inspecting authoritative identity, member, observation, evidence and human-acceptance contracts.
-3. Implement data correction and evidence workspace after API/role/security review.
+3. Data correction remains open: implement only after authoritative fact/correction contracts and accepted-state semantics are reviewed. Evidence UI exists; browser screenshot/pixel comparison and production scanner/storage configuration validation remain release gates.
 4. Align dashboard layout, brand asset, responsive styles, canonical drawers, and all real API Loading/Empty/Error/Forbidden/409 states.
 5. Run browser screenshot comparisons at representative desktop/mobile viewports. Static source review and CI frontend build are necessary but not sufficient for visual acceptance.
 
 No Production deployment, Stage/Release gates, model promotion, or Figma LEGACY revival is authorized by this document.
+
+
+## Slice 2 — Evidence workspace (Draft PR #15)
+- Canonical Figma evidence frame: `77:70`.
+- Added household-scoped GET list endpoint. The repository filters `HIGHLY_SENSITIVE` records in SQL before applying the limit unless the actor has `evidence.highly_sensitive`.
+- Added RTL evidence workspace route `/households/{household_id}/evidence`, linked from the household detail page.
+- Upload flow uses the existing short-lived single-use upload capability, computes SHA-256 in the browser, invokes server finalization/scanning, and refreshes actual backend state.
+- Download action is only offered for `AVAILABLE + CLEAN`; the server independently checks sensitivity scope and signed capability and refuses content unless lifecycle is AVAILABLE.
+- Upload uses the server-configured API allowlist, with a matching 10 MiB UI ceiling aligned to the current backend default. Runtime policy changes must keep both values synchronized.
+- Tests cover route scope propagation, SQL sensitivity filtering, and the UI's fail-closed download boundary.
+- This slice does not implement data correction, evidence deletion/archive actions, drag-and-drop, or release approval. Browser visual regression remains unverified until an authenticated test environment is available.

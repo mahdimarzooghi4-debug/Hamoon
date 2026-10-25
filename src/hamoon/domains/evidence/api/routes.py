@@ -13,6 +13,7 @@ from hamoon.app.security.dependencies import require_roles
 from hamoon.app.security.resource_scope import require_household_assignment
 from hamoon.domains.evidence.api.schemas import (
     EvidenceData,
+    EvidenceListResponse,
     EvidenceDownloadData,
     EvidenceDownloadResponse,
     EvidenceResponse,
@@ -197,6 +198,33 @@ def _raise_evidence_http(exc: Exception) -> NoReturn:
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         detail={"code": code},
     ) from exc
+
+
+@router.get(
+    "/api/v1/households/{household_id}/evidence",
+    response_model=EvidenceListResponse,
+)
+async def list_household_evidence(
+    household_id: UUID,
+    context: Annotated[
+        AuthorizationContext,
+        Depends(require_roles(Role.CASEWORKER, Role.MANAGER)),
+    ],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+) -> EvidenceListResponse:
+    async with session.begin():
+        await require_household_assignment(
+            session=session,
+            context=context,
+            household_id=household_id,
+        )
+        items = await SqlAlchemyEvidenceRepository(session).list_for_household(
+            household_id,
+            limit=limit,
+            include_highly_sensitive="evidence.highly_sensitive" in context.scopes,
+        )
+    return EvidenceListResponse(data=[_data(item) for item in items])
 
 
 @router.post(

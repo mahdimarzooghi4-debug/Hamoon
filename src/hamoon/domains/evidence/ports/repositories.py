@@ -23,6 +23,14 @@ class EvidenceRepository(Protocol):
 
     async def get(self, evidence_id: UUID) -> Evidence | None: ...
 
+    async def list_for_household(
+        self,
+        household_id: UUID,
+        *,
+        limit: int,
+        include_highly_sensitive: bool,
+    ) -> list[Evidence]: ...
+
     async def save(
         self,
         evidence: Evidence,
