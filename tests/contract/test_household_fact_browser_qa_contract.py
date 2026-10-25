@@ -25,7 +25,7 @@ def test_authenticated_browser_qa_is_wired_after_real_stack_readiness() -> None:
     assert "expected_accepted_projection_version" in browser
     assert "assertNoHorizontalOverflow" in browser
     assert "expected: 409" in browser
-    assert "expected: 403" in browser
+    assert "expected: 404" in browser
     assert "page.route(" not in browser
     assert "addInitScript" not in browser
     assert "directAccessGrantsEnabled" not in browser

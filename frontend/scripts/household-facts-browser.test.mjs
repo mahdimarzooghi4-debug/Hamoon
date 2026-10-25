@@ -242,14 +242,14 @@ async function run() {
   const otherContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const otherPage = await otherContext.newPage();
   const otherToken = await login(otherPage, otherCaseworker);
-  const forbidden = await api(otherPage, otherToken, `${root}/facts`, { expected: 403 });
-  assert.equal(forbidden.detail.code, "HOUSEHOLD_ACCESS_DENIED");
+  const forbidden = await api(otherPage, otherToken, `${root}/facts`, { expected: 404 });
+  assert.equal(forbidden.detail.code, "RESOURCE_NOT_FOUND");
   await otherPage.goto(`${WEB}/households/${householdId}/facts`);
-  await otherPage.getByText("دسترسی مجاز نیست", { exact: true }).waitFor();
+  await otherPage.getByText("پرونده در دسترس نیست", { exact: true }).waitFor();
   assert.equal(await otherPage.getByText("QA_AFTER", { exact: true }).count(), 0);
   await otherContext.close();
   await context.close();
-  process.stdout.write("PASS: real OIDC PKCE, isolated PostgreSQL correction, human gates, stale 409, cross-caseworker 403, desktop/mobile screenshots.\\n");
+  process.stdout.write("PASS: real OIDC PKCE, isolated PostgreSQL correction, human gates, stale 409, cross-caseworker masked 404, desktop/mobile screenshots.\\n");
 }
 
 try {
