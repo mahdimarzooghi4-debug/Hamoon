@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 
 import { navigate } from "../app/navigation";
 import { HouseholdPage } from "./HouseholdPage";
@@ -10,10 +10,14 @@ import { HouseholdFactsPage } from "./HouseholdFactsPage";
  */
 export function HouseholdFactsOverlayPage({ householdId }: { householdId: string }) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const backgroundRef = useRef<HTMLDivElement>(null);
   const [topOffset, setTopOffset] = useState(76);
   const householdPath = `/households/${householdId}` as const;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const background = backgroundRef.current;
+    const priorBackgroundInert = background?.inert ?? false;
+    if (background) background.inert = true;
     const header = document.querySelector<HTMLElement>(".topbar");
     const priorInert = header?.inert ?? false;
     const priorAriaHidden = header?.getAttribute("aria-hidden") ?? null;
@@ -34,6 +38,7 @@ export function HouseholdFactsOverlayPage({ householdId }: { householdId: string
       cancelAnimationFrame(animation);
       window.removeEventListener("resize", recalculate);
       document.body.style.overflow = priorOverflow;
+      if (background) background.inert = priorBackgroundInert;
       if (header) {
         header.inert = priorInert;
         if (priorAriaHidden === null) header.removeAttribute("aria-hidden");
@@ -81,7 +86,7 @@ export function HouseholdFactsOverlayPage({ householdId }: { householdId: string
 
   return (
     <div className="fact-route" style={{ "--fact-overlay-top": `${topOffset}px` } as CSSProperties}>
-      <div className="fact-route__background" aria-hidden="true" inert data-fact-background="real-household">
+      <div className="fact-route__background" ref={backgroundRef} aria-hidden="true" data-fact-background="real-household">
         <HouseholdPage householdId={householdId} />
       </div>
       <div className="fact-route__backdrop" aria-hidden="true" />
