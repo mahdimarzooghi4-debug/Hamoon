@@ -16,11 +16,14 @@ const shortcuts = [
   ["file-search", "نتایج جدید ارائه‌دهندگان", "۵ جدید"],
 ];
 
-const rows = [
-  ["خانوار احمدی", "۰٫۶۸", "توانمندسازی", "امروز، ۰۹:۴۵", "تأیید برنامه اشتغال", "↗", "هـ-۴۱۲۸"],
-  ["خانوار رضایی", "۰٫۵۱", "نیازمند تصمیم", "دیروز، ۱۶:۲۰", "بازبینی گلوگاه", "—", "هـ-۳۹۸۲"],
-  ["خانوار محمدی", "۰٫۷۴", "پیگیری فعال", "۲ روز پیش", "تماس پیگیری", "↗", "هـ-۳۷۵۴"],
-  ["خانوار کریمی", "۰٫۴۳", "توانمندسازی", "۳ روز پیش", "ارزیابی تاب‌آوری", "↘", "هـ-۳۶۱۱"],
+type TrendDirection = "up" | "flat" | "down";
+type HouseholdRow = [string, string, string, string, string, TrendDirection, string];
+
+const rows: HouseholdRow[] = [
+  ["خانوار احمدی", "۰٫۶۸", "توانمندسازی", "امروز، ۰۹:۴۵", "تأیید برنامه اشتغال", "up", "هـ-۴۱۲۸"],
+  ["خانوار رضایی", "۰٫۵۱", "نیازمند تصمیم", "دیروز، ۱۶:۲۰", "بازبینی گلوگاه", "flat", "هـ-۳۹۸۲"],
+  ["خانوار محمدی", "۰٫۷۴", "پیگیری فعال", "۲ روز پیش", "تماس پیگیری", "up", "هـ-۳۷۵۴"],
+  ["خانوار کریمی", "۰٫۴۳", "توانمندسازی", "۳ روز پیش", "ارزیابی تاب‌آوری", "down", "هـ-۳۶۱۱"],
 ];
 
 type UiIconName = "settings" | "bell" | "calendar-check" | "file-search" | "activity" | "calendar-clock" | "folder" | "send" | "circle-check" | "users" | "search" | "sliders";
@@ -41,6 +44,17 @@ function UiIcon({ name }: { name: UiIconName }) {
       name === "users" ? <><path d="M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20"/><circle cx="9.5" cy="7.5" r="3.5"/><path d="M17 11a3.5 3.5 0 1 0-1-6.8M17 14h1a4 4 0 0 1 4 4v2"/></> :
       name === "search" ? <><circle cx="10.8" cy="10.8" r="6.3"/><path d="m16 16 4.2 4.2"/></> :
       <><path d="M4 7h16M7 12h10M10 17h4"/><circle cx="8" cy="7" r="1.2" fill="currentColor"/><circle cx="15" cy="12" r="1.2" fill="currentColor"/></>}
+    </svg>
+  );
+}
+
+function TrendIcon({ direction }: { direction: TrendDirection }) {
+  const label = direction === "up" ? "روند صعودی" : direction === "down" ? "روند نزولی" : "روند ثابت";
+  return (
+    <svg className={`fh-trend fh-trend--${direction}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" role="img" aria-label={label}>
+      {direction === "up" ? <><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></> :
+       direction === "down" ? <><path d="M3 7l6 6 4-4 8 8"/><path d="M14 17h7v-7"/></> :
+       <path d="M5 12h14"/>}
     </svg>
   );
 }
@@ -115,7 +129,7 @@ export function FigmaHomeDemo() {
           </aside>
           <section className="fh-recent">
             <header><div><b>خانوارهای اخیر</b><small>آخرین پرونده‌های مشاهده‌شده و در حال اقدام</small></div><button type="button" onClick={()=>setMessage("فهرست کامل خانوارها در نسخه‌ی نمایشی متصل نیست.")}>مشاهده همه ←</button></header>
-            <div className="fh-table-wrap"><table><thead><tr><th>نام خانوار</th><th>کد پرونده</th><th>E Score</th><th>وضعیت فعلی</th><th>روند</th><th>آخرین بررسی</th><th>اقدام بعدی</th></tr></thead><tbody>{rows.map((row,index)=><tr key={row[0]}><td><b>{row[0]}</b></td><td><span className="fh-case-icon"><UiIcon name="users"/></span><small>{row[6]}</small></td><td><b>{row[1]}</b></td><td><span className={"fh-status fh-status--"+index}>{row[2]}</span></td><td className={index===3?"fh-down":"fh-up"}>{row[5]}</td><td>{row[3]}</td><td><b>{row[4]}</b></td></tr>)}</tbody></table></div>
+            <div className="fh-table-wrap"><table><thead><tr><th>نام خانوار</th><th>کد پرونده</th><th>E Score</th><th>وضعیت فعلی</th><th>روند</th><th>آخرین بررسی</th><th>اقدام بعدی</th></tr></thead><tbody>{rows.map((row,index)=><tr key={row[0]}><td><b>{row[0]}</b></td><td><span className="fh-case-icon"><UiIcon name="users"/></span><small>{row[6]}</small></td><td><b>{row[1]}</b></td><td><span className={"fh-status fh-status--"+index}>{row[2]}</span></td><td className="fh-trend-cell"><TrendIcon direction={row[5]} /></td><td>{row[3]}</td><td><b>{row[4]}</b></td></tr>)}</tbody></table></div>
           </section>
         </section>
         <footer className="fh-demo-note"><span/>دموی نمایشی هامون · همه‌ی اعداد و پرونده‌ها فرضی‌اند و هیچ اطلاعاتی ذخیره یا ارسال نمی‌شود.</footer>
