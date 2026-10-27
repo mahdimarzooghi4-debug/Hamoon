@@ -48,6 +48,9 @@ function UiIcon({ name }: { name: UiIconName }) {
 function HamoonMark() {
   return <img className="fh-mark" src="/demo-assets/hamoon-mark.svg" alt="" />;
 }
+function VisionMark() {
+  return <span className="fh-vision-mark" aria-hidden="true"><i/><i/><i/><b/></span>;
+}
 
 function EmpowermentModel() {
   return (
@@ -105,7 +108,7 @@ export function FigmaHomeDemo() {
         <section className="fh-shortcuts" aria-label="دسترسی‌های سریع">{shortcuts.map(([icon,label,hint])=><button type="button" onClick={()=>setMessage("این میانبر در نسخه‌ی نمایشی فقط ظاهر صفحه را نشان می‌دهد.")} key={label}><UiIcon name={icon as UiIconName}/><b>{label}</b><small>{hint}</small></button>)}</section>
         <section className="fh-bottom">
           <aside className="fh-vision">
-            <div className="fh-vision__brand"><HamoonMark/><div><b>بینش هامون</b><small>موتور هوشمند توانمندسازی</small></div></div>
+            <div className="fh-vision__brand"><VisionMark/><div><b>بینش هامون</b><small>موتور هوشمند توانمندسازی</small></div></div>
             <ul><li>پرونده نیازمند بازبینی مسیر توانمندسازی هستند.</li><li>۲ خانوار با نقاط مداخله در شاخص تاب‌آوری شناسایی شدند.</li></ul>
             <button type="button" onClick={()=>setMessage("بینش‌ها در این دمو نمونه هستند و به داده‌ی واقعی متصل نیستند.")}>مشاهده همه موارد <span>←</span><small>۳ مورد · اولویت متوسط</small></button>
             <div className="fh-confidence">اعتماد تحلیلی ۷۸٪ <span>بر پایه‌ی شاخص PGOR و روند ۹۰ روزه</span></div>
