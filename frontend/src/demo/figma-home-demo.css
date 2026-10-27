@@ -82,7 +82,7 @@
 .fh-case-icon{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#e0f2fe;color:#0b2d6b;margin-left:5px}.fh-case-icon .fh-ui-icon{width:14px;height:14px}
 .fh-status{display:inline-block;padding:5px 12px;border-radius:99px;background:#e9f8f7;color:#0e8e93;font-weight:700}
 .fh-status--1{background:#eef0f5;color:#49556b}.fh-status--2{background:#edf5f7;color:#607883}
-.fh-up{color:#0ea5a8!important;font-size:15px}.fh-down{color:#dc5862!important;font-size:15px}
+.fh-trend-cell{text-align:center}.fh-trend{display:inline-block;width:18px;height:18px;vertical-align:middle}.fh-trend--up{color:#0ea5a8}.fh-trend--flat{color:#94a3b8}.fh-trend--down{color:#dc5862}
 .fh-demo-note{color:#7c8f9b;font-size:10px;display:flex;align-items:center;gap:8px}.fh-demo-note span{width:6px;height:6px;border-radius:50%;background:#d5a23c}
 .fh-toast{position:fixed;z-index:99;bottom:20px;left:20px;max-width:min(520px,calc(100vw - 40px));padding:13px 16px;border:1px solid #dcecf7;border-radius:14px;background:white;box-shadow:0 12px 34px #08243a22;display:flex;gap:18px;align-items:center;color:#102a43;font-size:13px}
 .fh-toast button{border:0;background:none;color:#0ea5a8;font:700 12px Vazirmatn,Tahoma,sans-serif;cursor:pointer}
