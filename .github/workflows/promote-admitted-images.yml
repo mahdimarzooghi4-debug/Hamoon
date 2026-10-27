@@ -63,9 +63,7 @@ jobs:
         run: |
           mkdir -p release stage-attestation
           gh run download "$SOURCE_CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "hamoon-release-$PROMOTED_SHA" --dir release
-            --name "hamoon-release-$PROMOTED_SHA" --dir release
           gh run download "$STAGE_ADMISSION_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "hamoon-stage-admission-$PROMOTED_SHA" --dir stage-attestation
-            --name "hamoon-stage-admission-$PROMOTED_SHA" --dir stage-attestation
 
       - name: Verify bundle, attestation, and source run binding
         env:
@@ -141,6 +139,30 @@ jobs:
           web_digest="$(docker image inspect "$web_tag" --format '{{index .RepoDigests 0}}' | sed 's/.*@//')"
           test -n "$api_digest"
           test -n "$web_digest"
+          api_ref="$registry_root/hamoon-api@$api_digest"
+          web_ref="$registry_root/hamoon-web@$web_digest"
+          export PROMOTED_SHA API_SOURCE_IMAGE_ID WEB_SOURCE_IMAGE_ID api_ref web_ref
+          python3 - <<'PY' > render-image-digests.json
+          import json
+          import os
+
+          print(json.dumps({
+              "commit_sha": os.environ["PROMOTED_SHA"],
+              "backend": {
+                  "image": os.environ["api_ref"],
+                  "image_id": os.environ["API_SOURCE_IMAGE_ID"],
+              },
+              "frontend": {
+                  "image": os.environ["web_ref"],
+                  "image_id": os.environ["WEB_SOURCE_IMAGE_ID"],
+              },
+          }, indent=2, sort_keys=True))
+          PY
+          echo "HAMOON_API_IMAGE_REF=$api_ref" >> "$GITHUB_ENV"
+          echo "HAMOON_WEB_IMAGE_REF=$web_ref" >> "$GITHUB_ENV"
+          echo "HAMOON_API_IMAGE_ID=$API_SOURCE_IMAGE_ID" >> "$GITHUB_ENV"
+          echo "HAMOON_WEB_IMAGE_ID=$WEB_SOURCE_IMAGE_ID" >> "$GITHUB_ENV"
+
           {
             echo "### Admitted Hamoon images published to GHCR"
             echo
@@ -150,3 +172,11 @@ jobs:
             echo
             echo "Render should deploy these immutable digests and use read-only registry credentials."
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save immutable Render image references
+        uses: actions/upload-artifact@v4
+        with:
+          name: hamoon-render-image-digests-$PROMOTED_SHA
+          path: render-image-digests.json
+          if-no-files-found: error
+          retention-days: 90
