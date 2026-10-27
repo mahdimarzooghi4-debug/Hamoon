@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "../api/client";
+import { AppLink, type AppPath } from "../app/navigation";
 import {
   claimWorkItem,
   getWorkQueue,
@@ -84,15 +85,17 @@ function WorkItemRow({
   item,
   claiming,
   onClaim,
+  onOpen,
 }: {
   item: WorkItem;
   claiming: boolean;
   onClaim: (item: WorkItem) => void;
+  onOpen: (item: WorkItem) => void;
 }) {
   return (
     <article className={item.is_overdue ? "queue-row is-overdue" : "queue-row"}>
       <div className="queue-row__identity">
-        <strong>{item.title}</strong>
+        <button className="queue-row__open" onClick={() => onOpen(item)} type="button">{item.title}</button>
         <span className="ltr-value">{item.household_id}</span>
       </div>
       <div className="queue-row__description">
@@ -116,12 +119,102 @@ function WorkItemRow({
   );
 }
 
+function WorkItemDetail({
+  item,
+  claiming,
+  onClose,
+  onClaim,
+}: {
+  item: WorkItem;
+  claiming: boolean;
+  onClose: () => void;
+  onClaim: (item: WorkItem) => void;
+}) {
+  const householdPath = `/households/${encodeURIComponent(item.household_id)}` as AppPath;
+
+  return (
+    <div className="work-detail-backdrop" onClick={onClose}>
+      <section
+        className="work-detail-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="work-detail-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="work-detail-header">
+          <div>
+            <Badge tone="accent">{typeLabels[item.work_type]}</Badge>
+            <h2 id="work-detail-title">{item.title}</h2>
+            <AppLink className="work-detail-household" to={householdPath}>
+              پرونده خانوار <span className="ltr-value">{item.household_id}</span>
+            </AppLink>
+          </div>
+          <button className="work-detail-close" type="button" aria-label="بستن جزئیات" onClick={onClose}>×</button>
+        </header>
+
+        <Panel>
+          <div className="section-heading">
+            <h3>چرا این اقدام ایجاد شده؟</h3>
+            <span aria-hidden="true">ⓘ</span>
+          </div>
+          <p className="work-detail-reason">{item.reason}</p>
+        </Panel>
+
+        <Panel>
+          <div className="section-heading">
+            <h3>اطلاعات اقدام</h3>
+            <Badge tone={item.status === "CLAIMED" ? "accent" : "neutral"}>
+              {item.status === "CLAIMED" ? "در حال رسیدگی" : "باز"}
+            </Badge>
+          </div>
+          <dl className="work-detail-facts">
+            <div>
+              <dt>اولویت ثبت‌شده</dt>
+              <dd>{item.priority.toLocaleString("fa-IR")}</dd>
+            </div>
+            <div>
+              <dt>موعد</dt>
+              <dd>{dueLabel(item.due_at)}</dd>
+            </div>
+            <div>
+              <dt>زمان ایجاد</dt>
+              <dd>{dateTime.format(new Date(item.created_at))}</dd>
+            </div>
+            <div>
+              <dt>زمان در اختیارگیری</dt>
+              <dd>{item.claimed_at ? dateTime.format(new Date(item.claimed_at)) : "هنوز در اختیار گرفته نشده"}</dd>
+            </div>
+            <div>
+              <dt>نسخه‌ی اقدام</dt>
+              <dd>{item.version.toLocaleString("fa-IR")}</dd>
+            </div>
+            <div>
+              <dt>وضعیت موعد</dt>
+              <dd>{item.is_overdue ? "عقب‌افتاده" : "عقب‌افتاده نیست"}</dd>
+            </div>
+          </dl>
+        </Panel>
+
+        <div className="work-detail-actions">
+          <AppLink className="hm-button hm-button--secondary" to={householdPath}>باز کردن پرونده</AppLink>
+          {item.status === "OPEN" ? (
+            <Button disabled={claiming} onClick={() => onClaim(item)}>
+              {claiming ? "در حال ثبت…" : "در اختیار گرفتن اقدام"}
+            </Button>
+          ) : null}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export function WorkQueuePage() {
   const [state, setState] = useState<QueueLoadState>({ kind: "loading" });
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
   const [dateFilter, setDateFilter] = useState<DateFilter>("ALL");
   const [query, setQuery] = useState("");
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -141,6 +234,15 @@ export function WorkQueuePage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (selectedId === null) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setSelectedId(null);
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selectedId]);
 
   const items = state.kind === "ready" ? state.items : [];
   const summary = useMemo(
@@ -171,12 +273,17 @@ export function WorkQueuePage() {
       .sort(compareUrgency);
   }, [dateFilter, items, query, typeFilter]);
 
+  const selectedItem = items.find((item) => item.id === selectedId) ?? null;
   const openItems = filtered.filter((item) => item.status === "OPEN");
   const claimedItems = filtered.filter((item) => item.status === "CLAIMED");
   const overdueItems = items.filter(isOverdue).sort(compareUrgency);
   const upcomingItems = items
     .filter((item) => !item.is_overdue && item.due_at !== null && isWithinWeek(item.due_at))
     .sort(compareUrgency);
+
+  function openItem(item: WorkItem) {
+    setSelectedId(item.id);
+  }
 
   async function claim(item: WorkItem) {
     setActionError(null);
@@ -299,7 +406,7 @@ export function WorkQueuePage() {
                   {openItems.length ? (
                     <div className="queue-list">
                       {openItems.map((item) => (
-                        <WorkItemRow key={item.id} item={item} claiming={claimingId === item.id} onClaim={claim} />
+                        <WorkItemRow key={item.id} item={item} claiming={claimingId === item.id} onClaim={claim} onOpen={openItem} />
                       ))}
                     </div>
                   ) : (
@@ -318,7 +425,7 @@ export function WorkQueuePage() {
                   {claimedItems.length ? (
                     <div className="queue-list">
                       {claimedItems.map((item) => (
-                        <WorkItemRow key={item.id} item={item} claiming={false} onClaim={claim} />
+                        <WorkItemRow key={item.id} item={item} claiming={false} onClaim={claim} onOpen={openItem} />
                       ))}
                     </div>
                   ) : (
@@ -367,6 +474,15 @@ export function WorkQueuePage() {
             </div>
           )}
         </>
+      ) : null}
+
+      {selectedItem ? (
+        <WorkItemDetail
+          item={selectedItem}
+          claiming={claimingId === selectedItem.id}
+          onClose={() => setSelectedId(null)}
+          onClaim={claim}
+        />
       ) : null}
     </div>
   );
