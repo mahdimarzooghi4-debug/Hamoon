@@ -20,7 +20,10 @@ export function App() {
   if (import.meta.env.VITE_HAMOON_DEMO_MODE === "true") {
     return <DemoApp />;
   }
+  return <ProductionApp />;
+}
 
+function ProductionApp() {
   const path = useAppPath();
   const principal = browserPrincipal();
   const access = accessForPath(path, principal);
