@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&display=swap');
 .fh-app{min-height:100vh;background:#f7fbfe;color:#102a43;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl}
 .fh-app *{box-sizing:border-box}
+.fh-ui-icon{width:18px;height:18px;display:block;flex:0 0 auto;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .fh-topbar{height:82px;background:#fff;border-bottom:1px solid #dcecf7}
 .fh-topbar__inner{height:100%;padding:0 42px;display:flex;direction:ltr;align-items:center;justify-content:space-between}
 .fh-user,.fh-brand,.fh-profile{display:flex;align-items:center;direction:ltr}
