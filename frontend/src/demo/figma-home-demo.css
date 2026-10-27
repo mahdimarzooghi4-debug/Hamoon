@@ -20,7 +20,7 @@
 .fh-model__heading{position:absolute;z-index:2;top:26px;left:30px;display:grid;gap:6px;text-align:left;direction:rtl}
 .fh-model__heading strong{font-size:12px;color:#7dd3fc}.fh-model__heading span{font-size:10px;color:#89aabb}
 .fh-cylinder{position:absolute;left:50%;top:58px;width:min(48%,310px);height:auto;aspect-ratio:1;transform:translateX(-56%);object-fit:contain;filter:drop-shadow(0 0 12px #00bfff55)}
-.fh-threshold{position:absolute;left:18%;width:58%;height:1px;border-top:1px dashed #0879a288}
+.fh-threshold{z-index:1;position:absolute;left:18%;width:58%;height:1px;border-top:1px dashed #0879a288}
 .fh-threshold:after{content:"";position:absolute;right:-1px;top:-4px;width:8px;height:8px;background:#32c6ef;border-radius:50%}
 .fh-threshold--top{top:97px}.fh-threshold--mid{top:193px}
 .fh-threshold span{position:absolute;left:-12px;top:-15px;padding:4px 9px;border-radius:99px;background:#0b2d6b;color:#7dd3fc;font-size:10px;font-weight:800}
