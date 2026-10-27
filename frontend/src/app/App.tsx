@@ -1,5 +1,5 @@
 import { accessForPath, canUseCasework } from "../auth/access";
-import { FigmaHomeDemo } from "../demo/FigmaHomeDemo";
+import { FigmaDemoApp } from "../demo/FigmaDemoApp";
 import { browserPrincipal } from "../auth/oidc";
 import { AppShell } from "../layout/AppShell";
 import { AccessGatePage } from "../pages/AccessGatePage";
@@ -18,7 +18,7 @@ import { useAppPath } from "./navigation";
 
 export function App() {
   if (import.meta.env.VITE_HAMOON_DEMO_MODE === "true") {
-    return <FigmaHomeDemo />;
+    return <FigmaDemoApp />;
   }
   return <ProductionApp />;
 }
