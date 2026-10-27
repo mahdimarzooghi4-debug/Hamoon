@@ -973,18 +973,6 @@ a {
     min-width: 400px;
   }
 
-  .topbar__inner {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .topbar__nav {
-    order: 3;
-    grid-column: 1 / -1;
-    justify-self: stretch;
-    justify-content: center;
-    margin-bottom: 10px;
-  }
-
   .hero {
     grid-template-columns: 1fr;
   }
