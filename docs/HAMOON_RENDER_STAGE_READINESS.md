@@ -68,9 +68,8 @@ constraints; they are not pixel-level Figma approval.
 ## Figma/code parity status
 
 The current reconciliation record remains open. The Home dashboard hierarchy was updated in PR #23 to the canonical search, journey,
-summary, task-strip and household-table structure, using live API data. Header/navigation
-and brand asset parity, a dedicated forbidden state and desktop/mobile screenshot
-comparison remain open. Work queue and household detail views still need visual parity
+summary, task-strip and household-table structure, using live API data. Header/navigation and brand asset parity and desktop/mobile screenshot comparison
+remain open. The dashboard now shows an explicit forbidden state for 403 responses. Work queue and household detail views still need visual parity
 review. The correction sheet has a route-addressable overlay and persisted workflow,
 but its browser capture is not a pixel-level match to the canonical frame. The hosted
 Stage browser review must include these routes before the UI is called aligned; Render
