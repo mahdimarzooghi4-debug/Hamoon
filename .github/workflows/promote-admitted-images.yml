@@ -70,6 +70,7 @@ jobs:
       - name: Verify bundle, attestation, and source run binding
         env:
           SOURCE_CI_RUN_ID: ${{ inputs.source_ci_run_id }}
+          STAGE_ADMISSION_RUN_ID: ${{ inputs.stage_admission_run_id }}
         run: |
           python3 scripts/verify_release_bundle.py release
           python3 scripts/verify_stage_attestation.py release stage-attestation/stage-attestation.json
@@ -88,6 +89,7 @@ jobs:
           assert attestation["hosted_stage"] is False
           assert attestation["commit_sha"] == os.environ["PROMOTED_SHA"]
           assert attestation["source_ci_run_id"] == os.environ["SOURCE_CI_RUN_ID"]
+          assert attestation["stage_admission_run_id"] == os.environ["STAGE_ADMISSION_RUN_ID"]
           PY
 
       - name: Load and verify the exact admitted images
