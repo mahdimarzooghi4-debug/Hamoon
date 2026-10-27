@@ -1,6 +1,6 @@
 # Hamoon hosted Stage on Render
 
-Status: **runtime compatibility preparation started; no Render service has been created**
+Status: **runtime compatibility and gated GHCR promotion are prepared in PR #23; no Render service or image publication has been created**
 
 ## Release boundary
 
@@ -51,16 +51,26 @@ environment settings and are never committed to this repository.
 
 ## Remaining hosted-Stage setup
 
-1. Select a private image registry and configure Render read access without placing
-   a registry token in Git.
-2. Add the promotion step that publishes only the already-admitted OCI images,
-   records each registry digest, and refuses to overwrite a release SHA.
-3. Create the Render Blueprint using those immutable image digests and an isolated
+1. Review and merge the PR that adds a manual, attestation-gated GHCR publisher;
+   after merge, use it only for a successful main CI run with a matching successful
+   Stage Admission run. The workflow publishes the unchanged images and reports their
+   immutable registry digests. GHCR read access for Render still needs configuration.
+2. Create the Render Blueprint using those immutable image digests and an isolated
    Stage database.
-4. Provide the Stage NATS, Temporal, OIDC, S3, scanner, and telemetry endpoints and
+3. Provide the Stage NATS, Temporal, OIDC, S3, scanner, and telemetry endpoints and
    secrets through Render's environment configuration.
-5. Run authenticated desktop/mobile browser review against the canonical Figma
+4. Run authenticated desktop/mobile browser review against the canonical Figma
    frames and record the remaining visual differences before calling the UI aligned.
 
 The existing synthetic Chromium correction checks cover behavior and layout
 constraints; they are not pixel-level Figma approval.
+
+## Figma/code parity status
+
+The current reconciliation record remains open. The home dashboard differs from
+Figma in its header/navigation and main journey plus summary layout. Work queue and
+household detail views still need visual parity review. The correction sheet has
+recently gained the route-addressable overlay and persisted workflow behavior, but
+its current browser capture is not a pixel-level match to the canonical frame.
+The hosted Stage browser review must therefore include these routes before the UI
+is called aligned; Render readiness does not imply design approval.
