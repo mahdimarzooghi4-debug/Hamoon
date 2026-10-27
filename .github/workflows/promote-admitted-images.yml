@@ -51,7 +51,7 @@ jobs:
           assert source["workflowName"] == "CI", source
           assert stage["conclusion"] == "success", stage
           assert stage["workflowName"] == "Stage Admission", stage
-          Path("/tmp/promoted-sha").write_text(source["headSha"] + "\\n")
+          Path("/tmp/promoted-sha").write_text(source["headSha"] + "\n")
           PY
           echo "PROMOTED_SHA=$(cat /tmp/promoted-sha)" >> "$GITHUB_ENV"
 
@@ -62,9 +62,9 @@ jobs:
           STAGE_ADMISSION_RUN_ID: ${{ inputs.stage_admission_run_id }}
         run: |
           mkdir -p release stage-attestation
-          gh run download "$SOURCE_CI_RUN_ID" --repo "$GITHUB_REPOSITORY" \\
+          gh run download "$SOURCE_CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "hamoon-release-$PROMOTED_SHA" --dir release
             --name "hamoon-release-$PROMOTED_SHA" --dir release
-          gh run download "$STAGE_ADMISSION_RUN_ID" --repo "$GITHUB_REPOSITORY" \\
+          gh run download "$STAGE_ADMISSION_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "hamoon-stage-admission-$PROMOTED_SHA" --dir stage-attestation
             --name "hamoon-stage-admission-$PROMOTED_SHA" --dir stage-attestation
 
       - name: Verify bundle, attestation, and source run binding
