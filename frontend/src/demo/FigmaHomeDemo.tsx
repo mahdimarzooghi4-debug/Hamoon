@@ -48,15 +48,15 @@ function UiIcon({ name }: { name: UiIconName }) {
   );
 }
 
+const TREND_ICON_PNG: Record<TrendDirection, string> = {
+  up: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABI0lEQVQ4T2P8////fwYqACYGKgEmhsFmEAsDCWD6rVsMl999wBCPUlIkzaCld+4zXP6AaZC1mBhug0AadAUEUMS2ujgxfPj9i+HRl68M0YePMHz89Rt/GHVcucJgs20nw7J791DE+dlYGRgZGBiyT5wEG4JsERM2Q9ovXQWzM0+cRjHs0devDD579jE8/PqNoUJHhyFLUw27QTBD5Li5GSp0dVAMe4RmSKWeNrJWBkZYykY2ZIuzE4M8DxfDsnsPGDJPnAQrFGBlZfjw+zeKIaCwar9yFSzGADKo/fLl/3xLV/zX2bD5/4PPX/8jg6V374PlQLjt4pX/uADDlidPcBqCbFgbHkNAgOHh5y//M46fxGkIsQAeRoMmrzERUkAsoJpBAFZuMl8cSUPpAAAADnRFWHRTb2Z0d2FyZQBGaWdtYZ6xlmMAAAAASUVORK5CYII=",
+  flat: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAVUlEQVQ4T2P8////fwYqACYGKgEmBioBJgYqASYGKgEmhmFrEAuM8e37T4aeGSsZvv34wUAM4OJkZyjJiGDg4mCngov+I5iMoymbIKAssBkQYBgbBAAYFhIcr2mucgAAAA50RVh0U29mdHdhcmUARmlnbWGesZZjAAAAAElFTkSuQmCC",
+  down: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABPElEQVQ4T2P8////fwYqACYGKgEmhkFn0JeXrxmO9k5j+PLqNQMlgOn9vQcMd3cdYNhV0oDTsLu7DzJcXLKGAR9g7pszqwHEeHz8NMPjY6cZZK3NGNi4uVEMOdozleHlpasMDIyMDBJ6WrjDSD82lEE/JpQB5E1kl8EMAQEeCVGGi4tXobgMOViYGxoawC6S0NdmQHYZAwMjw4lJs8Fi1sVZYMvgclCXgfgXF69mEFJSYGCBGw91GQhcXLKa4fSMBXBDlN0cwGy3rnqGXWWNYJeBXSkugjv6Yd5ENwQEeMTFwIbBvHlt/TYGGGDElUXe3b3PIKSsiCL26+s3ht9fvjJ8efmKYX9jN8OvL9/gFqJ4DRmgGwICO8saGN7fecCADeA0CBtQcXFgeKeIaRCPuChurw1cXmOgEqCaQQDGzY3t5IgNeAAAAA50RVh0U29mdHdhcmUARmlnbWGesZZjAAAAAElFTkSuQmCC",
+};
+
 function TrendIcon({ direction }: { direction: TrendDirection }) {
   const label = direction === "up" ? "روند صعودی" : direction === "down" ? "روند نزولی" : "روند ثابت";
-  return (
-    <svg className={`fh-trend fh-trend--${direction}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" role="img" aria-label={label}>
-      {direction === "up" ? <><path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/></> :
-       direction === "down" ? <><path d="M22 17 13.5 8.5 8.5 13.5 2 7"/><path d="M16 17h6v-6"/></> :
-       <path d="M5 12h14"/>}
-    </svg>
-  );
+  return <img className={`fh-trend fh-trend--${direction}`} src={TREND_ICON_PNG[direction]} alt={label} />;
 }
 
 function HamoonMark() {
