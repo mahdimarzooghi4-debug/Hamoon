@@ -64,8 +64,8 @@
 .fh-shortcuts button>.fh-ui-icon{color:#0ea5a8;width:16px;height:16px}.fh-shortcuts button>b{font-size:12px;white-space:nowrap}.fh-shortcuts button>small{margin-right:auto;color:#94a3b8;font-size:10px;white-space:nowrap}
 .fh-bottom{display:grid;grid-template-columns:minmax(300px,.9fr) minmax(0,2.1fr);gap:20px;direction:ltr;align-items:stretch}
 .fh-vision{direction:rtl;min-height:326px;padding:20px 24px;background:#071e31;border-radius:18px;color:#fff;position:relative;overflow:hidden}
-.fh-vision:after{content:"";position:absolute;top:0;left:0;width:4px;height:100%;background:#22d3ee}
-.fh-vision__brand{display:flex;align-items:center;gap:12px}.fh-vision-mark{width:38px;height:38px;display:block;position:relative;overflow:hidden;border:1px solid #18c3d166;border-radius:48% 48% 42% 42%;background:linear-gradient(145deg,#12c9d5,#0d3477);box-shadow:0 4px 10px #18c3d133}
+.fh-vision:after{content:"";position:absolute;top:0;right:0;width:4px;height:100%;background:#22d3ee}
+.fh-vision__head{display:flex;align-items:center;justify-content:space-between;gap:12px;direction:ltr}.fh-vision__time{display:flex;align-items:center;gap:5px;color:#89aabb;font-size:10px}.fh-vision__brand{display:flex;align-items:center;gap:12px;direction:rtl}.fh-vision-mark{width:38px;height:38px;display:block;position:relative;overflow:hidden;border:1px solid #18c3d166;border-radius:48% 48% 42% 42%;background:linear-gradient(145deg,#12c9d5,#0d3477);box-shadow:0 4px 10px #18c3d133}
 .fh-vision-mark i{position:absolute;left:-4px;width:44px;height:11px;border-top:2px solid #ddfbffd9;border-radius:50%}
 .fh-vision-mark i:nth-child(1){top:7px}.fh-vision-mark i:nth-child(2){top:17px}.fh-vision-mark i:nth-child(3){top:27px}
 .fh-vision-mark b{position:absolute;left:17px;top:3px;width:4px;height:32px;background:#41eaff9c;filter:blur(2px)}.fh-vision__brand .fh-mark i{left:3px;width:29px;height:11px}.fh-vision__brand .fh-mark i:nth-child(1){top:5px}.fh-vision__brand .fh-mark i:nth-child(2){top:14px}.fh-vision__brand .fh-mark i:nth-child(3){top:23px}.fh-vision__brand .fh-mark b{left:15px;top:3px;height:32px}
