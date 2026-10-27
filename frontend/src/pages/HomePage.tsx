@@ -17,6 +17,7 @@ import {
 type HomeState =
   | { kind: "loading" }
   | { kind: "auth-required" }
+  | { kind: "forbidden" }
   | { kind: "error" }
   | { kind: "ready"; households: HouseholdSummary[]; workItems: WorkItem[] };
 
@@ -76,6 +77,8 @@ export function HomePage() {
     } catch (error: unknown) {
       if (error instanceof ApiError && error.code === "AUTH_REQUIRED") {
         setState({ kind: "auth-required" });
+      } else if (error instanceof ApiError && error.status === 403) {
+        setState({ kind: "forbidden" });
       } else {
         setState({ kind: "error" });
       }
@@ -101,6 +104,12 @@ export function HomePage() {
           title="برای مشاهده اطلاعات وارد شوید"
           description="پرونده‌ها و وظایف فقط پس از ورود سازمانی و با دسترسی مجاز دریافت می‌شوند."
           action={<Button onClick={() => void beginLogin("/")}>ورود سازمانی</Button>}
+        />
+      ) : null}
+      {state.kind === "forbidden" ? (
+        <EmptyState
+          title="دسترسی به این فهرست مجاز نیست"
+          description="پرونده‌ها و وظایف بر اساس نقش و دامنه سازمانی محدود می‌شوند."
         />
       ) : null}
       {state.kind === "error" ? (
