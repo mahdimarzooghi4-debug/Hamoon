@@ -3,24 +3,24 @@ import "./figma-home-demo.css";
 
 const metrics = [
   { icon: "calendar-check", label: "خانوارهای فعال", hint: "در چرخه توانمندسازی", value: "۱٬۲۴۸" },
-  { icon: "file-search", label: "پرونده‌های نیازمند بررسی", hint: "۲ مورد جدید", value: "۳۳" },
+  { icon: "file-search", label: "پرونده‌های نیازمند بررسی", hint: "۳ مورد جدید", value: "۲۳" },
   { icon: "activity", label: "مداخلات در حال اجرا", hint: "در ۸ برنامه فعال", value: "۱۲۶" },
   { icon: "calendar-clock", label: "پیگیری‌های امروز", hint: "۶ مورد با اولویت بالا", value: "۱۸" },
 ];
 
 const shortcuts = [
-  ["folder", "پرونده‌های من", "۱۲۸ مورد"],
-  ["send", "ارجاعات فعال", "۴۳ مورد"],
+  ["folder", "پرونده‌های من", "۸۶ پرونده"],
+  ["send", "ارجاعات فعال", "۳۴ فعال"],
   ["calendar-clock", "پیگیری‌ها", "۱۸ امروز"],
-  ["circle-check", "موارد نیازمند تصمیم", "۳ مورد"],
-  ["users", "تیم توانمندسازی", "۸ واحد"],
+  ["circle-check", "موارد نیازمند تصمیم", "۹ مورد"],
+  ["file-search", "نتایج جدید ارائه‌دهندگان", "۵ جدید"],
 ];
 
 const rows = [
-  ["نمونه ۰۱", "۰۶۸", "توانمندسازی", "امروز، ۰۹:۳۰", "تأیید برنامه اشتغال", "↗"],
-  ["نمونه ۰۲", "۰۵۱", "نیازمند تصمیم", "دیروز، ۱۶:۰۰", "بازبینی گلوگاه", "—"],
-  ["نمونه ۰۳", "۰۷۴", "در حال اجرا", "۲ روز پیش", "تماس پیگیری", "↗"],
-  ["نمونه ۰۴", "۰۴۳", "توانمندسازی", "۴ روز پیش", "ارزیابی توانمندی", "↘"],
+  ["نمونه ۰۱", "۰٫۶۸", "توانمندسازی", "امروز، ۰۹:۴۵", "تأیید برنامه اشتغال", "↗", "هـ-۴۱۲۸"],
+  ["نمونه ۰۲", "۰٫۵۱", "نیازمند تصمیم", "دیروز، ۱۶:۲۰", "بازبینی گلوگاه", "—", "هـ-۳۹۸۲"],
+  ["نمونه ۰۳", "۰٫۷۴", "پیگیری فعال", "۲ روز پیش", "تماس پیگیری", "↗", "هـ-۳۷۵۴"],
+  ["نمونه ۰۴", "۰٫۴۳", "توانمندسازی", "۳ روز پیش", "ارزیابی تاب‌آوری", "↘", "هـ-۳۶۱۱"],
 ];
 
 type UiIconName = "settings" | "bell" | "calendar-check" | "file-search" | "activity" | "calendar-clock" | "folder" | "send" | "circle-check" | "users" | "search" | "sliders";
@@ -108,14 +108,14 @@ export function FigmaHomeDemo() {
         <section className="fh-shortcuts" aria-label="دسترسی‌های سریع">{shortcuts.map(([icon,label,hint])=><button type="button" onClick={()=>setMessage("این میانبر در نسخه‌ی نمایشی فقط ظاهر صفحه را نشان می‌دهد.")} key={label}><UiIcon name={icon as UiIconName}/><b>{label}</b><small>{hint}</small></button>)}</section>
         <section className="fh-bottom">
           <aside className="fh-vision">
-            <div className="fh-vision__brand"><VisionMark/><div><b>بینش هامون</b><small>موتور هوشمند توانمندسازی</small></div></div>
-            <ul><li>پرونده نیازمند بازبینی مسیر توانمندسازی هستند.</li><li>۲ خانوار با نقاط مداخله در شاخص تاب‌آوری شناسایی شدند.</li></ul>
-            <button type="button" onClick={()=>setMessage("بینش‌ها در این دمو نمونه هستند و به داده‌ی واقعی متصل نیستند.")}>مشاهده همه موارد <span>←</span><small>۳ مورد · اولویت متوسط</small></button>
-            <div className="fh-confidence">اعتماد تحلیلی ۷۸٪ <span>بر پایه‌ی شاخص PGOR و روند ۹۰ روزه</span></div>
+            <div className="fh-vision__head"><span className="fh-vision__time">◷ ۸ دقیقه پیش</span><div className="fh-vision__brand"><VisionMark/><div><b>بینش هامون</b><small>لایه هوشمند تصمیم‌یار</small></div></div></div>
+            <ul><li>۳ پرونده نیازمند بازبینی مسیر توانمندسازی هستند.</li><li>۲ خانوار افت معنادار در شاخص تاب‌آوری داشته‌اند.</li></ul>
+            <button type="button" onClick={()=>setMessage("این بینش‌ها در نسخه‌ی نمایشی فقط برای نمایش قاب هستند.")}>مشاهده موارد <span>←</span><small>مرتب‌شده بر اساس اولویت تصمیم</small></button>
+            <div className="fh-confidence">اعتماد تحلیل ۸۷٪ <span>بر پایه تغییرات PGOR و روند E</span></div>
           </aside>
           <section className="fh-recent">
-            <header><div><b>خانوارهای اخیر</b><small>آخرین پرونده‌های مشاهده‌شده در حال اقدام</small></div><button type="button" onClick={()=>setMessage("فهرست کامل خانوارها در نسخه‌ی نمایشی متصل نیست.")}>مشاهده همه ←</button></header>
-            <div className="fh-table-wrap"><table><thead><tr><th>نام خانوار</th><th>کد پرونده</th><th>E Score</th><th>وضعیت فعلی</th><th>روند</th><th>آخرین بررسی</th><th>اقدام بعدی</th></tr></thead><tbody>{rows.map((row,index)=><tr key={row[0]}><td><b>{row[0]}</b></td><td><span className="fh-case-icon"><UiIcon name="users"/></span><small>•••{index+1}۸−۰</small></td><td><b>{row[1]}</b></td><td><span className={"fh-status fh-status--"+index}>{row[2]}</span></td><td className={index===3?"fh-down":"fh-up"}>{row[5]}</td><td>{row[3]}</td><td><b>{row[4]}</b></td></tr>)}</tbody></table></div>
+            <header><div><b>خانوارهای اخیر</b><small>آخرین پرونده‌های مشاهده‌شده و در حال اقدام</small></div><button type="button" onClick={()=>setMessage("فهرست کامل خانوارها در نسخه‌ی نمایشی متصل نیست.")}>مشاهده همه ←</button></header>
+            <div className="fh-table-wrap"><table><thead><tr><th>نام خانوار</th><th>کد پرونده</th><th>E Score</th><th>وضعیت فعلی</th><th>روند</th><th>آخرین بررسی</th><th>اقدام بعدی</th></tr></thead><tbody>{rows.map((row,index)=><tr key={row[0]}><td><b>{row[0]}</b></td><td><span className="fh-case-icon"><UiIcon name="users"/></span><small>{row[6]}</small></td><td><b>{row[1]}</b></td><td><span className={"fh-status fh-status--"+index}>{row[2]}</span></td><td className={index===3?"fh-down":"fh-up"}>{row[5]}</td><td>{row[3]}</td><td><b>{row[4]}</b></td></tr>)}</tbody></table></div>
           </section>
         </section>
         <footer className="fh-demo-note"><span/>دموی نمایشی هامون · همه‌ی اعداد و پرونده‌ها فرضی‌اند و هیچ اطلاعاتی ذخیره یا ارسال نمی‌شود.</footer>
