@@ -133,13 +133,13 @@ function WorkItemDetail({
   const householdPath = `/households/${encodeURIComponent(item.household_id)}` as AppPath;
 
   return (
-    <div className="work-detail-backdrop" onClick={onClose}>
+    <div className="work-detail-backdrop">
+      <button className="work-detail-scrim" type="button" aria-label="بستن جزئیات" onClick={onClose} />
       <section
         className="work-detail-drawer"
         role="dialog"
         aria-modal="true"
         aria-labelledby="work-detail-title"
-        onClick={(event) => event.stopPropagation()}
       >
         <header className="work-detail-header">
           <div>
