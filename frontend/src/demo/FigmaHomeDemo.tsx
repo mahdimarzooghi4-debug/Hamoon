@@ -52,8 +52,8 @@ function TrendIcon({ direction }: { direction: TrendDirection }) {
   const label = direction === "up" ? "روند صعودی" : direction === "down" ? "روند نزولی" : "روند ثابت";
   return (
     <svg className={`fh-trend fh-trend--${direction}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" role="img" aria-label={label}>
-      {direction === "up" ? <><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></> :
-       direction === "down" ? <><path d="M3 7l6 6 4-4 8 8"/><path d="M14 17h7v-7"/></> :
+      {direction === "up" ? <><path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/></> :
+       direction === "down" ? <><path d="M22 17 13.5 8.5 8.5 13.5 2 7"/><path d="M16 17h6v-6"/></> :
        <path d="M5 12h14"/>}
     </svg>
   );
