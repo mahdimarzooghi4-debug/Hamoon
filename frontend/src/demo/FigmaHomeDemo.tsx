@@ -24,7 +24,7 @@ const rows = [
 ];
 
 function HamoonMark() {
-  return <span className="fh-mark" aria-hidden="true"><i /><i /><i /><b /></span>;
+  return <img className="fh-mark" src="/demo-assets/hamoon-mark.svg" alt="" />;
 }
 
 function EmpowermentModel() {
@@ -33,22 +33,7 @@ function EmpowermentModel() {
       <div className="fh-model__heading"><strong>مدل مسیر توانمندسازی</strong><span>نمایش خنثی · آماده تحلیل خانوار</span></div>
       <div className="fh-threshold fh-threshold--top"><span>E ≈ 1.0</span></div>
       <div className="fh-threshold fh-threshold--mid"><span>E = 0.7</span></div>
-      <svg className="fh-cylinder" viewBox="0 0 420 330" role="img" aria-label="مدل نمایشی مسیر توانمندسازی">
-        <defs>
-          <linearGradient id="fh-glass" x1="0" x2="1" y1="0" y2="1"><stop stopColor="#00c8ff" stopOpacity=".16"/><stop offset=".48" stopColor="#67f2ff" stopOpacity=".42"/><stop offset="1" stopColor="#00a6ff" stopOpacity=".14"/></linearGradient>
-          <linearGradient id="fh-ribbon" x1="0" x2="1" y1="0" y2="1"><stop stopColor="#15bfff"/><stop offset=".5" stopColor="#b8ffff"/><stop offset="1" stopColor="#14bbf5"/></linearGradient>
-          <filter id="fh-glow"><feGaussianBlur stdDeviation="6" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        </defs>
-        <ellipse cx="210" cy="75" rx="76" ry="28" fill="#00bfff" fillOpacity=".12" stroke="#19dbff" strokeWidth="2"/>
-        <path d="M134 75v174c0 18 34 33 76 33s76-15 76-33V75" fill="url(#fh-glass)" stroke="#19dfff" strokeWidth="2"/>
-        <ellipse cx="210" cy="249" rx="76" ry="32" fill="#0bd2ff" fillOpacity=".18" stroke="#19dfff" strokeWidth="2"/>
-        <ellipse cx="210" cy="75" rx="42" ry="18" fill="#061b30" fillOpacity=".85" stroke="#4deeff" strokeWidth="2"/>
-        <path d="M210 68v186" stroke="#22d3ee" strokeWidth="3" opacity=".78" filter="url(#fh-glow)"/>
-        <path d="M141 91c14 18 41 25 71 24 30-1 58-12 72-30v48c-12 20-40 33-72 36-30 3-57-4-71-19z" fill="url(#fh-ribbon)" fillOpacity=".82" stroke="#9df8ff" strokeWidth="2" filter="url(#fh-glow)"/>
-        <path d="M141 149c16 20 42 28 71 27 30-1 57-11 72-30v43c-14 20-42 30-72 31-28 1-54-7-71-23z" fill="url(#fh-ribbon)" fillOpacity=".8" stroke="#9df8ff" strokeWidth="2" filter="url(#fh-glow)"/>
-        <path d="M137 207c18 19 44 25 75 23 30-2 57-13 72-33v37c-15 21-43 31-74 32-29 1-54-7-71-22z" fill="url(#fh-ribbon)" fillOpacity=".76" stroke="#9df8ff" strokeWidth="2" filter="url(#fh-glow)"/>
-      </svg>
-      <div className="fh-model__stage fh-model__stage--one"><i/><b>استقلال پایدار</b><small>E ≈ 1.0</small></div>
+      <img className="fh-cylinder" src="/demo-assets/pgor-cylinder.svg" alt="مدل شیشه‌ای توانمندسازی هامون" />     <div className="fh-model__stage fh-model__stage--one"><i/><b>استقلال پایدار</b><small>E ≈ 1.0</small></div>
       <div className="fh-model__stage fh-model__stage--two"><i/><b>آستانه توانمندی</b><small>E = 0.7</small></div>
       <div className="fh-model__stage fh-model__stage--three"><i/><b>توانمندسازی</b><small>مسیر حمایت و رشد</small></div>
       <div className="fh-model__stage fh-model__stage--four"><i/><b>وابستگی</b><small>نقطه آغاز مسیر</small></div>
