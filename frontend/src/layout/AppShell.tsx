@@ -156,7 +156,7 @@ export function AppShell({
             </div>
           </details>
 
-          <div className="brand" aria-label="هامون، ماشین توانمندسازی هوشمند">
+          <div className="brand">
             <div className="brand__copy">
               <strong>هامون</strong>
               <span>ماشین توانمندسازی هوشمند</span>
