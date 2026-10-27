@@ -176,7 +176,7 @@ jobs:
       - name: Save immutable Render image references
         uses: actions/upload-artifact@v4
         with:
-          name: hamoon-render-image-digests-$PROMOTED_SHA
+          name: hamoon-render-image-digests-${{ env.PROMOTED_SHA }}
           path: render-image-digests.json
           if-no-files-found: error
           retention-days: 90
