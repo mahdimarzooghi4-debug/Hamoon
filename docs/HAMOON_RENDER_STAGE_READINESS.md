@@ -53,8 +53,11 @@ environment settings and are never committed to this repository.
 
 1. Review and merge the PR that adds a manual, attestation-gated GHCR publisher;
    after merge, use it only for a successful main CI run with a matching successful
-   Stage Admission run. The workflow publishes the unchanged images and reports their
-   immutable registry digests. GHCR read access for Render still needs configuration.
+   Stage Admission run. The workflow publishes the unchanged images, reports their
+   immutable registry digests, and uploads `render-image-digests.json` as the
+   `hamoon-render-image-digests-<commit SHA>` artifact. Use its exact backend and
+   frontend image references when writing the Blueprint. GHCR read access for Render
+   still needs configuration.
 2. Create the Render Blueprint using those immutable image digests and an isolated
    Stage database.
 3. Provide the Stage NATS, Temporal, OIDC, S3, scanner, and telemetry endpoints and
