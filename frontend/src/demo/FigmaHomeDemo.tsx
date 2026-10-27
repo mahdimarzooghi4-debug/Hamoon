@@ -49,7 +49,7 @@ function HamoonMark() {
   return <img className="fh-mark" src="/demo-assets/hamoon-mark.svg" alt="" />;
 }
 function VisionMark() {
-  return <span className="fh-vision-mark" aria-hidden="true"><i/><i/><i/><b/></span>;
+  return <img className="fh-mark fh-mark--vision" src="/demo-assets/hamoon-mark.svg" alt="" />;
 }
 
 function EmpowermentModel() {
