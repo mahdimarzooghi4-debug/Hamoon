@@ -1,0 +1,11 @@
+.fh-demo-shell{min-height:100vh;background:#f7fbfe}
+.fh-demo-screen{min-height:100vh;overflow-x:hidden;background:#f7fbfe}
+.fh-demo-screen__image{display:block;width:min(100%,1440px);height:auto;margin:0 auto}
+.fh-demo-screen__error{margin:64px auto;padding:24px;width:min(520px,calc(100% - 32px));border:1px solid #dcecf7;border-radius:16px;background:#fff;color:#64748b;text-align:center;font:500 14px/1.8 inherit}
+.fh-demo-nav{position:fixed;z-index:1000;left:50%;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;gap:4px;max-width:calc(100vw - 20px);overflow-x:auto;padding:7px;border:1px solid #dcecf7;border-radius:16px;background:rgba(255,255,255,.94);box-shadow:0 10px 30px rgba(8,36,58,.16);backdrop-filter:blur(12px);direction:rtl;white-space:nowrap}
+.fh-demo-nav__label{padding:0 10px;color:#64748b;font:700 11px/1.2 inherit}
+.fh-demo-nav button{min-height:36px;padding:0 12px;border:0;border-radius:10px;background:transparent;color:#475569;font:600 12px/1 inherit;cursor:pointer;transition:background .16s ease,color .16s ease}
+.fh-demo-nav button:hover{background:#f0f9ff;color:#0b2d6b}
+.fh-demo-nav button.is-active{background:#0b2d6b;color:#fff}
+.fh-demo-nav button:focus-visible{outline:2px solid #0ea5a8;outline-offset:2px}
+@media(max-width:700px){.fh-demo-nav{bottom:8px;gap:2px;padding:5px;border-radius:14px}.fh-demo-nav__label{display:none}.fh-demo-nav button{padding:0 10px;font-size:11px}}
