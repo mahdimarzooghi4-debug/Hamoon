@@ -1,4 +1,5 @@
 import { accessForPath, canUseCasework } from "../auth/access";
+import { DemoApp } from "../demo/DemoApp";
 import { browserPrincipal } from "../auth/oidc";
 import { AppShell } from "../layout/AppShell";
 import { AccessGatePage } from "../pages/AccessGatePage";
@@ -16,6 +17,10 @@ import { WorkQueuePage } from "../pages/WorkQueuePage";
 import { useAppPath } from "./navigation";
 
 export function App() {
+  if (import.meta.env.VITE_HAMOON_DEMO_MODE === "true") {
+    return <DemoApp />;
+  }
+
   const path = useAppPath();
   const principal = browserPrincipal();
   const access = accessForPath(path, principal);
