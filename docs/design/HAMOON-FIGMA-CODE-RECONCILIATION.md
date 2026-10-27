@@ -16,7 +16,7 @@ Baseline: `main` @ `586103470739110229264d49e2d2ac45975ae991`
 | Canonical frame(s) | React location | Status |
 | --- | --- | --- |
 | `55:176` Login | `auth/oidc.ts`, `pages/AccessGatePage.tsx` | OIDC-only canonical design reconciled 2026-10-24; local credential mock hidden |
-| `23:3020` Home | `pages/HomePage.tsx`, `layout/AppShell.tsx` | Draft PR #23 aligns the dashboard hierarchy with live household/work-queue data; header/nav and brand asset parity, explicit forbidden-state handling, and screenshot comparison remain open. Never render decorative threshold labels as policy |
+| `23:3020` Home | `pages/HomePage.tsx`, `layout/AppShell.tsx` | Draft PR #23 aligns the dashboard hierarchy with live household/work-queue data; header/nav and brand asset parity, and screenshot comparison remain open. Never render decorative threshold labels as policy |
 | `31:1661`, `31:1993` Work queue / detail | `pages/WorkQueuePage.tsx` | Queue+claim implemented; drawer parity pending |
 | `31:4556`, `31:4896` Cases / preview | `pages/HouseholdsPage.tsx` | Read/preview implemented |
 | `59:5703`, `59:5897`, `59:6131` Case creation | `pages/HouseholdsPage.tsx` + `api/households.ts` | **Slice 1:** server-scoped draft case creation only; members/identity/observations remain out of this endpoint |
@@ -115,4 +115,4 @@ No Production deployment, Stage/Release gates, model promotion, or Figma LEGACY 
 - Canonical frame: `23:3020`. The former generic hero, metric strip and work-queue-only panel are replaced with the Figma hierarchy: case search and journey panel, four live summary cards, a compact task strip, and a household table beside the overview card.
 - Household rows and search use the existing assignment-scoped households API; task tiles use the authenticated work queue API. No sample identity, score, household name or outcome is hardcoded. Official E is shown only where the returned household summary contains a PGOR snapshot.
 - Summary cards are labelled as counts from returned lists (bounded to the existing API page size), not as national or unbounded totals. Journey threshold values remain absent because Figma decorative values are not policy.
-- Loading, auth-required, API-error and empty states are retained. A dedicated 403/forbidden state, pixel-level desktop/mobile browser comparison, app header/navigation/brand asset parity, and final visual acceptance remain open.
+- Loading, auth-required, API-error, empty and dedicated 403/forbidden states are handled. Pixel-level desktop/mobile browser comparison, app header/navigation/brand asset parity, and final visual acceptance remain open.
