@@ -1,0 +1,148 @@
+name: Promote admitted release to GHCR
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ci_run_id:
+        description: Successful CI run ID on main that produced the immutable release bundle
+        required: true
+        type: string
+      stage_admission_run_id:
+        description: Successful Stage Admission run ID for the same commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  packages: write
+
+concurrency:
+  group: hamoon-ghcr-promotion-${{ inputs.source_ci_run_id }}
+  cancel-in-progress: false
+
+jobs:
+  publish-admitted-images:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout promotion verifier
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Validate source CI and Stage Admission runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_CI_RUN_ID: ${{ inputs.source_ci_run_id }}
+          STAGE_ADMISSION_RUN_ID: ${{ inputs.stage_admission_run_id }}
+        run: |
+          gh run view "$SOURCE_CI_RUN_ID" --json conclusion,headBranch,headSha,workflowName > /tmp/source-ci.json
+          gh run view "$STAGE_ADMISSION_RUN_ID" --json conclusion,workflowName > /tmp/stage-admission.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          source = json.loads(Path("/tmp/source-ci.json").read_text())
+          stage = json.loads(Path("/tmp/stage-admission.json").read_text())
+          assert source["conclusion"] == "success", source
+          assert source["headBranch"] == "main", source
+          assert source["workflowName"] == "CI", source
+          assert stage["conclusion"] == "success", stage
+          assert stage["workflowName"] == "Stage Admission", stage
+          Path("/tmp/promoted-sha").write_text(source["headSha"] + "\\n")
+          PY
+          echo "PROMOTED_SHA=$(cat /tmp/promoted-sha)" >> "$GITHUB_ENV"
+
+      - name: Download the exact release bundle and Stage attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_CI_RUN_ID: ${{ inputs.source_ci_run_id }}
+          STAGE_ADMISSION_RUN_ID: ${{ inputs.stage_admission_run_id }}
+        run: |
+          mkdir -p release stage-attestation
+          gh run download "$SOURCE_CI_RUN_ID" --repo "$GITHUB_REPOSITORY" \\
+            --name "hamoon-release-$PROMOTED_SHA" --dir release
+          gh run download "$STAGE_ADMISSION_RUN_ID" --repo "$GITHUB_REPOSITORY" \\
+            --name "hamoon-stage-admission-$PROMOTED_SHA" --dir stage-attestation
+
+      - name: Verify bundle, attestation, and source run binding
+        env:
+          SOURCE_CI_RUN_ID: ${{ inputs.source_ci_run_id }}
+        run: |
+          python3 scripts/verify_release_bundle.py release
+          python3 scripts/verify_stage_attestation.py release stage-attestation/stage-attestation.json
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          manifest = json.loads(Path("release/manifest.json").read_text())
+          attestation = json.loads(Path("stage-attestation/stage-attestation.json").read_text())
+          assert manifest["repository"].lower() == os.environ["GITHUB_REPOSITORY"].lower()
+          assert manifest["commit_sha"] == os.environ["PROMOTED_SHA"]
+          assert manifest["workflow_run_id"] == os.environ["SOURCE_CI_RUN_ID"]
+          assert attestation["status"] == "PASSED"
+          assert attestation["environment_class"] == "STAGE_ADMISSION"
+          assert attestation["hosted_stage"] is False
+          assert attestation["commit_sha"] == os.environ["PROMOTED_SHA"]
+          assert attestation["source_ci_run_id"] == os.environ["SOURCE_CI_RUN_ID"]
+          PY
+
+      - name: Load and verify the exact admitted images
+        run: |
+          docker load -i release/hamoon-api.tar
+          docker load -i release/hamoon-web.tar
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path("release/manifest.json").read_text())
+          print(f'API_SOURCE_IMAGE={manifest["backend"]["image"]}')
+          print(f'API_SOURCE_IMAGE_ID={manifest["backend"]["image_id"]}')
+          print(f'WEB_SOURCE_IMAGE={manifest["frontend"]["image"]}')
+          print(f'WEB_SOURCE_IMAGE_ID={manifest["frontend"]["image_id"]}')
+          PY
+          test "$(docker image inspect "$API_SOURCE_IMAGE" --format '{{.Id}}')" = "$API_SOURCE_IMAGE_ID"
+          test "$(docker image inspect "$WEB_SOURCE_IMAGE" --format '{{.Id}}')" = "$WEB_SOURCE_IMAGE_ID"
+
+      - name: Refuse existing release tags and publish unchanged images
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_ACTOR: ${{ github.actor }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io --username "$GH_ACTOR" --password-stdin
+          registry_root="ghcr.io/${GITHUB_REPOSITORY,,}"
+          api_tag="$registry_root/hamoon-api:$PROMOTED_SHA"
+          web_tag="$registry_root/hamoon-web:$PROMOTED_SHA"
+
+          if docker manifest inspect "$api_tag" >/dev/null 2>&1; then
+            echo "Refusing to overwrite existing image tag: $api_tag" >&2
+            exit 1
+          fi
+          if docker manifest inspect "$web_tag" >/dev/null 2>&1; then
+            echo "Refusing to overwrite existing image tag: $web_tag" >&2
+            exit 1
+          fi
+
+          docker tag "$API_SOURCE_IMAGE" "$api_tag"
+          docker tag "$WEB_SOURCE_IMAGE" "$web_tag"
+          test "$(docker image inspect "$api_tag" --format '{{.Id}}')" = "$API_SOURCE_IMAGE_ID"
+          test "$(docker image inspect "$web_tag" --format '{{.Id}}')" = "$WEB_SOURCE_IMAGE_ID"
+          docker push "$api_tag"
+          docker push "$web_tag"
+
+          api_digest="$(docker image inspect "$api_tag" --format '{{index .RepoDigests 0}}' | sed 's/.*@//')"
+          web_digest="$(docker image inspect "$web_tag" --format '{{index .RepoDigests 0}}' | sed 's/.*@//')"
+          test -n "$api_digest"
+          test -n "$web_digest"
+          {
+            echo "### Admitted Hamoon images published to GHCR"
+            echo
+            echo "- Commit: `$PROMOTED_SHA`"
+            echo "- Backend: `$registry_root/hamoon-api@$api_digest`"
+            echo "- Frontend: `$registry_root/hamoon-web@$web_digest`"
+            echo
+            echo "Render should deploy these immutable digests and use read-only registry credentials."
+          } >> "$GITHUB_STEP_SUMMARY"
