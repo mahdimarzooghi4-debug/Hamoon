@@ -218,7 +218,7 @@ export function HomePage() {
                   </div>
                   {state.households.slice(0, 5).map((household) => (
                     <div className="home-households__row" role="row" key={household.id}>
-                      <AppLink role="cell" to={householdPath(household.id)}>پرونده {household.case_code}</AppLink>
+                      <span role="cell"><AppLink to={householdPath(household.id)}>پرونده {household.case_code}</AppLink></span>
                       <strong role="cell">{pgorValue(household)}</strong>
                       <span role="cell"><Badge tone={householdTone(household.lifecycle_status)}>{householdStatusLabels[household.lifecycle_status]}</Badge></span>
                       <span role="cell">{household.next_work_item?.title ?? "اقدام بازی ثبت نشده"}</span>
