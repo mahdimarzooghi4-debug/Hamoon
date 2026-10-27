@@ -222,7 +222,7 @@ export function HomePage() {
                       <strong role="cell">{pgorValue(household)}</strong>
                       <span role="cell"><Badge tone={householdTone(household.lifecycle_status)}>{householdStatusLabels[household.lifecycle_status]}</Badge></span>
                       <span role="cell">{household.next_work_item?.title ?? "اقدام بازی ثبت نشده"}</span>
-                      <span role="cell">{household.next_work_item ? new Intl.DateTimeFormat("fa-IR-u-ca-persian", { dateStyle: "medium" }).format(household.next_work_item.due_at ? new Date(household.next_work_item.due_at) : new Date()) : "—"}</span>
+                      <span role="cell">{household.next_work_item?.due_at ? new Intl.DateTimeFormat("fa-IR-u-ca-persian", { dateStyle: "medium" }).format(new Date(household.next_work_item.due_at)) : "—"}</span>
                     </div>
                   ))}
                 </div>
