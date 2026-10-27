@@ -108,6 +108,8 @@ jobs:
           PY
           test "$(docker image inspect "$API_SOURCE_IMAGE" --format '{{.Id}}')" = "$API_SOURCE_IMAGE_ID"
           test "$(docker image inspect "$WEB_SOURCE_IMAGE" --format '{{.Id}}')" = "$WEB_SOURCE_IMAGE_ID"
+          test "$(docker image inspect "$API_SOURCE_IMAGE" --format '{{.Os}}/{{.Architecture}}')" = "linux/amd64"
+          test "$(docker image inspect "$WEB_SOURCE_IMAGE" --format '{{.Os}}/{{.Architecture}}')" = "linux/amd64"
 
       - name: Refuse existing release tags and publish unchanged images
         env:
