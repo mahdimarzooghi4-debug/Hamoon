@@ -127,7 +127,7 @@ export function HomePage() {
                   placeholder="کد پرونده"
                   autoComplete="off"
                 />
-                <Button type="submit">مشاهده پرونده</Button>
+                <Button type="submit">جست‌وجو</Button>
               </form>
               <AppLink className="home-advanced-search" to="/households">
                 جست‌وجوی پیشرفته و فهرست پرونده‌ها
