@@ -3,7 +3,7 @@ import re
 from typing import Self
 from urllib.parse import urlsplit
 
-from pydantic import SecretStr, model_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "0.0.0.0", "::1", "::"})
@@ -21,9 +21,7 @@ def _endpoint_host(value: str) -> str | None:
 
 
 def _is_local_host(host: str | None) -> bool:
-    if host is None:
-        return True
-    return host in _LOCAL_HOSTS or host.endswith(".localhost")
+    return host is None or host in _LOCAL_HOSTS or host.endswith(".localhost")
 
 
 def _is_remote_endpoint(value: str) -> bool:
@@ -113,6 +111,18 @@ class Settings(BaseSettings):
     temporal_namespace: str = "default"
     temporal_core_task_queue: str = "hamoon-core"
     temporal_provider_task_queue: str = "hamoon-provider"
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def use_async_postgresql_driver(cls, value: object) -> object:
+        """Adapt standard managed-Postgres URLs to SQLAlchemy's async driver."""
+        if not isinstance(value, str):
+            return value
+        if value.startswith("postgres://"):
+            return "postgresql+asyncpg://" + value.removeprefix("postgres://")
+        if value.startswith("postgresql://"):
+            return "postgresql+asyncpg://" + value.removeprefix("postgresql://")
+        return value
 
     @model_validator(mode="after")
     def validate_runtime_safety(self) -> Self:
