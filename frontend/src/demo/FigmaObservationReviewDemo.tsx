@@ -99,6 +99,7 @@ export function FigmaObservationReviewDemo() {
             <div className="fh-review__facts">
               <div><small>شناسهٔ ساختگی خانوار</small><strong>{record.householdRef}</strong></div>
               <div><small>مقدار ثبت‌شده</small><strong>{record.score === null ? "امتیاز ثبت نشده" : `${record.score.toLocaleString("fa-IR")} از ۱۰۰`}</strong></div>
+              <div><small>واحد سنجش</small><strong>{record.analysisUnit === "MEMBER" ? `عضو خانوار · ${record.analysisTarget}` : record.analysisUnit === "AREA" ? `محیط منطقه · ${record.analysisTarget === "area-demo" ? "منطقهٔ نمونه" : record.analysisTarget}` : "کل خانوار"}</strong></div>
               <div><small>وضعیت سنجش</small><strong>{measurementStatusLabels[record.measurementStatus]}</strong></div>
               <div><small>منبع داده</small><strong>{record.source ?? "ثبت نشده"}</strong></div>
               <div><small>تاریخ اثر</small><strong>{record.effectiveAt}</strong></div>
