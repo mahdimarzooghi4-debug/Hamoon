@@ -95,10 +95,6 @@ class Settings(BaseSettings):
     internal_model_artifact_s3_region: str = "us-east-1"
     internal_model_artifact_s3_request_timeout_seconds: float = 10.0
 
-    gemma4_base_checkpoint_root: str | None = None
-    gemma4_training_config_json: str | None = None
-    gemma4_generation_config_json: str | None = None
-
     oidc_issuer_url: str = "http://localhost:8081/realms/hamoon-local"
     oidc_audience: str = "hamoon-api"
     oidc_jwks_url: str | None = None
@@ -233,22 +229,6 @@ class Settings(BaseSettings):
             errors.append(
                 "PRODUCTION_INTERNAL_MODEL_ARTIFACT_S3_CREDENTIALS_REQUIRED"
             )
-        if (
-            self.gemma4_base_checkpoint_root is None
-            or not self.gemma4_base_checkpoint_root.strip()
-        ):
-            errors.append("PRODUCTION_GEMMA4_BASE_CHECKPOINT_REQUIRED")
-        if (
-            self.gemma4_training_config_json is None
-            or not self.gemma4_training_config_json.strip()
-        ):
-            errors.append("PRODUCTION_GEMMA4_TRAINING_CONFIG_REQUIRED")
-        if (
-            self.gemma4_generation_config_json is None
-            or not self.gemma4_generation_config_json.strip()
-        ):
-            errors.append("PRODUCTION_GEMMA4_GENERATION_CONFIG_REQUIRED")
-
         if scanner_backend != "http":
             errors.append("PRODUCTION_EVIDENCE_SCANNER_REQUIRED")
         if (

@@ -11,8 +11,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 LABEL org.opencontainers.image.version="${HAMOON_APPLICATION_VERSION}" \
       org.opencontainers.image.revision="${HAMOON_GIT_COMMIT}" \
-      io.hamoon.internal-ai.model="google/gemma-4-12B-it" \
-      io.hamoon.internal-ai.execution="IN_PROCESS"
+      io.hamoon.internal-ai.model="Qwen/Qwen3.5-9B" \
+      io.hamoon.internal-ai.execution="OFFLINE_EVALUATION_ONLY"
 
 WORKDIR /app
 
@@ -22,14 +22,14 @@ RUN apt-get update \
     && pip install --no-cache-dir uv
 
 COPY pyproject.toml uv.lock README.md alembic.ini ./
-COPY requirements/internal-ai-gemma4.txt ./requirements/internal-ai-gemma4.txt
+COPY requirements/internal-ai-qwen35.txt ./requirements/internal-ai-qwen35.txt
 COPY migrations ./migrations
 COPY src ./src
+COPY scripts/run_qwen35_offline.py ./scripts/run_qwen35_offline.py
+COPY scripts/attest_qwen35_checkpoint.py ./scripts/attest_qwen35_checkpoint.py
 
 RUN uv sync --frozen --no-dev --no-editable \
     && uv pip install --python /app/.venv/bin/python --no-cache \
-        -r requirements/internal-ai-gemma4.txt
+        -r requirements/internal-ai-qwen35.txt
 
-EXPOSE 8000
-
-CMD ["uvicorn", "hamoon.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "scripts/run_qwen35_offline.py"]
