@@ -1,180 +1,148 @@
 import { useState, type FormEvent } from "react";
+import { groups, loadDemoIndicators, type Group } from "./questionBank";
 
-type DimensionCode = "P" | "G" | "O" | "R";
-type PromptItem = { id: string; title: string; context: string };
-type DemoAnswer = {
+type DemoEntry = {
   id: number;
-  dimension: DimensionCode;
+  group: Group;
   indicator: string;
-  answer: string;
+  score: number;
   source: string;
   effectiveAt: string;
 };
 
-const dimensions: {
-  code: DimensionCode;
-  name: string;
-  summary: string;
-  items: PromptItem[];
-}[] = [
-  {
-    code: "P",
-    name: "مشارکت",
-    summary: "میزان درگیری فعال خانوار در فرایند تغییر",
-    items: [
-      { id: "motivation", title: "انگیزه", context: "تمایل به تغییر و امید به آینده" },
-      { id: "responsibility", title: "مسئولیت‌پذیری", context: "پیگیری امور و انجام تعهدات" },
-      { id: "interaction", title: "تعامل", context: "ارتباط با نهادها و مشارکت اجتماعی" },
-      { id: "programs", title: "حضور در برنامه‌ها", context: "آموزش، جلسات و فعالیت‌های توسعه‌ای" },
-    ],
-  },
-  {
-    code: "G",
-    name: "ظرفیت رشد",
-    summary: "توان بالقوه خانوار برای پیشرفت",
-    items: [
-      { id: "human-capital", title: "سرمایه انسانی", context: "تحصیلات و مهارت" },
-      { id: "experience", title: "تجربه", context: "سابقه کاری و تجربه تولید" },
-      { id: "learning", title: "قابلیت یادگیری", context: "آموزش‌پذیری و انعطاف" },
-      { id: "functional-health", title: "سلامت عملکردی", context: "توان جسمی و توان شناختی" },
-    ],
-  },
-  {
-    code: "O",
-    name: "فرصت",
-    summary: "دسترسی خانوار به بسترهای واقعی رشد",
-    items: [
-      { id: "market", title: "بازار", context: "تقاضا و اشتغال" },
-      { id: "infrastructure", title: "زیرساخت", context: "حمل‌ونقل و اینترنت" },
-      { id: "access", title: "دسترسی", context: "خدمات و سرمایه" },
-      { id: "network", title: "شبکه اقتصادی", context: "ارتباطات و زنجیره ارزش" },
-    ],
-  },
-  {
-    code: "R",
-    name: "تاب‌آوری",
-    summary: "توان مقاومت خانوار در برابر شوک‌ها",
-    items: [
-      { id: "income-stability", title: "ثبات درآمد", context: "" },
-      { id: "social-support", title: "حمایت اجتماعی", context: "" },
-      { id: "family-health", title: "سلامت خانوادگی", context: "" },
-      { id: "crisis-response", title: "توان مقابله با بحران", context: "" },
-      { id: "income-diversity", title: "تنوع منابع درآمدی", context: "" },
-    ],
-  },
-];
-
-const responseOptions = ["خیلی کم", "کم", "متوسط", "بالا", "خیلی بالا"];
+const summaries: Record<Group, string> = {
+  P: "شاخص‌های مشارکت خانوار در فرایند تغییر",
+  G: "شاخص‌های ظرفیت رشد خانوار",
+  O: "شاخص‌های فرصت و دسترسی",
+  R: "شاخص‌های تاب‌آوری خانوار",
+};
 
 export function FigmaIntakeDemo() {
-  const [dimension, setDimension] = useState<DimensionCode>("P");
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [dimension, setDimension] = useState<Group>("P");
+  const [values, setValues] = useState<Record<string, string>>({});
   const [source, setSource] = useState("");
   const [effectiveAt, setEffectiveAt] = useState("");
-  const [entries, setEntries] = useState<DemoAnswer[]>([]);
+  const [entries, setEntries] = useState<DemoEntry[]>([]);
   const [notice, setNotice] = useState("");
-
-  const activeDimension = dimensions.find((item) => item.code === dimension)!;
+  const [indicators] = useState(loadDemoIndicators);
+  const activeDimension = groups.find((item) => item.id === dimension)!;
+  const activeIndicators = indicators.filter((item) => item.group === dimension && item.active);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!source || !effectiveAt) return;
-    const completed = activeDimension.items.flatMap((item) => {
-      const answer = answers[item.id];
-      return answer ? [{
-        id: Date.now() + activeDimension.items.indexOf(item),
-        dimension,
-        indicator: item.title,
-        answer,
-        source,
-        effectiveAt,
-      }] : [];
-    });
-    if (completed.length === 0) {
-      setNotice("برای ثبت نمونه، دست‌کم یک پاسخ را انتخاب کنید.");
+    if (!source || !effectiveAt) {
+      setNotice("منبع داده و تاریخ اثر را تکمیل کنید.");
       return;
     }
+    const entered = activeIndicators.filter((item) => values[item.id] !== undefined && values[item.id] !== "");
+    const invalid = entered.some((item) => {
+      const value = Number(values[item.id]);
+      return !Number.isFinite(value) || value < 0 || value > 100;
+    });
+    if (invalid) {
+      setNotice("عدد هر شاخص باید بین ۰ تا ۱۰۰ باشد.");
+      return;
+    }
+    if (entered.length === 0) {
+      setNotice("برای ثبت نمونه، عدد دست‌کم یک شاخص را وارد کنید.");
+      return;
+    }
+    const completed = entered.map((item, index) => ({
+      id: Date.now() + index,
+      group: dimension,
+      indicator: item.category,
+      score: Number(values[item.id]),
+      source,
+      effectiveAt,
+    }));
     setEntries((current) => [...completed.reverse(), ...current]);
-    setAnswers({});
+    setValues({});
     setSource("");
     setEffectiveAt("");
-    setNotice("پاسخ‌های نمونه فقط در حافظه این صفحه ثبت شدند؛ با بستن یا تازه‌سازی صفحه پاک می‌شوند.");
+    setNotice("مقادیر نمونه فقط در حافظهٔ این صفحه ثبت شدند؛ به سرور ارسال نمی‌شوند.");
   }
 
   return (
-    <main className="fh-intake" aria-label="دموی پرسشنامه مددکار" dir="rtl">
+    <main className="fh-intake" aria-label="دموی ثبت عددی شاخص‌های PGOR" dir="rtl">
       <header className="fh-intake__heading">
         <div>
           <span className="fh-intake__eyebrow">دموی محیط مددکار · پرونده HM-1405-021</span>
-          <h1>تکمیل میدانی اطلاعات خانوار</h1>
-          <p>پاسخ‌ها زیر دسته‌های مدل PGOR ثبت می‌شوند؛ مددکار امتیاز نهایی مدل را وارد نمی‌کند.</p>
+          <h1>ثبت میدانی داده‌های خانوار</h1>
+          <p>مددکار مقدار عددی هر شاخص را همراه منبع و تاریخ ثبت می‌کند؛ این صفحه پرسش‌نامهٔ مصاحبه‌ای نیست.</p>
         </div>
         <span className="fh-intake__badge">نمونهٔ ساختگی</span>
       </header>
 
       <div className="fh-intake__notice" role="note">
         <strong>دموی بدون اتصال</strong>
-        <span>اطلاعات واقعی وارد نکنید. پاسخ‌ها به سرور نمی‌روند و با تازه‌سازی صفحه پاک می‌شوند.</span>
+        <span>اطلاعات واقعی وارد نکنید. بازهٔ عددی ۰ تا ۱۰۰ است، اما روش تعیین عدد باید جداگانه تأیید شود.</span>
       </div>
 
       <div className="fh-intake__grid">
         <section className="fh-intake__card">
           <div className="fh-intake__section-head">
-            <div><small>داده‌های سنجش توانمندسازی</small><h2>ثبت پاسخ بر اساس دستهٔ PGOR</h2></div>
+            <div><small>داده‌های سنجش توانمندسازی</small><h2>ثبت عدد زیر دستهٔ PGOR</h2></div>
             <span className="fh-intake__step">گام ۲</span>
           </div>
 
           <div className="fh-intake__dimensions" role="tablist" aria-label="دسته‌های PGOR">
-            {dimensions.map((item) => (
+            {groups.map((item) => (
               <button
-                key={item.code}
+                key={item.id}
                 type="button"
                 role="tab"
-                aria-selected={dimension === item.code}
-                className={dimension === item.code ? "fh-intake__dimension is-active" : "fh-intake__dimension"}
-                onClick={() => { setDimension(item.code); setNotice(""); }}
+                aria-selected={dimension === item.id}
+                className={dimension === item.id ? "fh-intake__dimension is-active" : "fh-intake__dimension"}
+                onClick={() => { setDimension(item.id); setNotice(""); }}
               >
-                <strong>{item.code}</strong><span>{item.name}</span>
+                <strong>{item.id}</strong><span>{item.name}</span>
               </button>
             ))}
           </div>
 
           <div className="fh-intake__model-note">
-            <strong>{activeDimension.code} — {activeDimension.name}</strong>
-            <span>{activeDimension.summary}</span>
-            <span>نمونهٔ دسته‌ها و شاخص‌ها از فریم تکمیل میدانی فیگما آمده‌اند؛ فهرست کامل و انواع پاسخ باید از تعریف تأییدشدهٔ مدل بارگذاری شوند.</span>
+            <strong>{activeDimension.id} — {activeDimension.name}</strong>
+            <span>{summaries[activeDimension.id]}</span>
+            <span>شاخص‌ها از نسخهٔ نمایشی بانک PGOR بارگذاری می‌شوند. راهنماها برای مددکارند و روش امتیازدهی رسمی محسوب نمی‌شوند.</span>
           </div>
 
           <form onSubmit={submit} className="fh-intake__form">
             <div className="fh-intake__questions">
-              {activeDimension.items.map((item) => (
+              {activeIndicators.map((item) => (
                 <fieldset className="fh-intake__question" key={item.id}>
-                  <legend><strong>{item.title}</strong>{item.context ? <small>{item.context}</small> : null}</legend>
-                  <div className="fh-intake__answers" role="group" aria-label={`پاسخ برای ${item.title}`}>
-                    {responseOptions.map((option) => (
-                      <label className={answers[item.id] === option ? "fh-intake__answer is-selected" : "fh-intake__answer"} key={option}>
-                        <input
-                          type="radio"
-                          name={item.id}
-                          value={option}
-                          checked={answers[item.id] === option}
-                          onChange={() => setAnswers((current) => ({ ...current, [item.id]: option }))}
-                        />
-                        <span>{option}</span>
-                      </label>
-                    ))}
-                  </div>
+                  <legend><strong>{item.category}</strong><small>{item.guidance}</small></legend>
+                  <label className="fh-intake__score-row">
+                    <span>مقدار ثبت‌شده</span>
+                    <span className="fh-intake__number-wrap">
+                      <input
+                        aria-label={`مقدار ${item.category}`}
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        inputMode="numeric"
+                        placeholder="۰ تا ۱۰۰"
+                        value={values[item.id] ?? ""}
+                        onChange={(event) => setValues((current) => ({ ...current, [item.id]: event.target.value }))}
+                      />
+                      <small>از ۱۰۰</small>
+                    </span>
+                  </label>
                 </fieldset>
               ))}
+              {activeIndicators.length === 0 ? (
+                <div className="fh-intake__empty">برای این دسته شاخص فعالی تعریف نشده است.</div>
+              ) : null}
             </div>
+
             <div className="fh-intake__source-row">
               <label>
-                منبع اصلی داده
+                منبع داده
                 <select required value={source} onChange={(event) => setSource(event.target.value)}>
                   <option value="">منبع را انتخاب کنید</option>
-                  <option value="خوداظهاری خانوار">خوداظهاری خانوار</option>
+                  <option value="پرسشنامه استاندارد">پرسشنامه استاندارد</option>
                   <option value="ارزیابی کارشناسی">ارزیابی کارشناسی</option>
-                  <option value="داده‌های بیرونی">داده‌های بیرونی</option>
+                  <option value="داده‌های محیطی">داده‌های محیطی</option>
                 </select>
               </label>
               <label>
@@ -182,7 +150,7 @@ export function FigmaIntakeDemo() {
                 <input required type="date" value={effectiveAt} onChange={(event) => setEffectiveAt(event.target.value)} />
               </label>
             </div>
-            <button className="fh-intake__submit" type="submit">ثبت پاسخ‌های نمونه برای بازبینی <span aria-hidden="true">←</span></button>
+            <button className="fh-intake__submit" type="submit">ثبت مقادیر نمونه برای بازبینی <span aria-hidden="true">←</span></button>
           </form>
           {notice ? <p className="fh-intake__notice-text" role="status">{notice}</p> : null}
         </section>
@@ -193,26 +161,26 @@ export function FigmaIntakeDemo() {
             <span className="fh-intake__review-icon" aria-hidden="true">✓</span>
           </div>
           <ol>
-            <li><span>۱</span><div><strong>پرسش‌های دسته‌بندی‌شده</strong><small>پاسخ بر اساس شاخص PGOR</small></div></li>
-            <li><span>۲</span><div><strong>ثبت منبع و تاریخ اثر</strong><small>هر مقدار با منشأ مستقل</small></div></li>
+            <li><span>۱</span><div><strong>انتخاب دستهٔ PGOR</strong><small>مشاهدهٔ شاخص‌های فعال آن دسته</small></div></li>
+            <li><span>۲</span><div><strong>ثبت مقدار، منبع و تاریخ</strong><small>هر مقدار با منشأ مستقل</small></div></li>
             <li><span>۳</span><div><strong>مرور و تصمیم انسانی</strong><small>تعارض‌ها حفظ و بررسی می‌شوند</small></div></li>
           </ol>
-          <p>قرارداد فعلی سرور برای مشاهدهٔ PGOR عدد ۰ تا ۱۰۰ می‌گیرد و پاسخ‌نامهٔ دسته‌بندی‌شده را ذخیره نمی‌کند. این نمونه هیچ پاسخی را به امتیاز تبدیل نمی‌کند.</p>
+          <p>قرارداد فعلی سرور برای مشاهدهٔ PGOR عدد ۰ تا ۱۰۰ می‌گیرد. این دمو مقادیر را به سرور نمی‌فرستد و امتیاز رسمی تولید نمی‌کند.</p>
         </aside>
       </div>
 
       <section className="fh-intake__card fh-intake__history">
         <div className="fh-intake__section-head">
-          <div><small>رد ثبت‌های نمایشی</small><h2>پاسخ‌های در انتظار بازبینی</h2></div>
-          <span className="fh-intake__count">{entries.length.toLocaleString("fa-IR")} پاسخ</span>
+          <div><small>رد ثبت‌های نمایشی</small><h2>مقادیر در انتظار بازبینی</h2></div>
+          <span className="fh-intake__count">{entries.length.toLocaleString("fa-IR")} مقدار</span>
         </div>
         {entries.length === 0 ? (
-          <div className="fh-intake__empty">پاسخ‌های انتخاب‌شده پس از ثبت نمونه در این بخش نمایش داده می‌شوند.</div>
+          <div className="fh-intake__empty">مقادیر ثبت‌شده پس از ثبت نمونه در این بخش نمایش داده می‌شوند.</div>
         ) : (
           <div className="fh-intake__entries">
             {entries.map((entry) => (
               <article key={entry.id}>
-                <div><strong>{entry.dimension} · {entry.indicator}: {entry.answer}</strong><small>منبع: {entry.source} · تاریخ اثر: {entry.effectiveAt}</small></div>
+                <div><strong>{entry.group} · {entry.indicator}: {entry.score.toLocaleString("fa-IR")}</strong><small>منبع: {entry.source} · تاریخ اثر: {entry.effectiveAt}</small></div>
                 <span>در انتظار اعتبارسنجی</span>
               </article>
             ))}
