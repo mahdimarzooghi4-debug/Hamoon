@@ -12,6 +12,7 @@ export type DemoIndicator = {
   analysisUnitRule: "UNRESOLVED" | "MEMBER" | "HOUSEHOLD" | "AREA";
   evidenceSources: string[];
   evidencePeriodGuidance: string;
+  householdAggregationGuidance: string;
   active: boolean;
   draft: boolean;
   revision: number;
@@ -26,7 +27,7 @@ export const groups: { id: Group; name: string }[] = [
 
 export const storageKey = "hamoon-demo-pgor-indicators-v2";
 
-const seeds: Omit<DemoIndicator, "active" | "draft" | "revision" | "measurementMethod" | "score0Anchor" | "score50Anchor" | "score100Anchor" | "analysisUnitRule" | "evidenceSources" | "evidencePeriodGuidance">[] = [
+const seeds: Omit<DemoIndicator, "active" | "draft" | "revision" | "measurementMethod" | "score0Anchor" | "score50Anchor" | "score100Anchor" | "analysisUnitRule" | "evidenceSources" | "evidencePeriodGuidance" | "householdAggregationGuidance">[] = [
   { id: "p-change", group: "P", groupName: "مشارکت", category: "تمایل به تغییر", guidance: "شواهد مربوط به تمایل خانوار برای پیگیری تغییرات مورد توافق را ثبت کنید." },
   { id: "p-hope", group: "P", groupName: "مشارکت", category: "امید به آینده", guidance: "شواهد مرتبط با برنامه‌ریزی خانوار برای آینده را ثبت کنید." },
   { id: "p-followup", group: "P", groupName: "مشارکت", category: "پیگیری امور", guidance: "پیگیری امور و اقدام‌های مورد توافق را بر اساس سوابق ثبت کنید." },
@@ -72,6 +73,7 @@ const initialIndicators: DemoIndicator[] = seeds.map((item) => ({
   analysisUnitRule: "UNRESOLVED",
   evidenceSources: [],
   evidencePeriodGuidance: "",
+  householdAggregationGuidance: "",
   draft: true,
   revision: 1,
 }));
@@ -92,6 +94,7 @@ export function loadDemoIndicators(): DemoIndicator[] {
           analysisUnitRule: item.analysisUnitRule === "MEMBER" || item.analysisUnitRule === "HOUSEHOLD" || item.analysisUnitRule === "AREA" ? item.analysisUnitRule : "UNRESOLVED",
           evidenceSources: Array.isArray(item.evidenceSources) ? item.evidenceSources.filter((source): source is string => typeof source === "string") : [],
           evidencePeriodGuidance: typeof item.evidencePeriodGuidance === "string" ? item.evidencePeriodGuidance : "",
+          householdAggregationGuidance: typeof item.householdAggregationGuidance === "string" ? item.householdAggregationGuidance : "",
           revision: Number.isInteger(item.revision) && item.revision! > 0 ? item.revision! : 1,
         } as DemoIndicator;
       });
