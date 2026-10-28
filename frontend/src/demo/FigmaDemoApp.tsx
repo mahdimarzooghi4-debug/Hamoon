@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { FigmaHomeDemo } from "./FigmaHomeDemo";
 import { FigmaIntakeDemo } from "./FigmaIntakeDemo";
 import { FigmaQuestionBankAdminDemo } from "./FigmaQuestionBankAdminDemo";
+import { FigmaIndicatorApprovalDemo } from "./FigmaIndicatorApprovalDemo";
 import { FigmaObservationReviewDemo } from "./FigmaObservationReviewDemo";
 import "./figma-demo-pages.css";
 
-type DemoScreen = "home" | "household" | "queue" | "households" | "reassessment" | "registration" | "questions" | "review";
+type DemoScreen = "home" | "household" | "queue" | "households" | "reassessment" | "registration" | "questions" | "review" | "indicator-review";
 const screens: { id: DemoScreen; label: string; alt: string }[] = [
   { id: "home", label: "خانه", alt: "صفحه اصلی هامون" },
   { id: "household", label: "پرونده خانوار", alt: "پرونده هوشمند خانوار" },
@@ -15,6 +16,7 @@ const screens: { id: DemoScreen; label: string; alt: string }[] = [
   { id: "registration", label: "ثبت اطلاعات", alt: "ثبت اطلاعات مددکار" },
   { id: "questions", label: "مدیریت شاخص‌ها", alt: "مدیریت شاخص‌های مدل PGOR" },
   { id: "review", label: "بازبینی داده‌ها", alt: "بازبینی داده‌های PGOR" },
+  { id: "indicator-review", label: "بازبینی شاخص‌ها", alt: "بازبینی تخصصی نسخه‌های شاخص" },
 ];
 
 export function FigmaDemoApp() {
@@ -25,7 +27,7 @@ export function FigmaDemoApp() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
-    if (screen === "home" || screen === "registration" || screen === "questions" || screen === "review") {
+    if (screen === "home" || screen === "registration" || screen === "questions" || screen === "review" || screen === "indicator-review") {
       setImage("");
       setError(false);
       return;
@@ -53,6 +55,7 @@ export function FigmaDemoApp() {
         screen === "registration" ? <FigmaIntakeDemo /> :
           screen === "questions" ? <FigmaQuestionBankAdminDemo /> :
             screen === "review" ? <FigmaObservationReviewDemo /> :
+              screen === "indicator-review" ? <FigmaIndicatorApprovalDemo /> :
             <main className="fh-demo-screen" aria-label={activeScreen.alt}>
               {image ? <img className="fh-demo-screen__image" src={image} alt={activeScreen.alt} /> : null}
               {error ? <p className="fh-demo-screen__error">این صفحه‌ی نمایشی بارگذاری نشد. دوباره انتخابش کن.</p> : null}
