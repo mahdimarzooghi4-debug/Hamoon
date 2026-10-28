@@ -179,3 +179,4 @@
 .fh-intake__measurement-note textarea{resize:vertical;line-height:1.8}
 .fh-intake__form input:disabled{background:#eef2f6;color:#94a3b8;cursor:not-allowed}
 .fh-review__facts{grid-template-columns:repeat(6,minmax(0,1fr))}
+@media(max-width:760px){.fh-review__facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
