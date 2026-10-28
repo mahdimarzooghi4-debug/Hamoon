@@ -9,6 +9,8 @@ import {
 function snapshotIndicator(item: DemoIndicator): DemoIndicatorSnapshot {
   return {
     revision: item.revision,
+    group: item.group,
+    groupName: item.groupName,
     category: item.category,
     guidance: item.guidance,
     measurementMethod: item.measurementMethod,
@@ -20,6 +22,27 @@ function snapshotIndicator(item: DemoIndicator): DemoIndicatorSnapshot {
     evidencePeriodGuidance: item.evidencePeriodGuidance,
     householdAggregationGuidance: item.householdAggregationGuidance,
   };
+}
+
+const comparisonFields: { key: keyof DemoIndicatorSnapshot; label: string }[] = [
+  { key: "groupName", label: "دستهٔ PGOR" },
+  { key: "category", label: "نام شاخص" },
+  { key: "guidance", label: "راهنمای ثبت" },
+  { key: "measurementMethod", label: "روش سنجش" },
+  { key: "score0Anchor", label: "لنگر نمرهٔ صفر" },
+  { key: "score50Anchor", label: "لنگر نمرهٔ ۵۰" },
+  { key: "score100Anchor", label: "لنگر نمرهٔ ۱۰۰" },
+  { key: "analysisUnitRule", label: "سطح تحلیل" },
+  { key: "evidenceSources", label: "منابع پیشنهادی" },
+  { key: "evidencePeriodGuidance", label: "بازه یا تازگی شواهد" },
+  { key: "householdAggregationGuidance", label: "قاعدهٔ تجمیع خانوار" },
+];
+
+function showSnapshotValue(value: DemoIndicatorSnapshot[keyof DemoIndicatorSnapshot]): string {
+  if (Array.isArray(value)) return value.length ? value.join("، ") : "تعریف نشده";
+  if (value === "UNRESOLVED") return "تعریف نشده";
+  if (typeof value === "string") return value || "تعریف نشده";
+  return String(value);
 }
 
 export function FigmaIndicatorApprovalDemo() {
@@ -88,6 +111,20 @@ export function FigmaIndicatorApprovalDemo() {
               <small>سطح تحلیل: {indicator.analysisUnitRule === "UNRESOLVED" ? "تعریف نشده" : indicator.analysisUnitRule === "MEMBER" ? "عضو" : indicator.analysisUnitRule === "HOUSEHOLD" ? "خانوار" : "منطقه"} · منابع: {indicator.evidenceSources.length ? indicator.evidenceSources.join("، ") : "تعریف نشده"}</small>
               <small>تازگی شواهد: {indicator.evidencePeriodGuidance || "تعریف نشده"} · تجمیع عضو به خانوار: {indicator.householdAggregationGuidance || "تعریف نشده"}</small>
               {indicator.approvedRevision ? <small>نسخهٔ مصوب قبلی: {indicator.approvedRevision}؛ این تصمیم فقط دربارهٔ نسخهٔ {indicator.revision} است.</small> : null}
+              {indicator.approvedSnapshot ? (() => {
+                const current = snapshotIndicator(indicator);
+                const changes = comparisonFields.filter(({ key }) =>
+                  JSON.stringify(indicator.approvedSnapshot?.[key]) !== JSON.stringify(current[key]),
+                );
+                return (
+                  <details className="fh-question-admin__history">
+                    <summary>مقایسه با نسخهٔ مصوب {indicator.approvedRevision} · {changes.length} تغییر</summary>
+                    {changes.length ? <ul>{changes.map(({ key, label }) => (
+                      <li key={key}><strong>{label}:</strong> «{showSnapshotValue(indicator.approvedSnapshot![key])}» ← «{showSnapshotValue(current[key])}»</li>
+                    ))}</ul> : <small>محتوای این نسخه با نسخهٔ مصوب تفاوتی ندارد.</small>}
+                  </details>
+                );
+              })() : <small>این نخستین نسخه است؛ نسخهٔ قبلی برای مقایسه وجود ندارد.</small>}
               <details className="fh-question-admin__history">
                 <summary>تاریخچهٔ بازبینی ({indicator.approvalHistory.length})</summary>
                 {indicator.approvalHistory.length ? <ul>{indicator.approvalHistory.slice().reverse().map((event, eventIndex) => (
