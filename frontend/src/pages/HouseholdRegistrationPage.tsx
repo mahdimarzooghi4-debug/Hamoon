@@ -201,7 +201,7 @@ export function HouseholdRegistrationPage({ householdId }: { householdId: string
         ) : (
           <div className="fact-history">
             {recentFacts.map((fact) => (
-              <article className="fact-history__item" key={fact.id}>
+              <article className="fact-history-item" key={fact.id}>
                 <strong>{fact.fact_type}</strong>
                 <span>{typeof fact.value === "string" ? fact.value : JSON.stringify(fact.value)}</span>
                 <Badge tone={fact.validation_status === "VALIDATED" ? "success" : "warning"}>
