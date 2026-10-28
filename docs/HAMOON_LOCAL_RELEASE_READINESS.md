@@ -40,7 +40,7 @@ These items require environment credentials, a selected deployment platform or a
 external system and are not blockers for UI/Figma work:
 
 - Concrete hosted Production runtime provisioning, DNS/TLS ownership and the external deployment orchestrator endpoint/credential. The in-repo Production Deploy workflow and immutable deployment receipt contract are implemented.
-- No external or internal AI API is permitted in Production. Model family, Training Engine, artifact storage/execution semantics and internal executor remain deferred architecture decisions; the current runtime fails closed instead of inventing an implementation.
+- No external or internal AI API is permitted in Production. Qwen/Qwen3.5-9B is selected for internal offline evaluation only; production activation is not approved. Training Engine, artifact storage/execution semantics and internal executor remain deferred architecture decisions; the current runtime fails closed instead of inventing an implementation. See docs/AI_MODEL_SELECTION.md for the decision and evaluation gate.
 - Real provider dispatch/verification endpoints and runtime credentials. The provider-neutral dispatch adapter, Temporal ReferralWorkflow and synthetic external Provider integration verification gate are implemented in-repo.
 - Concrete Production S3-compatible Evidence endpoint/credentials and scanner endpoint/token. The live synthetic External Evidence Integration Verification gate is implemented in-repo.
 - External OpenTelemetry backend, dashboards and alert delivery.
