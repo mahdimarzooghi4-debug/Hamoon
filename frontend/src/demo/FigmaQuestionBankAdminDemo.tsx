@@ -35,6 +35,7 @@ export function FigmaQuestionBankAdminDemo() {
           const score50Anchor = editing.score50Anchor.trim();
           const score100Anchor = editing.score100Anchor.trim();
           const analysisUnitRule = editing.analysisUnitRule;
+          const evidenceSources = editing.evidenceSources.map((source) => source.trim()).filter(Boolean);
           const changed = item.group !== editing.group
             || item.groupName !== editing.groupName
             || item.category !== category
@@ -43,7 +44,8 @@ export function FigmaQuestionBankAdminDemo() {
             || item.score0Anchor !== score0Anchor
             || item.score50Anchor !== score50Anchor
             || item.score100Anchor !== score100Anchor
-            || item.analysisUnitRule !== analysisUnitRule;
+            || item.analysisUnitRule !== analysisUnitRule
+            || JSON.stringify(item.evidenceSources) !== JSON.stringify(evidenceSources);
           return {
             ...editing,
             category,
@@ -53,11 +55,12 @@ export function FigmaQuestionBankAdminDemo() {
             score50Anchor,
             score100Anchor,
             analysisUnitRule,
+            evidenceSources,
             draft: changed ? true : item.draft,
             revision: changed ? item.revision + 1 : item.revision,
           };
         })
-        : [{ ...editing, category: editing.category.trim(), guidance: editing.guidance.trim(), measurementMethod: editing.measurementMethod.trim(), score0Anchor: editing.score0Anchor.trim(), score50Anchor: editing.score50Anchor.trim(), score100Anchor: editing.score100Anchor.trim(), analysisUnitRule: editing.analysisUnitRule, revision: 1 }, ...current];
+        : [{ ...editing, category: editing.category.trim(), guidance: editing.guidance.trim(), measurementMethod: editing.measurementMethod.trim(), score0Anchor: editing.score0Anchor.trim(), score50Anchor: editing.score50Anchor.trim(), score100Anchor: editing.score100Anchor.trim(), analysisUnitRule: editing.analysisUnitRule, evidenceSources: editing.evidenceSources.map((source) => source.trim()).filter(Boolean), revision: 1 }, ...current];
     });
     setNotice("شاخص ذخیره شد؛ تغییر محتوا نسخهٔ تازه می‌سازد.");
     setEditing(null);
@@ -78,6 +81,7 @@ export function FigmaQuestionBankAdminDemo() {
       score50Anchor: "",
       score100Anchor: "",
       analysisUnitRule: "UNRESOLVED",
+      evidenceSources: [],
       active: true,
       draft: true,
     });
@@ -104,7 +108,7 @@ export function FigmaQuestionBankAdminDemo() {
       </header>
 
       <div className="fh-question-admin__notice" role="note">
-        بازهٔ عددی دمو ۰ تا ۱۰۰ است. مدیر می‌تواند روش، لنگرهای ۰/۵۰/۱۰۰ و سطح تحلیل مورد انتظار هر شاخص را پیش‌نویس کند. تغییر آن نسخه را بالا می‌برد؛ تا تصویب تخصصی، هیچ‌کدام قاعدهٔ رسمی نیست و دمو امتیاز رسمی مدل تولید نمی‌کند.
+        بازهٔ عددی دمو ۰ تا ۱۰۰ است. مدیر می‌تواند روش، لنگرهای ۰/۵۰/۱۰۰، سطح تحلیل و منبع‌های پیشنهادی هر شاخص را پیش‌نویس کند. تغییر آن نسخه را بالا می‌برد؛ تا تصویب تخصصی، هیچ‌کدام قاعدهٔ رسمی نیست و دمو امتیاز رسمی مدل تولید نمی‌کند.
       </div>
 
       <div className="fh-question-admin__tabs" role="tablist" aria-label="دسته‌های PGOR">
@@ -170,6 +174,9 @@ export function FigmaQuestionBankAdminDemo() {
                 <option value="AREA">محیط منطقه</option>
               </select>
             </label>
+            <label className="is-wide">منبع‌های شواهد پیشنهادی (پیش‌نویس، هر مورد یک خط)
+              <textarea rows={4} value={editing.evidenceSources.join("\n")} onChange={(event) => setEditing({ ...editing, evidenceSources: event.target.value.split("\n").map((source) => source.trim()).filter(Boolean) })} placeholder="مثلاً گزارش بازدید\nسامانهٔ رسمی خدمت" />
+            </label>
           </div>
           <div className="fh-question-admin__editor-actions">
             <button className="fh-question-admin__add" type="submit">ذخیرهٔ پیش‌نویس</button>
@@ -188,7 +195,7 @@ export function FigmaQuestionBankAdminDemo() {
                 <b>{indicator.category}</b>
               </div>
               <p>{indicator.guidance}</p>
-              <small>روش سنجش: {indicator.measurementMethod || "تعریف نشده"} · لنگرهای ۰/۵۰/۱۰۰: {[indicator.score0Anchor, indicator.score50Anchor, indicator.score100Anchor].some(Boolean) ? "پیش‌نویس دارد" : "تعریف نشده"} · سطح تحلیل: {indicator.analysisUnitRule === "UNRESOLVED" ? "تعریف نشده" : indicator.analysisUnitRule === "MEMBER" ? "عضو" : indicator.analysisUnitRule === "HOUSEHOLD" ? "خانوار" : "منطقه"} (پیش‌نویس)</small>
+              <small>روش سنجش: {indicator.measurementMethod || "تعریف نشده"} · لنگرهای ۰/۵۰/۱۰۰: {[indicator.score0Anchor, indicator.score50Anchor, indicator.score100Anchor].some(Boolean) ? "پیش‌نویس دارد" : "تعریف نشده"} · سطح تحلیل: {indicator.analysisUnitRule === "UNRESOLVED" ? "تعریف نشده" : indicator.analysisUnitRule === "MEMBER" ? "عضو" : indicator.analysisUnitRule === "HOUSEHOLD" ? "خانوار" : "منطقه"} (پیش‌نویس) · منابع پیشنهادی: {indicator.evidenceSources.length ? indicator.evidenceSources.length + " مورد" : "تعریف نشده"}</small>
               <small>نسخهٔ {indicator.revision} · {indicator.draft ? "پیش‌نویس برای بازبینی" : "تنظیم‌شده"}</small>
             </div>
             <div className="fh-question-admin__actions">
