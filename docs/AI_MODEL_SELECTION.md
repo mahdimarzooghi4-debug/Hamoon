@@ -15,7 +15,7 @@ The model card identifies a 9B parameter model, lists Apache-2.0 licensing, and 
 
 ## Permitted initial scope
 
-The model may draft summaries and structured suggestions for a caseworker to review. It must not calculate or replace deterministic PGOR, make eligibility decisions, or autonomously approve diagnoses, prescriptions, provider choices, or outcomes.
+The runner is limited to case summaries, evidence synthesis, and data-anomaly explanations for offline evaluation. It must not calculate or replace deterministic PGOR, infer missing facts, or generate diagnosis, prescription, provider, eligibility, or outcome decisions. A human must review every draft.
 
 Household information must remain within Hamoon's internal environment. Do not send it to an external inference API.
 
