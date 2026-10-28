@@ -166,7 +166,7 @@ def test_qwen35_runner_is_pinned_local_only_and_not_a_production_executor() -> N
     assert "AutoModelForMultimodalLM.from_pretrained" in runtime
     assert "manifest_sha256" in runtime
     assert "QWEN35_TASK_CLASS_NOT_ALLOWED" in runtime
-    assert "validate(instance=parsed, schema=request.output_schema)" in runtime
+    assert "validate(instance=parsed_object, schema=request.output_schema)" in runtime
     assert "trainers={}," in main
     assert "executors={}," in main
     assert "transformers==5.18.0" in requirements
