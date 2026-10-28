@@ -47,13 +47,14 @@ export function loadDemoReviewRecords(): ReviewRecord[] {
           const legacy = legacySnapshots[String(value.id ?? "")];
           return {
             ...value,
-            indicatorId: typeof value.indicatorId === "string"
+            indicatorId: typeof value.indicatorId === "string" && !value.indicatorId.startsWith("legacy-")
               ? value.indicatorId
               : legacy?.indicatorId ?? "legacy-" + String(value.id ?? index),
             indicatorRevision: Number.isInteger(value.indicatorRevision) && Number(value.indicatorRevision) > 0
               ? Number(value.indicatorRevision)
               : legacy?.indicatorRevision ?? 1,
             indicatorGuidance: typeof value.indicatorGuidance === "string"
+              && value.indicatorGuidance !== "راهنمای نسخهٔ قبلی در این ثبت موجود نیست."
               ? value.indicatorGuidance
               : legacy?.indicatorGuidance ?? "راهنمای نسخهٔ قبلی در این ثبت موجود نیست.",
           };
