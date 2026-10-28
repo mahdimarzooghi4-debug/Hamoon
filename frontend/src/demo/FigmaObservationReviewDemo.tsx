@@ -102,6 +102,7 @@ export function FigmaObservationReviewDemo() {
               <div><small>وضعیت سنجش</small><strong>{measurementStatusLabels[record.measurementStatus]}</strong></div>
               <div><small>منبع داده</small><strong>{record.source ?? "ثبت نشده"}</strong></div>
               <div><small>تاریخ اثر</small><strong>{record.effectiveAt}</strong></div>
+              <div><small>بازهٔ سنجش</small><strong>{record.periodStart && record.periodEnd ? `${record.periodStart} تا ${record.periodEnd}` : "بازه ثبت نشده"}</strong></div>
               <div><small>تاریخ ثبت</small><strong>{record.submittedAt}</strong></div>
             </div>
             <p className="fh-review__guidance">راهنمای ثبت در زمان ثبت: {record.indicatorGuidance}</p>
