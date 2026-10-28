@@ -9,3 +9,42 @@
 .fh-demo-nav button.is-active{background:#0b2d6b;color:#fff}
 .fh-demo-nav button:focus-visible{outline:2px solid #0ea5a8;outline-offset:2px}
 @media(max-width:700px){.fh-demo-nav{bottom:8px;gap:2px;padding:5px;border-radius:14px}.fh-demo-nav__label{display:none}.fh-demo-nav button{padding:0 10px;font-size:11px}}
+
+.fh-intake{max-width:1180px;margin:0 auto;padding:44px 32px 110px;color:#102a43;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl}
+.fh-intake *{box-sizing:border-box}
+.fh-intake__heading{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:20px}
+.fh-intake__heading h1{margin:8px 0;color:#0b2d6b;font-size:30px;font-weight:900}
+.fh-intake__heading p{margin:0;color:#64748b;font-size:13px;line-height:1.8}
+.fh-intake__eyebrow{color:#0ea5a8;font-size:12px;font-weight:800}
+.fh-intake__badge,.fh-intake__step,.fh-intake__count{padding:8px 12px;border-radius:99px;background:#e0f2fe;color:#0b2d6b;font-size:11px;font-weight:800;white-space:nowrap}
+.fh-intake__notice{display:flex;align-items:center;gap:12px;margin:18px 0;padding:14px 18px;border:1px solid #f2d99b;border-radius:14px;background:#fff9e9;color:#71520d;font-size:12px;line-height:1.8}
+.fh-intake__notice strong{white-space:nowrap}
+.fh-intake__grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(270px,.8fr);gap:18px}
+.fh-intake__card{padding:22px;border:1px solid #dcecf7;border-radius:18px;background:#fff;box-shadow:0 10px 26px #08243a08}
+.fh-intake__section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.fh-intake__section-head small{color:#0ea5a8;font-size:11px;font-weight:800}
+.fh-intake__section-head h2{margin:4px 0 0;color:#0b2d6b;font-size:17px}
+.fh-intake__form{display:grid;gap:15px}
+.fh-intake__form label{display:grid;gap:7px;color:#475569;font-size:12px;font-weight:700}
+.fh-intake__form input,.fh-intake__form select{width:100%;min-height:44px;padding:0 12px;border:1px solid #dcecf7;border-radius:11px;background:#f9fcfe;color:#102a43;font:500 13px Vazirmatn,Tahoma,sans-serif}
+.fh-intake__form input:focus-visible,.fh-intake__form select:focus-visible{outline:2px solid #0ea5a8;outline-offset:2px}
+.fh-intake__submit{min-height:46px;margin-top:4px;padding:0 18px;border:0;border-radius:11px;background:#0b2d6b;color:#fff;font:800 13px Vazirmatn,Tahoma,sans-serif;cursor:pointer}
+.fh-intake__submit span{margin-right:8px;color:#22d3ee}
+.fh-intake__notice-text{margin:14px 0 0;color:#0e8e93;font-size:11px;line-height:1.8}
+.fh-intake__review-icon{width:32px;height:32px;display:grid;place-items:center;border-radius:50%;background:#e9f8f7;color:#0e8e93;font-weight:900}
+.fh-intake__review ol{display:grid;gap:16px;margin:22px 0;padding:0;list-style:none}
+.fh-intake__review li{display:flex;align-items:center;gap:12px}
+.fh-intake__review li>span{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:#e0f2fe;color:#0b2d6b;font-size:12px;font-weight:900}
+.fh-intake__review li div{display:grid;gap:3px}
+.fh-intake__review li strong{color:#102a43;font-size:12px}
+.fh-intake__review li small,.fh-intake__review p{color:#64748b;font-size:11px;line-height:1.8}
+.fh-intake__review p{margin:18px 0 0;padding-top:14px;border-top:1px solid #e8f1f7}
+.fh-intake__history{margin-top:18px}
+.fh-intake__empty{padding:22px;border-radius:12px;background:#f7fbfe;color:#64748b;font-size:12px;text-align:center}
+.fh-intake__entries{display:grid;gap:10px}
+.fh-intake__entries article{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px;border:1px solid #dcecf7;border-radius:12px;background:#f9fcfe}
+.fh-intake__entries article div{display:grid;gap:5px}
+.fh-intake__entries article strong{color:#0b2d6b;font-size:12px}
+.fh-intake__entries article small{color:#64748b;font-size:10px}
+.fh-intake__entries article>span{padding:6px 10px;border-radius:99px;background:#fff3d4;color:#8a6314;font-size:10px;font-weight:800;white-space:nowrap}
+@media(max-width:760px){.fh-intake{padding:28px 16px 94px}.fh-intake__grid{grid-template-columns:1fr}.fh-intake__heading{flex-direction:column}.fh-intake__notice{align-items:flex-start;flex-direction:column}.fh-intake__entries article{align-items:flex-start;flex-direction:column}}
