@@ -112,6 +112,7 @@ export function FigmaObservationReviewDemo() {
               <p>{record.measurementMethod || "روش سنجش در این نسخه تعریف نشده است."}</p>
               <div><span>۰: {record.score0Anchor || "تعریف نشده"}</span><span>۵۰: {record.score50Anchor || "تعریف نشده"}</span><span>۱۰۰: {record.score100Anchor || "تعریف نشده"}</span></div>
               <p><strong>سطح تحلیل مورد انتظار · پیش‌نویس:</strong> {record.analysisUnitRule === "UNRESOLVED" ? "تعریف نشده" : record.analysisUnitRule === "MEMBER" ? "عضو خانوار" : record.analysisUnitRule === "HOUSEHOLD" ? "کل خانوار" : "محیط منطقه"}</p>
+              <p><strong>منابع پیشنهادی در نسخهٔ ثبت:</strong> {record.sourceOptionsSnapshot.length ? record.sourceOptionsSnapshot.join(" · ") : "تعریف نشده"}</p>
             </div>
             <p className="fh-review__guidance">راهنمای ثبت در زمان ثبت: {record.indicatorGuidance}</p>
             {record.measurementNote ? <p className="fh-review__note">توضیح وضعیت سنجش: {record.measurementNote}</p> : null}
