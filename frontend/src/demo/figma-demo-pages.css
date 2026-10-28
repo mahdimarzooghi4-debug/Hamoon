@@ -125,7 +125,7 @@
 .fh-review__header h1{margin:8px 0;color:#0b2d6b;font-size:29px;font-weight:900}
 .fh-review__header p{margin:0;color:#64748b;font-size:13px;line-height:1.8}
 .fh-review__notice{margin:16px 0;padding:13px 16px;border:1px solid #f2d99b;border-radius:13px;background:#fff9e9;color:#71520d;font-size:12px;line-height:1.8}
-.fh-review__summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}
+.fh-review__summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0}
 .fh-review__summary article{display:grid;gap:8px;padding:16px;border:1px solid #dcecf7;border-radius:14px;background:#fff}
 .fh-review__summary small{color:#64748b;font-size:11px}
 .fh-review__summary strong{color:#0b2d6b;font-size:23px}
@@ -171,3 +171,5 @@
 @media(max-width:760px){.fh-intake__entries article.has-correction{grid-template-columns:1fr}.fh-intake__correction{grid-template-columns:1fr}}
 
 .fh-review__supersedes{margin:8px 0 0;padding:8px 11px;border-radius:9px;background:#eef5fa;color:#475569;font-size:10px;line-height:1.7}
+
+.fh-review__status--superseded{background:#eef5fa;color:#52657a}
