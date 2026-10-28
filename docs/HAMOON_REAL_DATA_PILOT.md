@@ -33,3 +33,10 @@ The Qwen selection is for offline evaluation only. Production inference and auto
 ## Before the real pilot
 
 The current Render service is a static fictional-data demo. Do not direct staff to enter real information there. A real pilot needs an isolated authenticated API and PostgreSQL environment, validated OIDC and household-assignment rules, backups and restore checks, secret configuration, and an agreed data-retention and incident process. Render resources have not been provisioned for Hamoon.
+
+
+## Questionnaire and response-model gap
+
+The canonical Figma field-intake flow (59:5897) groups observations under P/G/O/R and shows indicator prompts, qualitative response choices, source, and effective date. The active backend PGOR definition currently exposes only variables, dimensions, indicators, and numeric score bounds; recording an observation accepts raw_score_0_100. There is no approved question catalog, response-type/option contract, or mapping from qualitative answers to PGOR scores in this API.
+
+Do not ask caseworkers to invent PGOR numbers or convert qualitative answers to 0–100. Before real collection, approve and version the full question bank, answer types/options, source and effective-time rules, evidence/conflict handling, and any scoring transformation. The static Render demo may illustrate categorized answers in browser memory only; it is not a real intake system.
