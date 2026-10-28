@@ -32,7 +32,7 @@ The local product boundary includes:
 - Supply-chain metadata for the tested artifacts: CycloneDX SBOMs, SLSA-style in-toto provenance, SHA-256 checksums, and an offline bundle verifier.
 - Provider-neutral hosted Production Deploy execution after Release Approval/Deployment Admission, using a protected GitHub Production Environment, remote HTTPS orchestrator, exact-image request binding, mandatory versioned external-runtime preflight and immutable DEPLOYED receipt evidence.
 - Synthetic external Evidence integration verification bound to Stage Admission, covering live S3-compatible PUT/HEAD/GET, conditional overwrite denial, anonymous object/bucket access denial, external scanner CLEAN response, scoped cleanup and immutable hashed evidence.
-- Internal AI governance is API-free and registry-bound: reviewed/curated data → approved dataset → versioned artifact lineage → offline evaluation evidence → DRAFT routing → explicit human promotion. The Training Engine and internal executor are intentionally deferred; unavailable Production AI fails safely to a Human Work Item.
+- Internal AI governance is API-free and registry-bound: reviewed/curated data → approved dataset → versioned artifact lineage → offline evaluation evidence → DRAFT routing → explicit human promotion. A local-only Qwen3.5-9B structured inference runner and JSONL evaluation driver are implemented. No training, registry artifact, or Production executor is enabled until dataset lineage, evaluation, and human promotion exist; unavailable Production AI fails safely to a Human Work Item.
 
 ## Intentionally deferred integrations
 
@@ -40,7 +40,7 @@ These items require environment credentials, a selected deployment platform or a
 external system and are not blockers for UI/Figma work:
 
 - Concrete hosted Production runtime provisioning, DNS/TLS ownership and the external deployment orchestrator endpoint/credential. The in-repo Production Deploy workflow and immutable deployment receipt contract are implemented.
-- No external or internal AI API is permitted in Production. Qwen/Qwen3.5-9B is selected for internal offline evaluation only; production activation is not approved. Training Engine, artifact storage/execution semantics and internal executor remain deferred architecture decisions; the current runtime fails closed instead of inventing an implementation. See docs/AI_MODEL_SELECTION.md for the decision and evaluation gate.
+- No external or internal AI API is permitted in Production. Qwen/Qwen3.5-9B is selected for internal offline evaluation only; production activation is not approved. Dataset preparation, training, registry lineage, evaluation gates and human promotion remain pending. See docs/AI_MODEL_SELECTION.md for the decision and evaluation gate.
 - Real provider dispatch/verification endpoints and runtime credentials. The provider-neutral dispatch adapter, Temporal ReferralWorkflow and synthetic external Provider integration verification gate are implemented in-repo.
 - Concrete Production S3-compatible Evidence endpoint/credentials and scanner endpoint/token. The live synthetic External Evidence Integration Verification gate is implemented in-repo.
 - External OpenTelemetry backend, dashboards and alert delivery.
