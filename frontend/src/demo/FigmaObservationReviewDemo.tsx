@@ -93,6 +93,9 @@ export function FigmaObservationReviewDemo() {
             </div>
             <p className="fh-review__guidance">راهنمای ثبت در زمان ثبت: {record.indicatorGuidance}</p>
             <p className="fh-review__note">{record.note}</p>
+            {record.supersedesId ? (
+              <p className="fh-review__supersedes">پاسخ به ثبت برگشتی: {record.supersedesId} · ثبت قبلی در تاریخچه حفظ شده است.</p>
+            ) : null}
             {record.status === "PENDING" ? (
               <>
               <label className="fh-review__return-note">یادداشت اصلاح برای مددکار
