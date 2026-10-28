@@ -38,12 +38,12 @@ function isMeasurementStatus(value: unknown): value is MeasurementStatus {
 }
 
 const legacySnapshots: Record<string, Pick<ReviewRecord, "indicatorId" | "indicatorRevision" | "indicatorGuidance">> = {
-  "rev-01": { indicatorId: "p-followup", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", indicatorGuidance: "پیگیری امور و اقدام‌های مورد توافق را بر اساس سوابق ثبت کنید." },
-  "rev-02": { indicatorId: "g-skills", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", indicatorGuidance: "مهارت‌های قابل استفاده اعضای خانوار را بر اساس شواهد ثبت کنید." },
-  "rev-03": { indicatorId: "o-jobs", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", indicatorGuidance: "فرصت‌های اشتغال قابل دسترس را بر اساس داده‌های موجود ثبت کنید." },
-  "rev-04": { indicatorId: "r-income", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", indicatorGuidance: "ثبات و قابلیت پیش‌بینی منابع درآمدی را از داده‌های در دسترس ارزیابی کنید." },
-  "rev-05": { indicatorId: "p-training", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", indicatorGuidance: "حضور در دوره‌ها و فعالیت‌های آموزشی ثبت‌شده را ارزیابی کنید." },
-  "rev-06": { indicatorId: "g-work", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", indicatorGuidance: "سابقه کاری ثبت‌شده اعضای خانوار را ارزیابی کنید." },
+  "rev-01": { indicatorId: "p-followup", indicatorRevision: 1, indicatorGuidance: "پیگیری امور و اقدام‌های مورد توافق را بر اساس سوابق ثبت کنید." },
+  "rev-02": { indicatorId: "g-skills", indicatorRevision: 1, indicatorGuidance: "مهارت‌های قابل استفاده اعضای خانوار را بر اساس شواهد ثبت کنید." },
+  "rev-03": { indicatorId: "o-jobs", indicatorRevision: 1, indicatorGuidance: "فرصت‌های اشتغال قابل دسترس را بر اساس داده‌های موجود ثبت کنید." },
+  "rev-04": { indicatorId: "r-income", indicatorRevision: 1, indicatorGuidance: "ثبات و قابلیت پیش‌بینی منابع درآمدی را از داده‌های در دسترس ارزیابی کنید." },
+  "rev-05": { indicatorId: "p-training", indicatorRevision: 1, indicatorGuidance: "حضور در دوره‌ها و فعالیت‌های آموزشی ثبت‌شده را ارزیابی کنید." },
+  "rev-06": { indicatorId: "g-work", indicatorRevision: 1, indicatorGuidance: "سابقه کاری ثبت‌شده اعضای خانوار را ارزیابی کنید." },
 };
 
 export function loadDemoReviewRecords(): ReviewRecord[] {
@@ -58,6 +58,7 @@ export function loadDemoReviewRecords(): ReviewRecord[] {
           return {
             ...value,
             score: typeof value.score === "number" && Number.isFinite(value.score) ? value.score : null,
+            source: typeof value.source === "string" ? value.source : null,
             measurementStatus: isMeasurementStatus(value.measurementStatus)
               ? value.measurementStatus
               : typeof value.score === "number" ? "SCORED" : "NOT_ASSESSED",
