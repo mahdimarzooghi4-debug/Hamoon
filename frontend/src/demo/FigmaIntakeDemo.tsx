@@ -5,7 +5,10 @@ import { addDemoReviewRecords } from "./observationReviewData";
 type DemoEntry = {
   id: number;
   group: Group;
+  indicatorId: string;
+  indicatorRevision: number;
   indicator: string;
+  indicatorGuidance: string;
   score: number;
   source: string;
   effectiveAt: string;
@@ -51,7 +54,10 @@ export function FigmaIntakeDemo() {
     const completed = entered.map((item, index) => ({
       id: Date.now() + index,
       group: dimension,
+      indicatorId: item.id,
+      indicatorRevision: item.revision,
       indicator: item.category,
+      indicatorGuidance: item.guidance,
       score: Number(values[item.id]),
       source,
       effectiveAt,
@@ -61,7 +67,10 @@ export function FigmaIntakeDemo() {
       id: `field-${entry.id}`,
       householdRef: "HM-نمونه-۲۱",
       group: entry.group,
+      indicatorId: entry.indicatorId,
+      indicatorRevision: entry.indicatorRevision,
       indicator: entry.indicator,
+      indicatorGuidance: entry.indicatorGuidance,
       score: entry.score,
       source: entry.source,
       effectiveAt: entry.effectiveAt,
@@ -194,7 +203,7 @@ export function FigmaIntakeDemo() {
           <div className="fh-intake__entries">
             {entries.map((entry) => (
               <article key={entry.id}>
-                <div><strong>{entry.group} · {entry.indicator}: {entry.score.toLocaleString("fa-IR")}</strong><small>منبع: {entry.source} · تاریخ اثر: {entry.effectiveAt}</small></div>
+                <div><strong>{entry.group} · {entry.indicator} (نسخه {entry.indicatorRevision}): {entry.score.toLocaleString("fa-IR")}</strong><small>منبع: {entry.source} · تاریخ اثر: {entry.effectiveAt}</small></div>
                 <span>در انتظار اعتبارسنجی</span>
               </article>
             ))}
