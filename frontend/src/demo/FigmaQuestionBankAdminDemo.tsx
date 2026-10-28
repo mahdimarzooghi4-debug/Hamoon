@@ -288,7 +288,7 @@ export function FigmaQuestionBankAdminDemo() {
                   <label className="fh-question-admin__review-note">دلیل برگشت برای اصلاح
                     <textarea rows={2} value={reviewNotes[indicator.id] ?? ""} onChange={(event) => setReviewNotes((current) => ({ ...current, [indicator.id]: event.target.value }))} placeholder="برای بازگشت، دلیل روشن بنویسید" />
                   </label>
-                  <button disabled={!(reviewNotes[indicator.id] ?? "").trim()} onClick={() => setApproval(indicator, "CHANGES_REQUESTED", reviewNotes[indicator.id].trim())} type="button">برگشت برای اصلاح</button>
+                  <button disabled={!(reviewNotes[indicator.id] ?? "").trim()} onClick={() => setApproval(indicator, "CHANGES_REQUESTED", (reviewNotes[indicator.id] ?? "").trim())} type="button">برگشت برای اصلاح</button>
                 </>
               ) : null}
               <button className={indicator.active ? "is-danger" : ""} onClick={() => toggleActive(indicator)} type="button">
