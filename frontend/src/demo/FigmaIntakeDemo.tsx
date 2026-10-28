@@ -206,7 +206,7 @@ export function FigmaIntakeDemo() {
 
       <div className="fh-intake__notice" role="note">
         <strong>دموی بدون اتصال</strong>
-        <span>اطلاعات واقعی وارد نکنید. بازهٔ عددی ۰ تا ۱۰۰ است، اما روش تعیین عدد باید جداگانه تأیید شود.</span>
+        <span>اطلاعات واقعی وارد نکنید. اگر شواهد برای نمره ندارید، صفر ثبت نکنید؛ وضعیت سنجش را با دلیل انتخاب کنید. قاعدهٔ امتیازدهی هنوز نیازمند تأیید تخصصی است.</span>
       </div>
 
       <div className="fh-intake__grid">
@@ -299,7 +299,7 @@ export function FigmaIntakeDemo() {
                 </select>
               </label>
               <label>
-                منبع داده
+                منبع دادهٔ عددهای امتیازدار
                 <select value={source} onChange={(event) => setSource(event.target.value)}>
                   <option value="">منبع را انتخاب کنید</option>
                   <option value="پرسشنامه استاندارد">پرسشنامه استاندارد</option>
@@ -308,7 +308,7 @@ export function FigmaIntakeDemo() {
                 </select>
               </label>
               <label>
-                تاریخ اثر
+                تاریخ سنجش/اثر
                 <input required type="date" value={effectiveAt} onChange={(event) => setEffectiveAt(event.target.value)} />
               </label>
             </div>
@@ -359,7 +359,7 @@ export function FigmaIntakeDemo() {
                         <option value="داده‌های محیطی">داده‌های محیطی</option>
                       </select>
                     </label>
-                    <label>تاریخ اثر
+                    <label>تاریخ سنجش/اثر
                       <input name="effectiveAt" type="date" defaultValue={entry.effectiveAt} required />
                     </label>
                     <button type="submit">ارسال نسخهٔ اصلاح‌شده برای بازبینی</button>
