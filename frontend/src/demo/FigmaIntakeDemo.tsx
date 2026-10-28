@@ -17,6 +17,7 @@ type DemoEntry = {
   periodEnd: string | null;
   analysisUnit: AnalysisUnit;
   analysisTarget: string;
+  evidenceRef: string | null;
   measurementStatus: MeasurementStatus;
   measurementNote: string;
   note: string;
@@ -59,6 +60,7 @@ export function FigmaIntakeDemo() {
   const [measurementStatuses, setMeasurementStatuses] = useState<Record<string, MeasurementStatus>>({});
   const [measurementNotes, setMeasurementNotes] = useState<Record<string, string>>({});
   const [sources, setSources] = useState<Record<string, string>>({});
+  const [evidenceRefs, setEvidenceRefs] = useState<Record<string, string>>({});
   const [periodStarts, setPeriodStarts] = useState<Record<string, string>>({});
   const [periodEnds, setPeriodEnds] = useState<Record<string, string>>({});
   const [analysisUnits, setAnalysisUnits] = useState<Record<string, AnalysisUnit | "">>({});
@@ -81,6 +83,7 @@ export function FigmaIntakeDemo() {
       periodEnd: record.periodEnd,
       analysisUnit: record.analysisUnit,
       analysisTarget: record.analysisTarget,
+      evidenceRef: record.evidenceRef,
       measurementStatus: record.measurementStatus,
       measurementNote: record.measurementNote,
       note: record.note,
@@ -156,6 +159,7 @@ export function FigmaIntakeDemo() {
         periodEnd: periodEnds[item.id] || null,
         analysisUnit: analysisUnits[item.id] as AnalysisUnit,
         analysisTarget: analysisUnits[item.id] === "MEMBER" ? analysisTargets[item.id] : analysisUnits[item.id] === "AREA" ? "area-demo" : "household",
+        evidenceRef: evidenceRefs[item.id]?.trim() || null,
         note: "ثبت تازه از فرم مددکار؛ در انتظار بازبینی.",
         status: "PENDING" as const,
       };
@@ -178,6 +182,7 @@ export function FigmaIntakeDemo() {
       periodEnd: entry.periodEnd,
       analysisUnit: entry.analysisUnit,
       analysisTarget: entry.analysisTarget,
+      evidenceRef: entry.evidenceRef,
       submittedAt,
       status: "PENDING" as const,
       note: entry.note,
@@ -187,6 +192,7 @@ export function FigmaIntakeDemo() {
     setMeasurementStatuses({});
     setMeasurementNotes({});
     setSources({});
+    setEvidenceRefs({});
     setPeriodStarts({});
     setPeriodEnds({});
     setAnalysisUnits({});
@@ -200,6 +206,7 @@ export function FigmaIntakeDemo() {
     const formData = new FormData(event.currentTarget);
     const score = Number(formData.get("score"));
     const source = String(formData.get("source") ?? "");
+    const evidenceRef = String(formData.get("evidenceRef") ?? "").trim();
     const effectiveAt = String(formData.get("effectiveAt") ?? "");
     const periodStart = String(formData.get("periodStart") ?? "");
     const periodEnd = String(formData.get("periodEnd") ?? "");
@@ -222,6 +229,7 @@ export function FigmaIntakeDemo() {
       measurementNote: "",
       source,
       effectiveAt,
+      evidenceRef: evidenceRef || null,
       analysisUnit: returned.analysisUnit,
       analysisTarget: returned.analysisTarget,
       periodStart: periodStart || null,
@@ -328,6 +336,16 @@ export function FigmaIntakeDemo() {
                       </select>
                     </label>
                   ) : null}
+                  <label className="fh-intake__evidence-ref">ارجاع مدرک (اختیاری)
+                    <input
+                      type="text"
+                      maxLength={80}
+                      value={evidenceRefs[item.id] ?? ""}
+                      onChange={(event) => setEvidenceRefs((current) => ({ ...current, [item.id]: event.target.value }))}
+                      placeholder="مثلاً DOC-1405-01"
+                    />
+                    <small>فقط شناسهٔ ساختگی وارد کنید؛ فایل یا اطلاعات شناسایی واقعی ثبت نکنید.</small>
+                  </label>
                   <label className="fh-intake__measurement-unit">واحد سنجش
                     <select
                       required
@@ -425,7 +443,7 @@ export function FigmaIntakeDemo() {
           <div className="fh-intake__entries">
             {entries.map((entry) => (
               <article className={entry.status === "RETURNED" ? "has-correction" : ""} key={entry.id}>
-                <div><strong>{entry.group} · {entry.indicator} (نسخه {entry.indicatorRevision}): {entry.score === null ? "امتیاز ثبت نشده" : entry.score.toLocaleString("fa-IR")}</strong><small>واحد سنجش: {entry.analysisUnit === "MEMBER" ? `عضو (${demoMembers.find((member) => member.id === entry.analysisTarget)?.label ?? "نمونه"})` : entry.analysisUnit === "AREA" ? "محیط منطقه" : "کل خانوار"} · وضعیت سنجش: {measurementStatusLabels[entry.measurementStatus]} · منبع: {entry.source ?? "ثبت نشده"} · تاریخ اثر: {entry.effectiveAt}</small>
+                <div><strong>{entry.group} · {entry.indicator} (نسخه {entry.indicatorRevision}): {entry.score === null ? "امتیاز ثبت نشده" : entry.score.toLocaleString("fa-IR")}</strong><small>واحد سنجش: {entry.analysisUnit === "MEMBER" ? `عضو (${demoMembers.find((member) => member.id === entry.analysisTarget)?.label ?? "نمونه"})` : entry.analysisUnit === "AREA" ? "محیط منطقه" : "کل خانوار"} · وضعیت سنجش: {measurementStatusLabels[entry.measurementStatus]} · منبع: {entry.source ?? "ثبت نشده"} · ارجاع مدرک: {entry.evidenceRef ?? "ثبت نشده"} · تاریخ اثر: {entry.effectiveAt}</small>
                   {entry.measurementNote ? <small>توضیح وضعیت سنجش: {entry.measurementNote}</small> : null}
                   {entry.status === "RETURNED" ? <small>یادداشت بازبین: {entry.note}</small> : null}
                 </div>
@@ -441,6 +459,9 @@ export function FigmaIntakeDemo() {
                         <option value="ارزیابی کارشناسی">ارزیابی کارشناسی</option>
                         <option value="داده‌های محیطی">داده‌های محیطی</option>
                       </select>
+                    </label>
+                    <label>ارجاع مدرک (اختیاری)
+                      <input name="evidenceRef" type="text" maxLength={80} defaultValue={entry.evidenceRef ?? ""} placeholder="مثلاً DOC-1405-01" />
                     </label>
                     <label>تاریخ سنجش/اثر
                       <input name="effectiveAt" type="date" defaultValue={entry.effectiveAt} required />
