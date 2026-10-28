@@ -8,6 +8,7 @@ import { AuthCallbackPage } from "../pages/AuthCallbackPage";
 import { EmpowermentOverviewPage } from "../pages/EmpowermentOverviewPage";
 import { HomePage } from "../pages/HomePage";
 import { HouseholdPage } from "../pages/HouseholdPage";
+import { HouseholdRegistrationPage } from "../pages/HouseholdRegistrationPage";
 import { HouseholdEvidencePage } from "../pages/HouseholdEvidencePage";
 import { HouseholdFactsOverlayPage } from "../pages/HouseholdFactsOverlayPage";
 import { HouseholdsPage } from "../pages/HouseholdsPage";
@@ -37,6 +38,8 @@ function ProductionApp() {
     page = <WorkQueuePage />;
   } else if (path === "/households") {
     page = <HouseholdsPage />;
+  } else if (path.startsWith("/households/") && path.endsWith("/register")) {
+    page = <HouseholdRegistrationPage householdId={path.slice("/households/".length, -"/register".length)} />;
   } else if (path.startsWith("/households/") && path.endsWith("/facts")) {
     page = <HouseholdFactsOverlayPage householdId={path.slice("/households/".length, -"/facts".length)} />;
   } else if (path.startsWith("/households/") && path.endsWith("/evidence")) {
