@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { groups, loadDemoIndicators, type Group } from "./questionBank";
+import { addDemoReviewRecords } from "./observationReviewData";
 
 type DemoEntry = {
   id: number;
@@ -55,11 +56,24 @@ export function FigmaIntakeDemo() {
       source,
       effectiveAt,
     }));
+    const submittedAt = new Date().toISOString().slice(0, 10);
+    addDemoReviewRecords(completed.map((entry) => ({
+      id: `field-${entry.id}`,
+      householdRef: "HM-نمونه-۲۱",
+      group: entry.group,
+      indicator: entry.indicator,
+      score: entry.score,
+      source: entry.source,
+      effectiveAt: entry.effectiveAt,
+      submittedAt,
+      status: "PENDING" as const,
+      note: "ثبت تازه از فرم مددکار؛ در انتظار بازبینی.",
+    })));
     setEntries((current) => [...completed.reverse(), ...current]);
     setValues({});
     setSource("");
     setEffectiveAt("");
-    setNotice("مقادیر نمونه فقط در حافظهٔ این صفحه ثبت شدند؛ به سرور ارسال نمی‌شوند.");
+    setNotice("مقادیر به صف بازبینی همین دمو اضافه شدند؛ به سرور ارسال نمی‌شوند.");
   }
 
   return (
