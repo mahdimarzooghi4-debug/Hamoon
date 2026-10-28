@@ -12,7 +12,7 @@ const screens: { id: DemoScreen; label: string; alt: string }[] = [
   { id: "households", label: "پرونده‌های من", alt: "فهرست پرونده‌های مددکار" },
   { id: "reassessment", label: "ارزیابی مجدد", alt: "شروع ارزیابی مجدد" },
   { id: "registration", label: "ثبت اطلاعات", alt: "ثبت اطلاعات مددکار" },
-  { id: "questions", label: "مدیریت پرسش‌ها", alt: "مدیریت پرسش‌های مدل PGOR" },
+  { id: "questions", label: "مدیریت شاخص‌ها", alt: "مدیریت شاخص‌های مدل PGOR" },
 ];
 
 export function FigmaDemoApp() {
