@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { FigmaHomeDemo } from "./FigmaHomeDemo";
 import { FigmaQueueDemo } from "./FigmaQueueDemo";
+import { FigmaHouseholdDemo } from "./FigmaHouseholdDemo";
 import { FigmaIntakeDemo } from "./FigmaIntakeDemo";
 import { FigmaQuestionBankAdminDemo } from "./FigmaQuestionBankAdminDemo";
 import { FigmaIndicatorApprovalDemo } from "./FigmaIndicatorApprovalDemo";
@@ -29,7 +30,7 @@ export function FigmaDemoApp() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
-    if (screen === "home" || screen === "queue" || screen === "registration" || screen === "questions" || screen === "review" || screen === "indicator-review") {
+    if (screen === "home" || screen === "household" || screen === "queue" || screen === "registration" || screen === "questions" || screen === "review" || screen === "indicator-review") {
       setImage("");
       setError(false);
       return;
@@ -60,7 +61,8 @@ export function FigmaDemoApp() {
   return (
     <div className="fh-demo-shell" lang="fa">
       {screen === "home" ? <FigmaHomeDemo /> :
-        screen === "queue" ? <FigmaQueueDemo /> :
+        screen === "household" ? <FigmaHouseholdDemo /> :
+          screen === "queue" ? <FigmaQueueDemo /> :
           screen === "registration" ? <FigmaIntakeDemo /> :
           screen === "questions" ? <FigmaQuestionBankAdminDemo /> :
             screen === "review" ? <FigmaObservationReviewDemo /> :
