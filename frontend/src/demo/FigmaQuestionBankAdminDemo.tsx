@@ -3,15 +3,41 @@ import {
   groups,
   loadDemoIndicators,
   saveDemoIndicators,
+  type ApprovalStatus,
   type DemoIndicator,
+  type DemoIndicatorSnapshot,
   type Group,
 } from "./questionBank";
+
+const approvalLabels: Record<ApprovalStatus, string> = {
+  DRAFT: "پیش‌نویس",
+  IN_REVIEW: "در بازبینی تخصصی",
+  APPROVED: "مصوب",
+  CHANGES_REQUESTED: "نیازمند اصلاح",
+};
+
+function snapshotIndicator(item: DemoIndicator): DemoIndicatorSnapshot {
+  return {
+    revision: item.revision,
+    category: item.category,
+    guidance: item.guidance,
+    measurementMethod: item.measurementMethod,
+    score0Anchor: item.score0Anchor,
+    score50Anchor: item.score50Anchor,
+    score100Anchor: item.score100Anchor,
+    analysisUnitRule: item.analysisUnitRule,
+    evidenceSources: [...item.evidenceSources],
+    evidencePeriodGuidance: item.evidencePeriodGuidance,
+    householdAggregationGuidance: item.householdAggregationGuidance,
+  };
+}
 
 export function FigmaQuestionBankAdminDemo() {
   const [indicators, setIndicators] = useState<DemoIndicator[]>(loadDemoIndicators);
   const [filter, setFilter] = useState<Group | "ALL">("ALL");
   const [editing, setEditing] = useState<DemoIndicator | null>(null);
   const [notice, setNotice] = useState("");
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
 
   useEffect(() => saveDemoIndicators(indicators), [indicators]);
 
@@ -64,11 +90,16 @@ export function FigmaQuestionBankAdminDemo() {
             householdAggregationGuidance,
             draft: changed ? true : item.draft,
             revision: changed ? item.revision + 1 : item.revision,
+            approvalStatus: changed ? "DRAFT" : item.approvalStatus,
+            reviewNote: changed ? "" : item.reviewNote,
+            approvalHistory: changed
+              ? [...item.approvalHistory, { status: "DRAFT", revision: item.revision + 1, note: "نسخه ویرایش شد و باید دوباره بررسی شود.", at: new Date().toISOString() }]
+              : item.approvalHistory,
           };
         })
-        : [{ ...editing, category: editing.category.trim(), guidance: editing.guidance.trim(), measurementMethod: editing.measurementMethod.trim(), score0Anchor: editing.score0Anchor.trim(), score50Anchor: editing.score50Anchor.trim(), score100Anchor: editing.score100Anchor.trim(), analysisUnitRule: editing.analysisUnitRule, evidenceSources: editing.evidenceSources.map((source) => source.trim()).filter(Boolean), evidencePeriodGuidance: editing.evidencePeriodGuidance.trim(), householdAggregationGuidance: editing.householdAggregationGuidance.trim(), revision: 1 }, ...current];
+        : [{ ...editing, category: editing.category.trim(), guidance: editing.guidance.trim(), measurementMethod: editing.measurementMethod.trim(), score0Anchor: editing.score0Anchor.trim(), score50Anchor: editing.score50Anchor.trim(), score100Anchor: editing.score100Anchor.trim(), analysisUnitRule: editing.analysisUnitRule, evidenceSources: editing.evidenceSources.map((source) => source.trim()).filter(Boolean), evidencePeriodGuidance: editing.evidencePeriodGuidance.trim(), householdAggregationGuidance: editing.householdAggregationGuidance.trim(), revision: 1, approvalStatus: "DRAFT", approvedRevision: null, approvedSnapshot: null, reviewNote: "", approvalHistory: [] }, ...current];
     });
-    setNotice("شاخص ذخیره شد؛ تغییر محتوا نسخهٔ تازه می‌سازد.");
+    setNotice("پیش‌نویس ذخیره شد؛ تغییر محتوا نسخهٔ تازه می‌سازد و تأیید قبلی را برای نسخهٔ جدید معتبر نمی‌کند.");
     setEditing(null);
   }
 
@@ -92,7 +123,31 @@ export function FigmaQuestionBankAdminDemo() {
       householdAggregationGuidance: "",
       active: true,
       draft: true,
+      approvalStatus: "DRAFT",
+      approvedRevision: null,
+      approvedSnapshot: null,
+      reviewNote: "",
+      approvalHistory: [],
     });
+  }
+
+  function setApproval(indicator: DemoIndicator, status: ApprovalStatus, note = "") {
+    const event = { status, revision: indicator.revision, note, at: new Date().toISOString() };
+    setIndicators((current) => current.map((item) => item.id !== indicator.id ? item : ({
+      ...item,
+      approvalStatus: status,
+      draft: status !== "APPROVED",
+      approvedRevision: status === "APPROVED" ? item.revision : item.approvedRevision,
+      approvedSnapshot: status === "APPROVED" ? snapshotIndicator(item) : item.approvedSnapshot,
+      reviewNote: status === "CHANGES_REQUESTED" ? note : "",
+      approvalHistory: [...item.approvalHistory, event],
+    })));
+    setReviewNotes((current) => ({ ...current, [indicator.id]: "" }));
+    setNotice(status === "IN_REVIEW"
+      ? `نسخهٔ ${indicator.revision} برای بازبینی فرستاده شد.`
+      : status === "APPROVED"
+        ? `نسخهٔ ${indicator.revision} تأیید شد؛ تصمیم و snapshot نسخه در همین مرورگر ثبت شد.`
+        : "نسخه برای اصلاح برگشت خورد؛ پس از اصلاح باید دوباره برای بازبینی فرستاده شود.");
   }
 
   function toggleActive(indicator: DemoIndicator) {
@@ -116,7 +171,7 @@ export function FigmaQuestionBankAdminDemo() {
       </header>
 
       <div className="fh-question-admin__notice" role="note">
-        بازهٔ عددی دمو ۰ تا ۱۰۰ است. مدیر می‌تواند روش، لنگرهای ۰/۵۰/۱۰۰، سطح تحلیل، منبع‌های پیشنهادی، بازه یا تازگی شواهد و قاعدهٔ تجمیع نتیجهٔ عضو در سطح خانوار را پیش‌نویس کند. تغییر آن نسخه را بالا می‌برد؛ تا تصویب تخصصی، هیچ‌کدام قاعدهٔ رسمی نیست و دمو امتیاز رسمی مدل تولید نمی‌کند.
+        بازهٔ عددی دمو ۰ تا ۱۰۰ است. مدیر می‌تواند روش، لنگرهای ۰/۵۰/۱۰۰، سطح تحلیل، منبع‌های پیشنهادی، بازه یا تازگی شواهد و قاعدهٔ تجمیع نتیجهٔ عضو در سطح خانوار را پیش‌نویس کند. تغییر آن نسخه را بالا می‌برد؛ هر نسخه باید جداگانه بازبینی شود. این گردش در دمو و همین مرورگر است و جایگزین احراز نقش یا تصویب واقعی تخصصی نیست؛ تا تصویب، قاعدهٔ رسمی یا امتیاز مدل تولید نمی‌شود.
       </div>
 
       <div className="fh-question-admin__tabs" role="tablist" aria-label="دسته‌های PGOR">
@@ -210,10 +265,32 @@ export function FigmaQuestionBankAdminDemo() {
               </div>
               <p>{indicator.guidance}</p>
               <small>روش سنجش: {indicator.measurementMethod || "تعریف نشده"} · لنگرهای ۰/۵۰/۱۰۰: {[indicator.score0Anchor, indicator.score50Anchor, indicator.score100Anchor].some(Boolean) ? "پیش‌نویس دارد" : "تعریف نشده"} · سطح تحلیل: {indicator.analysisUnitRule === "UNRESOLVED" ? "تعریف نشده" : indicator.analysisUnitRule === "MEMBER" ? "عضو" : indicator.analysisUnitRule === "HOUSEHOLD" ? "خانوار" : "منطقه"} (پیش‌نویس) · منابع پیشنهادی: {indicator.evidenceSources.length ? indicator.evidenceSources.length + " مورد" : "تعریف نشده"} · دوره/تازگی: {indicator.evidencePeriodGuidance ? "پیش‌نویس دارد" : "تعریف نشده"} · تجمیع خانوار: {indicator.householdAggregationGuidance ? "پیش‌نویس دارد" : "تعریف نشده"}</small>
-              <small>نسخهٔ {indicator.revision} · {indicator.draft ? "پیش‌نویس برای بازبینی" : "تنظیم‌شده"}</small>
+              <small>نسخهٔ جاری {indicator.revision} · وضعیت: {approvalLabels[indicator.approvalStatus]}{indicator.approvedRevision ? ` · آخرین نسخهٔ مصوب: ${indicator.approvedRevision}` : " · هنوز نسخهٔ مصوب ندارد"}</small>
+              {indicator.reviewNote ? <small>یادداشت بازبین: {indicator.reviewNote}</small> : null}
+              <details className="fh-question-admin__history">
+                <summary>تاریخچهٔ بازبینی ({indicator.approvalHistory.length})</summary>
+                {indicator.approvalHistory.length ? <ul>{indicator.approvalHistory.slice().reverse().map((event, eventIndex) => (
+                  <li key={`${event.revision}-${event.status}-${event.at}-${eventIndex}`}>
+                    نسخهٔ {event.revision} · {approvalLabels[event.status]} · {new Date(event.at).toLocaleString("fa-IR")}
+                    {event.note ? ` · ${event.note}` : ""}
+                  </li>
+                ))}</ul> : <small>هنوز تصمیمی ثبت نشده است.</small>}
+              </details>
             </div>
             <div className="fh-question-admin__actions">
               <button onClick={() => setEditing(indicator)} type="button">ویرایش</button>
+              {indicator.approvalStatus === "DRAFT" || indicator.approvalStatus === "CHANGES_REQUESTED" ? (
+                <button onClick={() => setApproval(indicator, "IN_REVIEW")} type="button">ارسال برای بازبینی</button>
+              ) : null}
+              {indicator.approvalStatus === "IN_REVIEW" ? (
+                <>
+                  <button onClick={() => setApproval(indicator, "APPROVED")} type="button">تأیید تخصصی نسخه</button>
+                  <label className="fh-question-admin__review-note">دلیل برگشت برای اصلاح
+                    <textarea rows={2} value={reviewNotes[indicator.id] ?? ""} onChange={(event) => setReviewNotes((current) => ({ ...current, [indicator.id]: event.target.value }))} placeholder="برای بازگشت، دلیل روشن بنویسید" />
+                  </label>
+                  <button disabled={!(reviewNotes[indicator.id] ?? "").trim()} onClick={() => setApproval(indicator, "CHANGES_REQUESTED", reviewNotes[indicator.id].trim())} type="button">برگشت برای اصلاح</button>
+                </>
+              ) : null}
               <button className={indicator.active ? "is-danger" : ""} onClick={() => toggleActive(indicator)} type="button">
                 {indicator.active ? "حذف از فرم" : "فعال‌سازی"}
               </button>
