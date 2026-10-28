@@ -36,6 +36,7 @@ export function FigmaQuestionBankAdminDemo() {
           const score100Anchor = editing.score100Anchor.trim();
           const analysisUnitRule = editing.analysisUnitRule;
           const evidenceSources = editing.evidenceSources.map((source) => source.trim()).filter(Boolean);
+          const evidencePeriodGuidance = editing.evidencePeriodGuidance.trim();
           const changed = item.group !== editing.group
             || item.groupName !== editing.groupName
             || item.category !== category
@@ -45,7 +46,8 @@ export function FigmaQuestionBankAdminDemo() {
             || item.score50Anchor !== score50Anchor
             || item.score100Anchor !== score100Anchor
             || item.analysisUnitRule !== analysisUnitRule
-            || JSON.stringify(item.evidenceSources) !== JSON.stringify(evidenceSources);
+            || JSON.stringify(item.evidenceSources) !== JSON.stringify(evidenceSources)
+            || item.evidencePeriodGuidance !== evidencePeriodGuidance;
           return {
             ...editing,
             category,
@@ -56,11 +58,12 @@ export function FigmaQuestionBankAdminDemo() {
             score100Anchor,
             analysisUnitRule,
             evidenceSources,
+            evidencePeriodGuidance,
             draft: changed ? true : item.draft,
             revision: changed ? item.revision + 1 : item.revision,
           };
         })
-        : [{ ...editing, category: editing.category.trim(), guidance: editing.guidance.trim(), measurementMethod: editing.measurementMethod.trim(), score0Anchor: editing.score0Anchor.trim(), score50Anchor: editing.score50Anchor.trim(), score100Anchor: editing.score100Anchor.trim(), analysisUnitRule: editing.analysisUnitRule, evidenceSources: editing.evidenceSources.map((source) => source.trim()).filter(Boolean), revision: 1 }, ...current];
+        : [{ ...editing, category: editing.category.trim(), guidance: editing.guidance.trim(), measurementMethod: editing.measurementMethod.trim(), score0Anchor: editing.score0Anchor.trim(), score50Anchor: editing.score50Anchor.trim(), score100Anchor: editing.score100Anchor.trim(), analysisUnitRule: editing.analysisUnitRule, evidenceSources: editing.evidenceSources.map((source) => source.trim()).filter(Boolean), evidencePeriodGuidance: editing.evidencePeriodGuidance.trim(), revision: 1 }, ...current];
     });
     setNotice("شاخص ذخیره شد؛ تغییر محتوا نسخهٔ تازه می‌سازد.");
     setEditing(null);
@@ -82,6 +85,7 @@ export function FigmaQuestionBankAdminDemo() {
       score100Anchor: "",
       analysisUnitRule: "UNRESOLVED",
       evidenceSources: [],
+      evidencePeriodGuidance: "",
       active: true,
       draft: true,
     });
@@ -177,6 +181,9 @@ export function FigmaQuestionBankAdminDemo() {
             <label className="is-wide">منبع‌های شواهد پیشنهادی (پیش‌نویس، هر مورد یک خط)
               <textarea rows={4} value={editing.evidenceSources.join("\n")} onChange={(event) => setEditing({ ...editing, evidenceSources: event.target.value.split("\n").map((source) => source.trim()).filter(Boolean) })} placeholder="مثلاً گزارش بازدید\nسامانهٔ رسمی خدمت" />
             </label>
+            <label className="is-wide">بازه یا تازگی شواهد مورد انتظار (پیش‌نویس)
+              <textarea rows={2} value={editing.evidencePeriodGuidance} onChange={(event) => setEditing({ ...editing, evidencePeriodGuidance: event.target.value })} placeholder="مثلاً دورهٔ گزارش یا حداکثر سن مدرک؛ پس از بازبینی تخصصی" />
+            </label>
           </div>
           <div className="fh-question-admin__editor-actions">
             <button className="fh-question-admin__add" type="submit">ذخیرهٔ پیش‌نویس</button>
@@ -195,7 +202,7 @@ export function FigmaQuestionBankAdminDemo() {
                 <b>{indicator.category}</b>
               </div>
               <p>{indicator.guidance}</p>
-              <small>روش سنجش: {indicator.measurementMethod || "تعریف نشده"} · لنگرهای ۰/۵۰/۱۰۰: {[indicator.score0Anchor, indicator.score50Anchor, indicator.score100Anchor].some(Boolean) ? "پیش‌نویس دارد" : "تعریف نشده"} · سطح تحلیل: {indicator.analysisUnitRule === "UNRESOLVED" ? "تعریف نشده" : indicator.analysisUnitRule === "MEMBER" ? "عضو" : indicator.analysisUnitRule === "HOUSEHOLD" ? "خانوار" : "منطقه"} (پیش‌نویس) · منابع پیشنهادی: {indicator.evidenceSources.length ? indicator.evidenceSources.length + " مورد" : "تعریف نشده"}</small>
+              <small>روش سنجش: {indicator.measurementMethod || "تعریف نشده"} · لنگرهای ۰/۵۰/۱۰۰: {[indicator.score0Anchor, indicator.score50Anchor, indicator.score100Anchor].some(Boolean) ? "پیش‌نویس دارد" : "تعریف نشده"} · سطح تحلیل: {indicator.analysisUnitRule === "UNRESOLVED" ? "تعریف نشده" : indicator.analysisUnitRule === "MEMBER" ? "عضو" : indicator.analysisUnitRule === "HOUSEHOLD" ? "خانوار" : "منطقه"} (پیش‌نویس) · منابع پیشنهادی: {indicator.evidenceSources.length ? indicator.evidenceSources.length + " مورد" : "تعریف نشده"} · دوره/تازگی: {indicator.evidencePeriodGuidance ? "پیش‌نویس دارد" : "تعریف نشده"}</small>
               <small>نسخهٔ {indicator.revision} · {indicator.draft ? "پیش‌نویس برای بازبینی" : "تنظیم‌شده"}</small>
             </div>
             <div className="fh-question-admin__actions">
