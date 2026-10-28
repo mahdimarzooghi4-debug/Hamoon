@@ -14,6 +14,7 @@ type DemoEntry = {
   score0Anchor: string;
   score50Anchor: string;
   score100Anchor: string;
+  analysisUnitRule: "UNRESOLVED" | AnalysisUnit;
   score: number | null;
   source: string | null;
   effectiveAt: string;
@@ -84,6 +85,7 @@ export function FigmaIntakeDemo() {
       score0Anchor: record.score0Anchor,
       score50Anchor: record.score50Anchor,
       score100Anchor: record.score100Anchor,
+      analysisUnitRule: record.analysisUnitRule,
       score: record.score,
       source: record.source,
       effectiveAt: record.effectiveAt,
@@ -162,6 +164,7 @@ export function FigmaIntakeDemo() {
         score0Anchor: item.score0Anchor,
         score50Anchor: item.score50Anchor,
         score100Anchor: item.score100Anchor,
+        analysisUnitRule: item.analysisUnitRule,
         score: measurementStatus === "SCORED" ? Number(values[item.id]) : null,
         measurementStatus,
         measurementNote: measurementStatus === "SCORED" ? "" : measurementNotes[item.id].trim(),
@@ -189,6 +192,7 @@ export function FigmaIntakeDemo() {
       score0Anchor: entry.score0Anchor,
       score50Anchor: entry.score50Anchor,
       score100Anchor: entry.score100Anchor,
+      analysisUnitRule: entry.analysisUnitRule,
       score: entry.score,
       measurementStatus: entry.measurementStatus,
       measurementNote: entry.measurementNote,
@@ -244,6 +248,7 @@ export function FigmaIntakeDemo() {
       score0Anchor: returned.score0Anchor,
       score50Anchor: returned.score50Anchor,
       score100Anchor: returned.score100Anchor,
+      analysisUnitRule: returned.analysisUnitRule,
       score,
       measurementStatus: "SCORED",
       measurementNote: "",
@@ -371,7 +376,8 @@ export function FigmaIntakeDemo() {
                     />
                     <small>فقط شناسهٔ ساختگی وارد کنید؛ فایل یا اطلاعات شناسایی واقعی ثبت نکنید.</small>
                   </label>
-                  <label className="fh-intake__measurement-unit">واحد سنجش
+                  <div className="fh-intake__unit-rule" role="note"><strong>سطح تحلیل مورد انتظار · پیش‌نویس</strong><span>{item.analysisUnitRule === "UNRESOLVED" ? "برای این شاخص هنوز تعیین نشده است." : item.analysisUnitRule === "MEMBER" ? "عضو خانوار" : item.analysisUnitRule === "HOUSEHOLD" ? "کل خانوار" : "محیط منطقه"}</span>{item.analysisUnitRule !== "UNRESOLVED" && analysisUnits[item.id] && analysisUnits[item.id] !== item.analysisUnitRule ? <small>واحد انتخاب‌شده با پیش‌نویس مدیر متفاوت است؛ تا زمان تصویب، انتخاب مددکار همچنان ثبت می‌شود.</small> : null}</div>
+                  <label className="fh-intake__measurement-unit">واحد ثبت‌شده
                     <select
                       required
                       value={analysisUnits[item.id] ?? ""}
