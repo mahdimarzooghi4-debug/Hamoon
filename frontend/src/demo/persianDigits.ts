@@ -1,35 +1,48 @@
 const persianDigits = "۰۱۲۳۴۵۶۷۸۹";
 const digitPattern = /[0-9]/g;
-const localizedAttributes = ["aria-label", "placeholder", "title", "alt"] as const;
+const localizedAttributes = [
+  "aria-label",
+  "aria-valuetext",
+  "aria-description",
+  "placeholder",
+  "title",
+  "alt",
+] as const;
 
 function toPersianDigits(value: string): string {
   return value.replace(digitPattern, (digit) => persianDigits[Number(digit)]);
 }
 
+function localizeTextNode(node: Node): void {
+  const text = node.nodeValue;
+  if (text && /[0-9]/.test(text)) node.nodeValue = toPersianDigits(text);
+}
+
+function localizeElement(element: Element): void {
+  if (element.tagName === "SCRIPT" || element.tagName === "STYLE" || element.tagName === "TEXTAREA") return;
+  for (const attribute of localizedAttributes) {
+    const value = element.getAttribute(attribute);
+    if (value && /[0-9]/.test(value)) element.setAttribute(attribute, toPersianDigits(value));
+  }
+}
+
 function localizeNode(node: Node): void {
   if (node.nodeType === Node.TEXT_NODE) {
-    const text = node.nodeValue;
-    if (text && digitPattern.test(text)) {
-      digitPattern.lastIndex = 0;
-      node.nodeValue = toPersianDigits(text);
-    }
-    digitPattern.lastIndex = 0;
+    localizeTextNode(node);
     return;
   }
 
   if (node.nodeType !== Node.ELEMENT_NODE) return;
   const element = node as Element;
+  localizeElement(element);
   if (element.tagName === "SCRIPT" || element.tagName === "STYLE" || element.tagName === "TEXTAREA") return;
 
-  for (const attribute of localizedAttributes) {
-    const value = element.getAttribute(attribute);
-    if (value && digitPattern.test(value)) element.setAttribute(attribute, toPersianDigits(value));
-    digitPattern.lastIndex = 0;
-  }
-
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
   let current: Node | null;
-  while ((current = walker.nextNode())) localizeNode(current);
+  while ((current = walker.nextNode())) {
+    if (current.nodeType === Node.TEXT_NODE) localizeTextNode(current);
+    else localizeElement(current as Element);
+  }
 }
 
 export function observePersianDigits(root: HTMLElement): () => void {
