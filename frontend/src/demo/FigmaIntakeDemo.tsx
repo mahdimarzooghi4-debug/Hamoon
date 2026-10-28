@@ -78,7 +78,7 @@ export function FigmaIntakeDemo() {
     }
     const completed = entered.map((item, index) => ({
       id: `field-${Date.now() + index}`,
-      householdRef: "HM-نمونه-۲۱",
+      householdRef: "HM-1405-021",
       group: dimension,
       indicatorId: item.id,
       indicatorRevision: item.revision,
