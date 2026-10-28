@@ -107,6 +107,11 @@ export function FigmaObservationReviewDemo() {
               <div><small>بازهٔ سنجش</small><strong>{record.periodStart && record.periodEnd ? `${record.periodStart} تا ${record.periodEnd}` : "بازه ثبت نشده"}</strong></div>
               <div><small>تاریخ ثبت</small><strong>{record.submittedAt}</strong></div>
             </div>
+            <div className="fh-review__rubric">
+              <strong>قاعدهٔ سنجش · پیش‌نویس نسخهٔ {record.indicatorRevision}</strong>
+              <p>{record.measurementMethod || "روش سنجش در این نسخه تعریف نشده است."}</p>
+              <div><span>۰: {record.score0Anchor || "تعریف نشده"}</span><span>۵۰: {record.score50Anchor || "تعریف نشده"}</span><span>۱۰۰: {record.score100Anchor || "تعریف نشده"}</span></div>
+            </div>
             <p className="fh-review__guidance">راهنمای ثبت در زمان ثبت: {record.indicatorGuidance}</p>
             {record.measurementNote ? <p className="fh-review__note">توضیح وضعیت سنجش: {record.measurementNote}</p> : null}
             <p className="fh-review__note">{record.note}</p>
