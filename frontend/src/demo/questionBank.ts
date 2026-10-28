@@ -7,6 +7,7 @@ export type DemoIndicator = {
   guidance: string;
   active: boolean;
   draft: boolean;
+  revision: number;
 };
 
 export const groups: { id: Group; name: string }[] = [
@@ -18,7 +19,7 @@ export const groups: { id: Group; name: string }[] = [
 
 export const storageKey = "hamoon-demo-pgor-indicators-v2";
 
-const seeds: Omit<DemoIndicator, "active" | "draft">[] = [
+const seeds: Omit<DemoIndicator, "active" | "draft" | "revision">[] = [
   { id: "p-change", group: "P", groupName: "مشارکت", category: "تمایل به تغییر", guidance: "شواهد مربوط به تمایل خانوار برای پیگیری تغییرات مورد توافق را ثبت کنید." },
   { id: "p-hope", group: "P", groupName: "مشارکت", category: "امید به آینده", guidance: "شواهد مرتبط با برنامه‌ریزی خانوار برای آینده را ثبت کنید." },
   { id: "p-followup", group: "P", groupName: "مشارکت", category: "پیگیری امور", guidance: "پیگیری امور و اقدام‌های مورد توافق را بر اساس سوابق ثبت کنید." },
@@ -58,6 +59,7 @@ const initialIndicators: DemoIndicator[] = seeds.map((item) => ({
   ...item,
   active: true,
   draft: true,
+  revision: 1,
 }));
 
 export function loadDemoIndicators(): DemoIndicator[] {
@@ -65,7 +67,10 @@ export function loadDemoIndicators(): DemoIndicator[] {
     const raw = window.localStorage.getItem(storageKey);
     if (raw) {
       const parsed: unknown = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed as DemoIndicator[];
+      if (Array.isArray(parsed)) return parsed.map((value, index) => {
+        const item = value as Partial<DemoIndicator>;
+        return { ...item, revision: Number.isInteger(item.revision) && item.revision! > 0 ? item.revision! : 1 } as DemoIndicator;
+      });
     }
   } catch {
     // Use the draft model catalog when browser storage is unavailable or invalid.
