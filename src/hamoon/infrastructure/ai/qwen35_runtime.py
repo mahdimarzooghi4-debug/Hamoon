@@ -278,8 +278,9 @@ class Qwen35OfflineRunner:
             raise Qwen35RuntimeError("QWEN35_GENERATION_FAILED") from exc
         if not isinstance(parsed, dict):
             raise Qwen35RuntimeError("QWEN35_OUTPUT_OBJECT_REQUIRED")
+        parsed_object = cast(dict[str, JsonValue], parsed)
         try:
-            validate(instance=parsed, schema=request.output_schema)
+            validate(instance=parsed_object, schema=request.output_schema)
         except ValidationError as exc:
             raise Qwen35RuntimeError("QWEN35_OUTPUT_SCHEMA_INVALID") from exc
-        return cast(dict[str, JsonValue], parsed)
+        return parsed_object
