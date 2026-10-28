@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { groups, loadDemoIndicators, type Group } from "./questionBank";
-import { addDemoReviewRecords, loadDemoReviewRecords, type ReviewStatus } from "./observationReviewData";
+import { addDemoReviewRecords, loadDemoReviewRecords, type ReviewRecord, type ReviewStatus } from "./observationReviewData";
 
 type DemoEntry = {
   id: string;
+  householdRef: string;
   group: Group;
   indicatorId: string;
   indicatorRevision: number;
@@ -38,6 +39,7 @@ export function FigmaIntakeDemo() {
     .filter((record) => record.id.startsWith("field-"))
     .map((record) => ({
       id: record.id,
+      householdRef: record.householdRef,
       group: record.group,
       indicatorId: record.indicatorId,
       indicatorRevision: record.indicatorRevision,
@@ -76,6 +78,7 @@ export function FigmaIntakeDemo() {
     }
     const completed = entered.map((item, index) => ({
       id: `field-${Date.now() + index}`,
+      householdRef: "HM-نمونه-۲۱",
       group: dimension,
       indicatorId: item.id,
       indicatorRevision: item.revision,
@@ -108,6 +111,37 @@ export function FigmaIntakeDemo() {
     setSource("");
     setEffectiveAt("");
     setNotice("مقادیر به صف بازبینی همین دمو اضافه شدند؛ به سرور ارسال نمی‌شوند.");
+  }
+
+  function resubmit(event: FormEvent<HTMLFormElement>, returned: DemoEntry) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const score = Number(formData.get("score"));
+    const source = String(formData.get("source") ?? "");
+    const effectiveAt = String(formData.get("effectiveAt") ?? "");
+    if (!Number.isFinite(score) || score < 0 || score > 100 || !source || !effectiveAt) {
+      setNotice("مقدار، منبع و تاریخ اثر را بررسی کنید.");
+      return;
+    }
+    const corrected: ReviewRecord = {
+      id: `field-${Date.now()}`,
+      householdRef: returned.householdRef,
+      group: returned.group,
+      indicatorId: returned.indicatorId,
+      indicatorRevision: returned.indicatorRevision,
+      indicator: returned.indicator,
+      indicatorGuidance: returned.indicatorGuidance,
+      score,
+      source,
+      effectiveAt,
+      submittedAt: new Date().toISOString().slice(0, 10),
+      status: "PENDING",
+      note: `اصلاح‌شده بر اساس نظر بازبین: ${returned.note}`,
+      supersedesId: returned.id,
+    };
+    addDemoReviewRecords([corrected]);
+    setEntries((current) => [corrected, ...current]);
+    setNotice("نسخهٔ اصلاح‌شده به صف بازبینی افزوده شد؛ ثبت برگشتی قبلی در تاریخچه باقی ماند.");
   }
 
   return (
@@ -227,11 +261,29 @@ export function FigmaIntakeDemo() {
         ) : (
           <div className="fh-intake__entries">
             {entries.map((entry) => (
-              <article key={entry.id}>
+              <article className={entry.status === "RETURNED" ? "has-correction" : ""} key={entry.id}>
                 <div><strong>{entry.group} · {entry.indicator} (نسخه {entry.indicatorRevision}): {entry.score.toLocaleString("fa-IR")}</strong><small>منبع: {entry.source} · تاریخ اثر: {entry.effectiveAt}</small>
                   {entry.status === "RETURNED" ? <small>یادداشت بازبین: {entry.note}</small> : null}
                 </div>
                 <span className={`fh-review__status fh-review__status--${entry.status.toLowerCase()}`}>{entryStatusLabels[entry.status]}</span>
+                {entry.status === "RETURNED" ? (
+                  <form className="fh-intake__correction" onSubmit={(event) => resubmit(event, entry)}>
+                    <label>مقدار اصلاح‌شده
+                      <input name="score" type="number" min="0" max="100" step="1" defaultValue={entry.score} required />
+                    </label>
+                    <label>منبع داده
+                      <select name="source" defaultValue={entry.source} required>
+                        <option value="پرسشنامه استاندارد">پرسشنامه استاندارد</option>
+                        <option value="ارزیابی کارشناسی">ارزیابی کارشناسی</option>
+                        <option value="داده‌های محیطی">داده‌های محیطی</option>
+                      </select>
+                    </label>
+                    <label>تاریخ اثر
+                      <input name="effectiveAt" type="date" defaultValue={entry.effectiveAt} required />
+                    </label>
+                    <button type="submit">ارسال نسخهٔ اصلاح‌شده برای بازبینی</button>
+                  </form>
+                ) : null}
               </article>
             ))}
           </div>
