@@ -169,8 +169,8 @@ def test_qwen35_runner_is_pinned_local_only_and_not_a_production_executor() -> N
     assert "trainers={}," in main
     assert "executors={}," in main
     assert "transformers==5.18.0" in requirements
-    assert "peft==0.21.2" in requirements
     assert "torch==2.14.1" in requirements
+    assert "peft" not in requirements
 
     assert not Path(
         "src/hamoon/infrastructure/ai/qwen3_baseline.py"
