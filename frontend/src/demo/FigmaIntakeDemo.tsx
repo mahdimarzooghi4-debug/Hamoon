@@ -23,6 +23,8 @@ const entryStatusLabels: Record<ReviewStatus, string> = {
   RETURNED: "نیازمند اصلاح",
 };
 
+const demoHouseholds = ["HM-1405-021", "HM-1405-018", "HM-1405-014", "HM-1405-009"];
+
 const summaries: Record<Group, string> = {
   P: "شاخص‌های مشارکت خانوار در فرایند تغییر",
   G: "شاخص‌های ظرفیت رشد خانوار",
@@ -32,6 +34,7 @@ const summaries: Record<Group, string> = {
 
 export function FigmaIntakeDemo() {
   const [dimension, setDimension] = useState<Group>("P");
+  const [householdRef, setHouseholdRef] = useState("HM-1405-021");
   const [values, setValues] = useState<Record<string, string>>({});
   const [source, setSource] = useState("");
   const [effectiveAt, setEffectiveAt] = useState("");
@@ -78,7 +81,7 @@ export function FigmaIntakeDemo() {
     }
     const completed = entered.map((item, index) => ({
       id: `field-${Date.now() + index}`,
-      householdRef: "HM-1405-021",
+      householdRef,
       group: dimension,
       indicatorId: item.id,
       indicatorRevision: item.revision,
@@ -148,7 +151,7 @@ export function FigmaIntakeDemo() {
     <main className="fh-intake" aria-label="دموی ثبت عددی شاخص‌های PGOR" dir="rtl">
       <header className="fh-intake__heading">
         <div>
-          <span className="fh-intake__eyebrow">دموی محیط مددکار · پرونده HM-1405-021</span>
+          <span className="fh-intake__eyebrow">دموی محیط مددکار · پرونده {householdRef}</span>
           <h1>ثبت میدانی داده‌های خانوار</h1>
           <p>مددکار مقدار عددی هر شاخص را همراه منبع و تاریخ ثبت می‌کند؛ این صفحه پرسش‌نامهٔ مصاحبه‌ای نیست.</p>
         </div>
@@ -218,6 +221,12 @@ export function FigmaIntakeDemo() {
             </div>
 
             <div className="fh-intake__source-row">
+              <label>
+                پروندهٔ نمونه
+                <select value={householdRef} onChange={(event) => setHouseholdRef(event.target.value)}>
+                  {demoHouseholds.map((code) => <option key={code} value={code}>{code}</option>)}
+                </select>
+              </label>
               <label>
                 منبع داده
                 <select required value={source} onChange={(event) => setSource(event.target.value)}>
