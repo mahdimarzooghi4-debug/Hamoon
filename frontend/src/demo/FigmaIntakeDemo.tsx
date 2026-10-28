@@ -223,7 +223,7 @@ export function FigmaIntakeDemo() {
           <span className="fh-intake__count">{entries.length.toLocaleString("fa-IR")} مقدار</span>
         </div>
         {entries.length === 0 ? (
-          <div className="fh-intake__empty">مقادیر ثبت‌شده پس از ثبت نمونه در این بخش نمایش داده می‌شوند.</div>
+          <div className="fh-intake__empty">ثبت‌های این پرونده پس از ارسال نمونه در این بخش می‌مانند.</div>
         ) : (
           <div className="fh-intake__entries">
             {entries.map((entry) => (
@@ -231,7 +231,7 @@ export function FigmaIntakeDemo() {
                 <div><strong>{entry.group} · {entry.indicator} (نسخه {entry.indicatorRevision}): {entry.score.toLocaleString("fa-IR")}</strong><small>منبع: {entry.source} · تاریخ اثر: {entry.effectiveAt}</small>
                   {entry.status === "RETURNED" ? <small>یادداشت بازبین: {entry.note}</small> : null}
                 </div>
-                <span>{entryStatusLabels[entry.status]}</span>
+                <span className={`fh-review__status fh-review__status--${entry.status.toLowerCase()}`}>{entryStatusLabels[entry.status]}</span>
               </article>
             ))}
           </div>
