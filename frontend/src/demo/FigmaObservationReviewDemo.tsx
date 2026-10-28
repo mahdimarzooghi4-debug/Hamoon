@@ -8,19 +8,6 @@ const statusLabels: Record<ReviewStatus, string> = {
   RETURNED: "نیازمند اصلاح",
 };
 
-function loadRecords(): ReviewRecord[] {
-  try {
-    const raw = window.localStorage.getItem(storageKey);
-    if (raw) {
-      const parsed: unknown = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed as ReviewRecord[];
-    }
-  } catch {
-    // Use fictional sample records when browser storage is unavailable.
-  }
-  return initialRecords;
-}
-
 export function FigmaObservationReviewDemo() {
   const [records, setRecords] = useState<ReviewRecord[]>(loadDemoReviewRecords);
   const [status, setStatus] = useState<ReviewStatus | "ALL">("PENDING");
