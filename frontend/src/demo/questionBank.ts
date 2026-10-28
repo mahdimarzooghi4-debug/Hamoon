@@ -2,6 +2,8 @@ export type Group = "P" | "G" | "O" | "R";
 export type ApprovalStatus = "DRAFT" | "IN_REVIEW" | "APPROVED" | "CHANGES_REQUESTED";
 export type DemoIndicatorSnapshot = {
   revision: number;
+  group: Group;
+  groupName: string;
   category: string;
   guidance: string;
   measurementMethod: string;
@@ -123,7 +125,7 @@ export function loadDemoIndicators(): DemoIndicator[] {
           revision: Number.isInteger(item.revision) && item.revision! > 0 ? item.revision! : 1,
           approvalStatus: item.approvalStatus === "IN_REVIEW" || item.approvalStatus === "APPROVED" || item.approvalStatus === "CHANGES_REQUESTED" ? item.approvalStatus : "DRAFT",
           approvedRevision: Number.isInteger(item.approvedRevision) ? item.approvedRevision! : null,
-          approvedSnapshot: item.approvedSnapshot && typeof item.approvedSnapshot === "object" ? item.approvedSnapshot : null,
+          approvedSnapshot: item.approvedSnapshot && typeof item.approvedSnapshot === "object" ? { ...item.approvedSnapshot, group: item.approvedSnapshot.group ?? item.group, groupName: item.approvedSnapshot.groupName ?? item.groupName } as DemoIndicatorSnapshot : null,
           reviewNote: typeof item.reviewNote === "string" ? item.reviewNote : "",
           approvalHistory: Array.isArray(item.approvalHistory) ? item.approvalHistory.filter((event) => event && typeof event === "object" && typeof event.status === "string" && typeof event.revision === "number") : [],
 
