@@ -47,7 +47,7 @@ export const groups: { id: Group; name: string }[] = [
 
 export const storageKey = "hamoon-demo-pgor-indicators-v2";
 
-const seeds: Omit<DemoIndicator, "active" | "draft" | "revision" | "measurementMethod" | "score0Anchor" | "score50Anchor" | "score100Anchor" | "analysisUnitRule" | "evidenceSources" | "evidencePeriodGuidance" | "householdAggregationGuidance">[] = [
+const seeds: Omit<DemoIndicator, "active" | "draft" | "revision" | "measurementMethod" | "score0Anchor" | "score50Anchor" | "score100Anchor" | "analysisUnitRule" | "evidenceSources" | "evidencePeriodGuidance" | "householdAggregationGuidance" | "approvalStatus" | "approvedRevision" | "approvedSnapshot" | "reviewNote" | "approvalHistory">[] = [
   { id: "p-change", group: "P", groupName: "مشارکت", category: "تمایل به تغییر", guidance: "شواهد مربوط به تمایل خانوار برای پیگیری تغییرات مورد توافق را ثبت کنید." },
   { id: "p-hope", group: "P", groupName: "مشارکت", category: "امید به آینده", guidance: "شواهد مرتبط با برنامه‌ریزی خانوار برای آینده را ثبت کنید." },
   { id: "p-followup", group: "P", groupName: "مشارکت", category: "پیگیری امور", guidance: "پیگیری امور و اقدام‌های مورد توافق را بر اساس سوابق ثبت کنید." },
