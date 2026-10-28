@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { groups, type Group } from "./questionBank";
+import type { MeasurementStatus } from "./observationReviewData";
 import { loadDemoReviewRecords, saveDemoReviewRecords, type ReviewRecord, type ReviewStatus } from "./observationReviewData";
 
 const statusLabels: Record<ReviewStatus, string> = {
@@ -7,6 +8,14 @@ const statusLabels: Record<ReviewStatus, string> = {
   ACCEPTED: "تأییدشده",
   RETURNED: "نیازمند اصلاح",
   SUPERSEDED: "جایگزین‌شده",
+};
+
+const measurementStatusLabels: Record<MeasurementStatus, string> = {
+  SCORED: "قابل امتیازدهی",
+  NOT_ASSESSED: "سنجش‌نشده",
+  INSUFFICIENT_EVIDENCE: "مدرک ناکافی",
+  CONFLICTING: "دادهٔ متعارض",
+  NOT_APPLICABLE: "نامربوط",
 };
 
 export function FigmaObservationReviewDemo() {
@@ -89,12 +98,14 @@ export function FigmaObservationReviewDemo() {
             </div>
             <div className="fh-review__facts">
               <div><small>شناسهٔ ساختگی خانوار</small><strong>{record.householdRef}</strong></div>
-              <div><small>مقدار ثبت‌شده</small><strong>{record.score.toLocaleString("fa-IR")} از ۱۰۰</strong></div>
-              <div><small>منبع داده</small><strong>{record.source}</strong></div>
+              <div><small>مقدار ثبت‌شده</small><strong>{record.score === null ? "امتیاز ثبت نشده" : `${record.score.toLocaleString("fa-IR")} از ۱۰۰`}</strong></div>
+              <div><small>وضعیت سنجش</small><strong>{measurementStatusLabels[record.measurementStatus]}</strong></div>
+              <div><small>منبع داده</small><strong>{record.source ?? "ثبت نشده"}</strong></div>
               <div><small>تاریخ اثر</small><strong>{record.effectiveAt}</strong></div>
               <div><small>تاریخ ثبت</small><strong>{record.submittedAt}</strong></div>
             </div>
             <p className="fh-review__guidance">راهنمای ثبت در زمان ثبت: {record.indicatorGuidance}</p>
+            {record.measurementNote ? <p className="fh-review__note">توضیح وضعیت سنجش: {record.measurementNote}</p> : null}
             <p className="fh-review__note">{record.note}</p>
             {record.supersedesId ? (
               <p className="fh-review__supersedes">پاسخ به ثبت برگشتی: {record.supersedesId} · ثبت قبلی در تاریخچه حفظ شده است.</p>
