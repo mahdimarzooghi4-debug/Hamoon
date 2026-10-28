@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { FigmaHomeDemo } from "./FigmaHomeDemo";
+import { FigmaIntakeDemo } from "./FigmaIntakeDemo";
 import "./figma-demo-pages.css";
 
-type DemoScreen = "home" | "household" | "queue" | "households" | "reassessment";
+type DemoScreen = "home" | "household" | "queue" | "households" | "reassessment" | "registration";
 
 const screens: { id: DemoScreen; label: string; alt: string }[] = [
   { id: "home", label: "خانه", alt: "صفحه اصلی هامون" },
@@ -10,6 +11,7 @@ const screens: { id: DemoScreen; label: string; alt: string }[] = [
   { id: "queue", label: "کارتابل", alt: "کارتابل مددکار" },
   { id: "households", label: "پرونده‌های من", alt: "فهرست پرونده‌های مددکار" },
   { id: "reassessment", label: "ارزیابی مجدد", alt: "شروع ارزیابی مجدد" },
+  { id: "registration", label: "ثبت اطلاعات", alt: "ثبت اطلاعات مددکار" },
 ];
 
 export function FigmaDemoApp() {
@@ -20,7 +22,7 @@ export function FigmaDemoApp() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
-    if (screen === "home") {
+    if (screen === "home" || screen === "registration") {
       setImage("");
       setError(false);
       return;
@@ -50,6 +52,8 @@ export function FigmaDemoApp() {
     <div className="fh-demo-shell">
       {screen === "home" ? (
         <FigmaHomeDemo />
+      ) : screen === "registration" ? (
+        <FigmaIntakeDemo />
       ) : (
         <main className="fh-demo-screen" aria-label={activeScreen.alt}>
           {image ? <img className="fh-demo-screen__image" src={image} alt={activeScreen.alt} /> : null}
