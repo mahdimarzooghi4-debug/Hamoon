@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { groups, loadDemoIndicators, type Group } from "./questionBank";
-import { addDemoReviewRecords, loadDemoReviewRecords, saveDemoReviewRecords, type ReviewRecord, type ReviewStatus } from "./observationReviewData";
+import { addDemoReviewRecords, loadDemoReviewRecords, saveDemoReviewRecords, type MeasurementStatus, type ReviewRecord, type ReviewStatus } from "./observationReviewData";
 
 type DemoEntry = {
   id: string;
@@ -10,9 +10,11 @@ type DemoEntry = {
   indicatorRevision: number;
   indicator: string;
   indicatorGuidance: string;
-  score: number;
-  source: string;
+  score: number | null;
+  source: string | null;
   effectiveAt: string;
+  measurementStatus: MeasurementStatus;
+  measurementNote: string;
   note: string;
   status: ReviewStatus;
 };
@@ -22,6 +24,14 @@ const entryStatusLabels: Record<ReviewStatus, string> = {
   ACCEPTED: "تأییدشده",
   RETURNED: "نیازمند اصلاح",
   SUPERSEDED: "جایگزین‌شده",
+};
+
+const measurementStatusLabels: Record<MeasurementStatus, string> = {
+  SCORED: "قابل امتیازدهی",
+  NOT_ASSESSED: "سنجش‌نشده",
+  INSUFFICIENT_EVIDENCE: "مدرک ناکافی",
+  CONFLICTING: "دادهٔ متعارض",
+  NOT_APPLICABLE: "نامربوط",
 };
 
 const demoHouseholds = ["HM-1405-021", "HM-1405-018", "HM-1405-014", "HM-1405-009"];
@@ -37,6 +47,8 @@ export function FigmaIntakeDemo() {
   const [dimension, setDimension] = useState<Group>("P");
   const [householdRef, setHouseholdRef] = useState("HM-1405-021");
   const [values, setValues] = useState<Record<string, string>>({});
+  const [measurementStatuses, setMeasurementStatuses] = useState<Record<string, MeasurementStatus>>({});
+  const [measurementNotes, setMeasurementNotes] = useState<Record<string, string>>({});
   const [source, setSource] = useState("");
   const [effectiveAt, setEffectiveAt] = useState("");
   const [entries, setEntries] = useState<DemoEntry[]>(() => loadDemoReviewRecords()
@@ -52,6 +64,8 @@ export function FigmaIntakeDemo() {
       score: record.score,
       source: record.source,
       effectiveAt: record.effectiveAt,
+      measurementStatus: record.measurementStatus,
+      measurementNote: record.measurementNote,
       note: record.note,
       status: record.status,
     })),
@@ -63,47 +77,68 @@ export function FigmaIntakeDemo() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!source || !effectiveAt) {
-      setNotice("منبع داده و تاریخ اثر را تکمیل کنید.");
-      return;
-    }
-    const entered = activeIndicators.filter((item) => values[item.id] !== undefined && values[item.id] !== "");
-    const invalid = entered.some((item) => {
-      const value = Number(values[item.id]);
-      return !Number.isFinite(value) || value < 0 || value > 100;
+    const entered = activeIndicators.filter((item) => {
+      const status = measurementStatuses[item.id] ?? "SCORED";
+      return status !== "SCORED" || (values[item.id] !== undefined && values[item.id] !== "");
     });
-    if (invalid) {
-      setNotice("عدد هر شاخص باید بین ۰ تا ۱۰۰ باشد.");
-      return;
-    }
     if (entered.length === 0) {
-      setNotice("برای ثبت نمونه، عدد دست‌کم یک شاخص را وارد کنید.");
+      setNotice("برای دست‌کم یک شاخص، عدد یا وضعیت سنجش انتخاب کنید.");
       return;
     }
-    const completed = entered.map((item, index) => ({
-      id: `field-${Date.now() + index}`,
-      householdRef,
-      group: dimension,
-      indicatorId: item.id,
-      indicatorRevision: item.revision,
-      indicator: item.category,
-      indicatorGuidance: item.guidance,
-      score: Number(values[item.id]),
-      source,
-      effectiveAt,
-      note: "ثبت تازه از فرم مددکار؛ در انتظار بازبینی.",
-      status: "PENDING" as const,
-    }));
+    const scored = entered.filter((item) => (measurementStatuses[item.id] ?? "SCORED") === "SCORED");
+    if (scored.some((item) => {
+      const value = Number(values[item.id]);
+      return values[item.id] === "" || !Number.isFinite(value) || value < 0 || value > 100;
+    })) {
+      setNotice("عدد هر شاخص قابل امتیازدهی باید بین ۰ تا ۱۰۰ باشد.");
+      return;
+    }
+    if (entered.some((item) => {
+      const status = measurementStatuses[item.id] ?? "SCORED";
+      return status !== "SCORED" && !measurementNotes[item.id]?.trim();
+    })) {
+      setNotice("برای شاخصی که امتیاز ندارد، دلیل وضعیت سنجش را بنویسید.");
+      return;
+    }
+    if (scored.length > 0 && !source) {
+      setNotice("برای شاخص‌های امتیازدار، منبع داده را انتخاب کنید.");
+      return;
+    }
+    if (!effectiveAt) {
+      setNotice("تاریخ سنجش یا اثر را تکمیل کنید.");
+      return;
+    }
+    const completed = entered.map((item, index) => {
+      const measurementStatus = measurementStatuses[item.id] ?? "SCORED";
+      return {
+        id: "field-" + (Date.now() + index),
+        householdRef,
+        group: dimension,
+        indicatorId: item.id,
+        indicatorRevision: item.revision,
+        indicator: item.category,
+        indicatorGuidance: item.guidance,
+        score: measurementStatus === "SCORED" ? Number(values[item.id]) : null,
+        measurementStatus,
+        measurementNote: measurementStatus === "SCORED" ? "" : measurementNotes[item.id].trim(),
+        source: measurementStatus === "SCORED" ? source : null,
+        effectiveAt,
+        note: "ثبت تازه از فرم مددکار؛ در انتظار بازبینی.",
+        status: "PENDING" as const,
+      };
+    });
     const submittedAt = new Date().toISOString().slice(0, 10);
     addDemoReviewRecords(completed.map((entry) => ({
       id: entry.id,
-      householdRef: "HM-نمونه-۲۱",
+      householdRef: entry.householdRef,
       group: entry.group,
       indicatorId: entry.indicatorId,
       indicatorRevision: entry.indicatorRevision,
       indicator: entry.indicator,
       indicatorGuidance: entry.indicatorGuidance,
       score: entry.score,
+      measurementStatus: entry.measurementStatus,
+      measurementNote: entry.measurementNote,
       source: entry.source,
       effectiveAt: entry.effectiveAt,
       submittedAt,
@@ -112,9 +147,11 @@ export function FigmaIntakeDemo() {
     })));
     setEntries((current) => [...completed.reverse(), ...current]);
     setValues({});
+    setMeasurementStatuses({});
+    setMeasurementNotes({});
     setSource("");
     setEffectiveAt("");
-    setNotice("مقادیر به صف بازبینی همین دمو اضافه شدند؛ به سرور ارسال نمی‌شوند.");
+    setNotice("مقادیر و وضعیت‌های سنجش به صف بازبینی دمو افزوده شدند؛ به سرور ارسال نمی‌شوند.");
   }
 
   function resubmit(event: FormEvent<HTMLFormElement>, returned: DemoEntry) {
