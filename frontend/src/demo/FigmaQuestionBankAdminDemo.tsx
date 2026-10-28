@@ -196,7 +196,7 @@ export function FigmaQuestionBankAdminDemo() {
             </div>
             <div className="fh-question-admin__actions">
               <button onClick={() => setEditing(question)} type="button">ویرایش</button>
-              <button className={question.active ? "is-danger" : ""} onClick={() => toggleActive(question)} type="button">{question.active ? "خروج از فرم" : "فعال‌سازی"}</button>
+              <button className={question.active ? "is-danger" : ""} onClick={() => toggleActive(question)} type="button">{question.active ? "حذف از فرم" : "فعال‌سازی"}</button>
             </div>
           </article>
         ))}
