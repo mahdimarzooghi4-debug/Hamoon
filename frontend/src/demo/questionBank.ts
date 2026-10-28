@@ -16,7 +16,7 @@ export const groups: { id: Group; name: string }[] = [
   { id: "R", name: "تاب‌آوری" },
 ];
 
-export const storageKey = "hamoon-demo-question-bank-v1";
+export const storageKey = "hamoon-demo-pgor-indicators-v2";
 
 const seeds: Omit<DemoIndicator, "active" | "draft">[] = [
   { id: "p-change", group: "P", groupName: "مشارکت", category: "تمایل به تغییر", guidance: "شواهد مربوط به تمایل خانوار برای پیگیری تغییرات مورد توافق را ثبت کنید." },
