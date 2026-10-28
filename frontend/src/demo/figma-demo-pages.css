@@ -162,3 +162,10 @@
 .fh-review__return-note textarea{width:100%;min-height:62px;padding:10px 12px;border:1px solid #dcecf7;border-radius:10px;background:#f9fcfe;color:#102a43;font:500 12px Vazirmatn,Tahoma,sans-serif;resize:vertical;line-height:1.8}
 .fh-review__actions button:disabled{opacity:.45;cursor:not-allowed}
 .fh-intake__entries article>span.fh-review__status{padding:6px 10px;font-weight:800}
+
+.fh-intake__entries article.has-correction{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start}
+.fh-intake__correction{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:10px;padding-top:12px;border-top:1px solid #dcecf7}
+.fh-intake__correction label{display:grid;gap:6px;color:#475569;font-size:10px;font-weight:700}
+.fh-intake__correction input,.fh-intake__correction select{width:100%;min-height:38px;padding:7px 9px;border:1px solid #dcecf7;border-radius:9px;background:#fff;color:#102a43;font:500 11px Vazirmatn,Tahoma,sans-serif}
+.fh-intake__correction button{grid-column:1/-1;min-height:38px;padding:0 14px;border:0;border-radius:10px;background:#0b2d6b;color:#fff;font:750 11px Vazirmatn,Tahoma,sans-serif;cursor:pointer}
+@media(max-width:760px){.fh-intake__entries article.has-correction{grid-template-columns:1fr}.fh-intake__correction{grid-template-columns:1fr}}
