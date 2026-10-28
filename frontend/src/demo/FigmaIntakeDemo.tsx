@@ -173,6 +173,8 @@ export function FigmaIntakeDemo() {
       indicator: returned.indicator,
       indicatorGuidance: returned.indicatorGuidance,
       score,
+      measurementStatus: "SCORED",
+      measurementNote: "",
       source,
       effectiveAt,
       submittedAt: new Date().toISOString().slice(0, 10),
@@ -240,6 +242,29 @@ export function FigmaIntakeDemo() {
               {activeIndicators.map((item) => (
                 <fieldset className="fh-intake__question" key={item.id}>
                   <legend><strong>{item.category}</strong><small>{item.guidance}</small></legend>
+                  <label className="fh-intake__measurement-status">وضعیت سنجش
+                    <select
+                      value={measurementStatuses[item.id] ?? "SCORED"}
+                      onChange={(event) => setMeasurementStatuses((current) => ({ ...current, [item.id]: event.target.value as MeasurementStatus }))}
+                    >
+                      <option value="SCORED">قابل امتیازدهی</option>
+                      <option value="NOT_ASSESSED">سنجش‌نشده</option>
+                      <option value="INSUFFICIENT_EVIDENCE">مدرک ناکافی</option>
+                      <option value="CONFLICTING">دادهٔ متعارض</option>
+                      <option value="NOT_APPLICABLE">نامربوط</option>
+                    </select>
+                  </label>
+                  {(measurementStatuses[item.id] ?? "SCORED") !== "SCORED" ? (
+                    <label className="fh-intake__measurement-note">دلیل ثبت وضعیت
+                      <textarea
+                        rows={2}
+                        value={measurementNotes[item.id] ?? ""}
+                        onChange={(event) => setMeasurementNotes((current) => ({ ...current, [item.id]: event.target.value }))}
+                        placeholder="مثلاً مدرک هنوز دریافت نشده یا دو منبع با هم تعارض دارند"
+                        required
+                      />
+                    </label>
+                  ) : null}
                   <label className="fh-intake__score-row">
                     <span>مقدار ثبت‌شده</span>
                     <span className="fh-intake__number-wrap">
@@ -251,6 +276,8 @@ export function FigmaIntakeDemo() {
                         step="1"
                         inputMode="numeric"
                         placeholder="۰ تا ۱۰۰"
+                        disabled={(measurementStatuses[item.id] ?? "SCORED") !== "SCORED"}
+                        required={(measurementStatuses[item.id] ?? "SCORED") === "SCORED"}
                         value={values[item.id] ?? ""}
                         onChange={(event) => setValues((current) => ({ ...current, [item.id]: event.target.value }))}
                       />
@@ -273,7 +300,7 @@ export function FigmaIntakeDemo() {
               </label>
               <label>
                 منبع داده
-                <select required value={source} onChange={(event) => setSource(event.target.value)}>
+                <select value={source} onChange={(event) => setSource(event.target.value)}>
                   <option value="">منبع را انتخاب کنید</option>
                   <option value="پرسشنامه استاندارد">پرسشنامه استاندارد</option>
                   <option value="ارزیابی کارشناسی">ارزیابی کارشناسی</option>
@@ -315,17 +342,18 @@ export function FigmaIntakeDemo() {
           <div className="fh-intake__entries">
             {entries.map((entry) => (
               <article className={entry.status === "RETURNED" ? "has-correction" : ""} key={entry.id}>
-                <div><strong>{entry.group} · {entry.indicator} (نسخه {entry.indicatorRevision}): {entry.score.toLocaleString("fa-IR")}</strong><small>منبع: {entry.source} · تاریخ اثر: {entry.effectiveAt}</small>
+                <div><strong>{entry.group} · {entry.indicator} (نسخه {entry.indicatorRevision}): {entry.score === null ? "امتیاز ثبت نشده" : entry.score.toLocaleString("fa-IR")}</strong><small>وضعیت سنجش: {measurementStatusLabels[entry.measurementStatus]} · منبع: {entry.source ?? "ثبت نشده"} · تاریخ اثر: {entry.effectiveAt}</small>
+                  {entry.measurementNote ? <small>توضیح وضعیت سنجش: {entry.measurementNote}</small> : null}
                   {entry.status === "RETURNED" ? <small>یادداشت بازبین: {entry.note}</small> : null}
                 </div>
                 <span className={`fh-review__status fh-review__status--${entry.status.toLowerCase()}`}>{entryStatusLabels[entry.status]}</span>
                 {entry.status === "RETURNED" ? (
                   <form className="fh-intake__correction" onSubmit={(event) => resubmit(event, entry)}>
                     <label>مقدار اصلاح‌شده
-                      <input name="score" type="number" min="0" max="100" step="1" defaultValue={entry.score} required />
+                      <input name="score" type="number" min="0" max="100" step="1" defaultValue={entry.score ?? ""} required />
                     </label>
                     <label>منبع داده
-                      <select name="source" defaultValue={entry.source} required>
+                      <select name="source" defaultValue={entry.source ?? ""} required>
                         <option value="پرسشنامه استاندارد">پرسشنامه استاندارد</option>
                         <option value="ارزیابی کارشناسی">ارزیابی کارشناسی</option>
                         <option value="داده‌های محیطی">داده‌های محیطی</option>
