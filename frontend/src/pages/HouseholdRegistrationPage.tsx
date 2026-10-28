@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { ApiError } from "../api/client";
 import {
@@ -57,7 +57,7 @@ export function HouseholdRegistrationPage({ householdId }: { householdId: string
   const [success, setSuccess] = useState<string | null>(null);
   const inFlight = useRef(false);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     try {
       const [household, sources, facts, accepted] = await Promise.all([
         getHousehold(householdId),
@@ -72,12 +72,12 @@ export function HouseholdRegistrationPage({ householdId }: { householdId: string
       else if (cause instanceof ApiError && cause.status === 404) setState({ kind: "not-found" });
       else setState({ kind: "error" });
     }
-  }
+  }, [householdId]);
 
   useEffect(() => {
     setState({ kind: "loading" });
     void refresh();
-  }, [householdId]);
+  }, [refresh]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
