@@ -1,6 +1,6 @@
 import type { Group } from "./questionBank";
 
-export type ReviewStatus = "PENDING" | "ACCEPTED" | "RETURNED";
+export type ReviewStatus = "PENDING" | "ACCEPTED" | "RETURNED" | "SUPERSEDED";
 export type ReviewRecord = {
   id: string;
   householdRef: string;
