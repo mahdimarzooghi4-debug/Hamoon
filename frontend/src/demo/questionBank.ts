@@ -1,4 +1,19 @@
 export type Group = "P" | "G" | "O" | "R";
+export type ApprovalStatus = "DRAFT" | "IN_REVIEW" | "APPROVED" | "CHANGES_REQUESTED";
+export type DemoIndicatorSnapshot = {
+  revision: number;
+  category: string;
+  guidance: string;
+  measurementMethod: string;
+  score0Anchor: string;
+  score50Anchor: string;
+  score100Anchor: string;
+  analysisUnitRule: "UNRESOLVED" | "MEMBER" | "HOUSEHOLD" | "AREA";
+  evidenceSources: string[];
+  evidencePeriodGuidance: string;
+  householdAggregationGuidance: string;
+};
+
 export type DemoIndicator = {
   id: string;
   group: Group;
@@ -16,6 +31,11 @@ export type DemoIndicator = {
   active: boolean;
   draft: boolean;
   revision: number;
+  approvalStatus: ApprovalStatus;
+  approvedRevision: number | null;
+  approvedSnapshot: DemoIndicatorSnapshot | null;
+  reviewNote: string;
+  approvalHistory: { status: ApprovalStatus; revision: number; note: string; at: string }[];
 };
 
 export const groups: { id: Group; name: string }[] = [
@@ -76,6 +96,11 @@ const initialIndicators: DemoIndicator[] = seeds.map((item) => ({
   householdAggregationGuidance: "",
   draft: true,
   revision: 1,
+  approvalStatus: "DRAFT",
+  approvedRevision: null,
+  approvedSnapshot: null,
+  reviewNote: "",
+  approvalHistory: [],
 }));
 
 export function loadDemoIndicators(): DemoIndicator[] {
@@ -96,6 +121,12 @@ export function loadDemoIndicators(): DemoIndicator[] {
           evidencePeriodGuidance: typeof item.evidencePeriodGuidance === "string" ? item.evidencePeriodGuidance : "",
           householdAggregationGuidance: typeof item.householdAggregationGuidance === "string" ? item.householdAggregationGuidance : "",
           revision: Number.isInteger(item.revision) && item.revision! > 0 ? item.revision! : 1,
+          approvalStatus: item.approvalStatus === "IN_REVIEW" || item.approvalStatus === "APPROVED" || item.approvalStatus === "CHANGES_REQUESTED" ? item.approvalStatus : "DRAFT",
+          approvedRevision: Number.isInteger(item.approvedRevision) ? item.approvedRevision! : null,
+          approvedSnapshot: item.approvedSnapshot && typeof item.approvedSnapshot === "object" ? item.approvedSnapshot : null,
+          reviewNote: typeof item.reviewNote === "string" ? item.reviewNote : "",
+          approvalHistory: Array.isArray(item.approvalHistory) ? item.approvalHistory.filter((event) => event && typeof event === "object" && typeof event.status === "string" && typeof event.revision === "number") : [],
+
         } as DemoIndicator;
       });
     }
