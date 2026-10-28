@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { groups, loadDemoIndicators, type Group } from "./questionBank";
-import { addDemoReviewRecords, loadDemoReviewRecords, type ReviewRecord, type ReviewStatus } from "./observationReviewData";
+import { addDemoReviewRecords, loadDemoReviewRecords, saveDemoReviewRecords, type ReviewRecord, type ReviewStatus } from "./observationReviewData";
 
 type DemoEntry = {
   id: string;
@@ -21,6 +21,7 @@ const entryStatusLabels: Record<ReviewStatus, string> = {
   PENDING: "در انتظار بازبینی",
   ACCEPTED: "تأییدشده",
   RETURNED: "نیازمند اصلاح",
+  SUPERSEDED: "جایگزین‌شده",
 };
 
 const demoHouseholds = ["HM-1405-021", "HM-1405-018", "HM-1405-014", "HM-1405-009"];
@@ -142,8 +143,14 @@ export function FigmaIntakeDemo() {
       note: `اصلاح‌شده بر اساس نظر بازبین: ${returned.note}`,
       supersedesId: returned.id,
     };
-    addDemoReviewRecords([corrected]);
-    setEntries((current) => [corrected, ...current]);
+    const history = loadDemoReviewRecords().map((record) =>
+      record.id === returned.id ? { ...record, status: "SUPERSEDED" as const } : record,
+    );
+    saveDemoReviewRecords([corrected, ...history]);
+    setEntries((current) => [
+      corrected,
+      ...current.map((entry) => entry.id === returned.id ? { ...entry, status: "SUPERSEDED" as const } : entry),
+    ]);
     setNotice("نسخهٔ اصلاح‌شده به صف بازبینی افزوده شد؛ ثبت برگشتی قبلی در تاریخچه باقی ماند.");
   }
 
