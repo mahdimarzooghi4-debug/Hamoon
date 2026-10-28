@@ -476,3 +476,71 @@ export async function reviewOutcome(
   );
   return response.data;
 }
+
+
+export interface PGORDefinitionIndicator {
+  id: string;
+  code: string;
+  name_fa: string;
+  score_min: number;
+  score_max: number;
+  required_for_complete_assessment: boolean | null;
+  direct_dimension_measure: boolean;
+  sort_order: number;
+}
+
+export interface PGORDefinitionDimension {
+  id: string;
+  code: string;
+  name_fa: string;
+  sort_order: number;
+  indicators: PGORDefinitionIndicator[];
+}
+
+export interface PGORDefinitionVariable {
+  id: string;
+  code: PGORVariable;
+  name_fa: string;
+  sort_order: number;
+  dimensions: PGORDefinitionDimension[];
+}
+
+export interface PGORActiveDefinition {
+  id: string;
+  code: string;
+  version: string;
+  status: string;
+  requirement_policy_status: string;
+  source_reference: string;
+  variables: PGORDefinitionVariable[];
+}
+
+export async function getActivePGORDefinition(): Promise<PGORActiveDefinition> {
+  const response = await requestJson<{ data: PGORActiveDefinition }>("/api/v1/pgor/definitions/active");
+  return response.data;
+}
+
+export async function startBaselineAssessment(
+  householdId: string,
+  definitionVersionId: string,
+): Promise<AssessmentData> {
+  const response = await requestJson<{ data: AssessmentData }>(
+    `/api/v1/households/${encodeURIComponent(householdId)}/assessments`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        assessment_type: "BASELINE",
+        definition_version_id: definitionVersionId,
+        reason: "ثبت خط مبنای خانوار توسط مددکار",
+      }),
+    },
+  );
+  return response.data;
+}
+
+export async function getAssessment(assessmentId: string): Promise<AssessmentData> {
+  const response = await requestJson<{ data: AssessmentData }>(
+    `/api/v1/assessments/${encodeURIComponent(assessmentId)}`,
+  );
+  return response.data;
+}
