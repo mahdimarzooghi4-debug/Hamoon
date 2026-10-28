@@ -174,13 +174,13 @@
 
 .fh-review__status--superseded{background:#eef5fa;color:#52657a}
 
-.fh-intake__measurement-status,.fh-intake__measurement-source,.fh-intake__measurement-note{display:grid;gap:6px;margin-top:10px;color:#475569;font-size:10px;font-weight:700}
-.fh-intake__measurement-status select,.fh-intake__measurement-source select,.fh-intake__measurement-note textarea{width:100%;min-height:38px;padding:8px 10px;border:1px solid #dcecf7;border-radius:9px;background:#fff;color:#102a43;font:500 11px Vazirmatn,Tahoma,sans-serif}
+.fh-intake__measurement-status,.fh-intake__measurement-source,.fh-intake__measurement-note,.fh-intake__measurement-unit{display:grid;gap:6px;margin-top:10px;color:#475569;font-size:10px;font-weight:700}
+.fh-intake__measurement-status select,.fh-intake__measurement-source select,.fh-intake__measurement-note textarea,.fh-intake__measurement-unit select{width:100%;min-height:38px;padding:8px 10px;border:1px solid #dcecf7;border-radius:9px;background:#fff;color:#102a43;font:500 11px Vazirmatn,Tahoma,sans-serif}
 .fh-intake__measurement-note textarea{resize:vertical;line-height:1.8}
 .fh-intake__form input:disabled{background:#eef2f6;color:#94a3b8;cursor:not-allowed}
 .fh-intake__period{display:grid;grid-template-columns:1fr repeat(2,minmax(120px,.7fr));align-items:end;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid #e5eef5}
 .fh-intake__period>span{grid-column:1/-1;color:#475569;font-size:10px;font-weight:800}
 .fh-intake__period label{display:grid;gap:5px;color:#64748b;font-size:10px;font-weight:700}
 .fh-intake__period input{width:100%;min-height:36px;padding:7px 9px;border:1px solid #dcecf7;border-radius:9px;background:#fff;color:#102a43;font:500 11px Vazirmatn,Tahoma,sans-serif}
-.fh-review__facts{grid-template-columns:repeat(7,minmax(0,1fr))}
+.fh-review__facts{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media(max-width:760px){.fh-review__facts{grid-template-columns:repeat(2,minmax(0,1fr))}.fh-intake__period{grid-template-columns:1fr 1fr}.fh-intake__period>span{grid-column:1/-1}}
