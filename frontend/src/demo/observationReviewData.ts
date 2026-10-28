@@ -15,6 +15,7 @@ export type ReviewRecord = {
   submittedAt: string;
   status: ReviewStatus;
   note: string;
+  supersedesId?: string;
 };
 
 const storageKey = "hamoon-demo-observation-review-v1";
