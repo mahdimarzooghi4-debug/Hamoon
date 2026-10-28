@@ -111,3 +111,10 @@
 .fh-question-admin__empty,.fh-question-admin__footer{padding:16px;border-radius:12px;background:#f7fbfe;color:#64748b;font-size:11px;text-align:center}
 .fh-question-admin__footer{margin-top:18px;background:transparent}
 @media(max-width:760px){.fh-question-admin{padding:26px 16px 100px}.fh-question-admin__header{align-items:flex-start;flex-direction:column}.fh-question-admin__item{grid-template-columns:34px minmax(0,1fr)}.fh-question-admin__actions{grid-column:2;flex-wrap:wrap}.fh-question-admin__fields{grid-template-columns:1fr}.fh-question-admin__fields label.is-wide{grid-column:auto}}
+
+.fh-intake__form .fh-intake__score-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;color:#475569;font-size:11px}
+.fh-intake__number-wrap{display:flex;align-items:center;gap:8px}
+.fh-intake__form .fh-intake__number-wrap input{width:120px;min-height:38px;background:#fff;text-align:center;font-weight:800}
+.fh-intake__number-wrap small{color:#64748b;font-size:10px;white-space:nowrap}
+.fh-question-admin__editor textarea{min-height:90px}
+@media(max-width:460px){.fh-intake__form .fh-intake__score-row{align-items:flex-start;flex-direction:column}.fh-intake__form .fh-intake__number-wrap input{width:110px}}
