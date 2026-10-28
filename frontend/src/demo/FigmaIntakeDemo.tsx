@@ -15,6 +15,7 @@ type DemoEntry = {
   score50Anchor: string;
   score100Anchor: string;
   analysisUnitRule: "UNRESOLVED" | AnalysisUnit;
+  sourceOptionsSnapshot: string[];
   score: number | null;
   source: string | null;
   effectiveAt: string;
@@ -45,6 +46,8 @@ const measurementStatusLabels: Record<MeasurementStatus, string> = {
 };
 
 const demoHouseholds = ["HM-1405-021", "HM-1405-018", "HM-1405-014", "HM-1405-009"];
+const defaultEvidenceSources = ["پرسشنامه استاندارد", "ارزیابی کارشناسی", "داده‌های محیطی"];
+
 const demoMembers = [
   { id: "member-01", label: "عضو نمونه ۱" },
   { id: "member-02", label: "عضو نمونه ۲" },
@@ -86,6 +89,7 @@ export function FigmaIntakeDemo() {
       score50Anchor: record.score50Anchor,
       score100Anchor: record.score100Anchor,
       analysisUnitRule: record.analysisUnitRule,
+      sourceOptionsSnapshot: record.sourceOptionsSnapshot,
       score: record.score,
       source: record.source,
       effectiveAt: record.effectiveAt,
@@ -165,6 +169,7 @@ export function FigmaIntakeDemo() {
         score50Anchor: item.score50Anchor,
         score100Anchor: item.score100Anchor,
         analysisUnitRule: item.analysisUnitRule,
+        sourceOptionsSnapshot: item.evidenceSources,
         score: measurementStatus === "SCORED" ? Number(values[item.id]) : null,
         measurementStatus,
         measurementNote: measurementStatus === "SCORED" ? "" : measurementNotes[item.id].trim(),
@@ -193,6 +198,7 @@ export function FigmaIntakeDemo() {
       score50Anchor: entry.score50Anchor,
       score100Anchor: entry.score100Anchor,
       analysisUnitRule: entry.analysisUnitRule,
+      sourceOptionsSnapshot: entry.sourceOptionsSnapshot,
       score: entry.score,
       measurementStatus: entry.measurementStatus,
       measurementNote: entry.measurementNote,
@@ -249,6 +255,7 @@ export function FigmaIntakeDemo() {
       score50Anchor: returned.score50Anchor,
       score100Anchor: returned.score100Anchor,
       analysisUnitRule: returned.analysisUnitRule,
+      sourceOptionsSnapshot: returned.sourceOptionsSnapshot,
       score,
       measurementStatus: "SCORED",
       measurementNote: "",
@@ -360,10 +367,11 @@ export function FigmaIntakeDemo() {
                         onChange={(event) => setSources((current) => ({ ...current, [item.id]: event.target.value }))}
                       >
                         <option value="">منبع را انتخاب کنید</option>
-                        <option value="پرسشنامه استاندارد">نتیجهٔ ابزار استاندارد موجود</option>
-                        <option value="ارزیابی کارشناسی">ارزیابی کارشناسیِ مستند</option>
-                        <option value="داده‌های محیطی">دادهٔ محیطی</option>
+                        {Array.from(new Set([...defaultEvidenceSources, ...item.evidenceSources])).map((source) => (
+                          <option key={source} value={source}>{source}{item.evidenceSources.includes(source) ? " · پیش‌نویس مدیر" : ""}</option>
+                        ))}
                       </select>
+                      {item.evidenceSources.length ? <small>گزینه‌های افزوده‌شده توسط مدیر پیش‌نویس‌اند و منبع‌های عمومی همچنان قابل انتخاب‌اند.</small> : null}
                     </label>
                   ) : null}
                   <label className="fh-intake__evidence-ref">ارجاع مدرک (اختیاری)
