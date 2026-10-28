@@ -122,6 +122,10 @@ export function HouseholdRegistrationPage({ householdId }: { householdId: string
   if (state.kind === "error") return <ErrorState description="اطلاعات پرونده دریافت نشد." />;
 
   const existingEmployment = state.accepted.find((fact) => fact.fact_type === "EMPLOYMENT_STATUS");
+  const unresolvedEmployment = state.facts.some((fact) =>
+    fact.fact_type === "EMPLOYMENT_STATUS"
+    && (fact.validation_status === "PENDING_VALIDATION" || fact.validation_status === "VALIDATED" || fact.validation_status === "DISPUTED"),
+  );
   const recentFacts = [...state.facts].sort((a, b) => b.recorded_at.localeCompare(a.recorded_at)).slice(0, 8);
 
   return (
@@ -152,6 +156,11 @@ export function HouseholdRegistrationPage({ householdId }: { householdId: string
           <div className="inline-alert">
             برای این پرونده وضعیت اشتغال پذیرفته‌شده وجود دارد. مقدار تازه را از مسیر اصلاح اطلاعات ثبت کنید.
             {" "}<AppLink className="text-link" to={`/households/${householdId}/facts`}>رفتن به اصلاح اطلاعات ←</AppLink>
+          </div>
+        ) : unresolvedEmployment ? (
+          <div className="inline-alert">
+            وضعیت اشتغال ثبت‌شده‌ای هنوز در حال بازبینی است؛ برای جلوگیری از ثبت تکراری، ابتدا همان مورد را بررسی کنید.
+            {" "}<AppLink className="text-link" to={`/households/${householdId}/facts`}>رفتن به بازبینی ←</AppLink>
           </div>
         ) : (
           <form className="fact-form" onSubmit={(event) => void submit(event)}>
