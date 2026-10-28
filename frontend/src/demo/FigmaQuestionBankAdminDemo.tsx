@@ -34,6 +34,7 @@ export function FigmaQuestionBankAdminDemo() {
           const score0Anchor = editing.score0Anchor.trim();
           const score50Anchor = editing.score50Anchor.trim();
           const score100Anchor = editing.score100Anchor.trim();
+          const analysisUnitRule = editing.analysisUnitRule;
           const changed = item.group !== editing.group
             || item.groupName !== editing.groupName
             || item.category !== category
@@ -41,7 +42,8 @@ export function FigmaQuestionBankAdminDemo() {
             || item.measurementMethod !== measurementMethod
             || item.score0Anchor !== score0Anchor
             || item.score50Anchor !== score50Anchor
-            || item.score100Anchor !== score100Anchor;
+            || item.score100Anchor !== score100Anchor
+            || item.analysisUnitRule !== analysisUnitRule;
           return {
             ...editing,
             category,
@@ -50,11 +52,12 @@ export function FigmaQuestionBankAdminDemo() {
             score0Anchor,
             score50Anchor,
             score100Anchor,
+            analysisUnitRule,
             draft: changed ? true : item.draft,
             revision: changed ? item.revision + 1 : item.revision,
           };
         })
-        : [{ ...editing, category: editing.category.trim(), guidance: editing.guidance.trim(), measurementMethod: editing.measurementMethod.trim(), score0Anchor: editing.score0Anchor.trim(), score50Anchor: editing.score50Anchor.trim(), score100Anchor: editing.score100Anchor.trim(), revision: 1 }, ...current];
+        : [{ ...editing, category: editing.category.trim(), guidance: editing.guidance.trim(), measurementMethod: editing.measurementMethod.trim(), score0Anchor: editing.score0Anchor.trim(), score50Anchor: editing.score50Anchor.trim(), score100Anchor: editing.score100Anchor.trim(), analysisUnitRule: editing.analysisUnitRule, revision: 1 }, ...current];
     });
     setNotice("شاخص ذخیره شد؛ تغییر محتوا نسخهٔ تازه می‌سازد.");
     setEditing(null);
@@ -74,6 +77,7 @@ export function FigmaQuestionBankAdminDemo() {
       score0Anchor: "",
       score50Anchor: "",
       score100Anchor: "",
+      analysisUnitRule: "UNRESOLVED",
       active: true,
       draft: true,
     });
@@ -100,7 +104,7 @@ export function FigmaQuestionBankAdminDemo() {
       </header>
 
       <div className="fh-question-admin__notice" role="note">
-        بازهٔ عددی دمو ۰ تا ۱۰۰ است. مدیر می‌تواند روش و لنگرهای ۰/۵۰/۱۰۰ هر شاخص را پیش‌نویس کند. تغییر آن نسخه را بالا می‌برد؛ تا تصویب تخصصی، هیچ‌کدام قاعدهٔ رسمی نیست و دمو امتیاز رسمی مدل تولید نمی‌کند.
+        بازهٔ عددی دمو ۰ تا ۱۰۰ است. مدیر می‌تواند روش، لنگرهای ۰/۵۰/۱۰۰ و سطح تحلیل مورد انتظار هر شاخص را پیش‌نویس کند. تغییر آن نسخه را بالا می‌برد؛ تا تصویب تخصصی، هیچ‌کدام قاعدهٔ رسمی نیست و دمو امتیاز رسمی مدل تولید نمی‌کند.
       </div>
 
       <div className="fh-question-admin__tabs" role="tablist" aria-label="دسته‌های PGOR">
@@ -158,6 +162,14 @@ export function FigmaQuestionBankAdminDemo() {
             <label>لنگر نمرهٔ ۱۰۰ (پیش‌نویس)
               <textarea rows={2} value={editing.score100Anchor} onChange={(event) => setEditing({ ...editing, score100Anchor: event.target.value })} placeholder="تعریف نمرهٔ کامل" />
             </label>
+            <label>سطح تحلیل مورد انتظار (پیش‌نویس)
+              <select value={editing.analysisUnitRule} onChange={(event) => setEditing({ ...editing, analysisUnitRule: event.target.value as DemoIndicator["analysisUnitRule"] })}>
+                <option value="UNRESOLVED">هنوز تعیین نشده</option>
+                <option value="MEMBER">عضو خانوار</option>
+                <option value="HOUSEHOLD">کل خانوار</option>
+                <option value="AREA">محیط منطقه</option>
+              </select>
+            </label>
           </div>
           <div className="fh-question-admin__editor-actions">
             <button className="fh-question-admin__add" type="submit">ذخیرهٔ پیش‌نویس</button>
@@ -176,7 +188,7 @@ export function FigmaQuestionBankAdminDemo() {
                 <b>{indicator.category}</b>
               </div>
               <p>{indicator.guidance}</p>
-              <small>روش سنجش: {indicator.measurementMethod || "تعریف نشده"} · لنگرهای ۰/۵۰/۱۰۰: {[indicator.score0Anchor, indicator.score50Anchor, indicator.score100Anchor].some(Boolean) ? "پیش‌نویس دارد" : "تعریف نشده"}</small>
+              <small>روش سنجش: {indicator.measurementMethod || "تعریف نشده"} · لنگرهای ۰/۵۰/۱۰۰: {[indicator.score0Anchor, indicator.score50Anchor, indicator.score100Anchor].some(Boolean) ? "پیش‌نویس دارد" : "تعریف نشده"} · سطح تحلیل: {indicator.analysisUnitRule === "UNRESOLVED" ? "تعریف نشده" : indicator.analysisUnitRule === "MEMBER" ? "عضو" : indicator.analysisUnitRule === "HOUSEHOLD" ? "خانوار" : "منطقه"} (پیش‌نویس)</small>
               <small>نسخهٔ {indicator.revision} · {indicator.draft ? "پیش‌نویس برای بازبینی" : "تنظیم‌شده"}</small>
             </div>
             <div className="fh-question-admin__actions">
