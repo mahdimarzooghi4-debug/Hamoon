@@ -10,6 +10,10 @@ type DemoEntry = {
   indicatorRevision: number;
   indicator: string;
   indicatorGuidance: string;
+  measurementMethod: string;
+  score0Anchor: string;
+  score50Anchor: string;
+  score100Anchor: string;
   score: number | null;
   source: string | null;
   effectiveAt: string;
@@ -76,6 +80,10 @@ export function FigmaIntakeDemo() {
       indicatorRevision: record.indicatorRevision,
       indicator: record.indicator,
       indicatorGuidance: record.indicatorGuidance,
+      measurementMethod: record.measurementMethod,
+      score0Anchor: record.score0Anchor,
+      score50Anchor: record.score50Anchor,
+      score100Anchor: record.score100Anchor,
       score: record.score,
       source: record.source,
       effectiveAt: record.effectiveAt,
@@ -150,6 +158,10 @@ export function FigmaIntakeDemo() {
         indicatorRevision: item.revision,
         indicator: item.category,
         indicatorGuidance: item.guidance,
+        measurementMethod: item.measurementMethod,
+        score0Anchor: item.score0Anchor,
+        score50Anchor: item.score50Anchor,
+        score100Anchor: item.score100Anchor,
         score: measurementStatus === "SCORED" ? Number(values[item.id]) : null,
         measurementStatus,
         measurementNote: measurementStatus === "SCORED" ? "" : measurementNotes[item.id].trim(),
@@ -173,6 +185,10 @@ export function FigmaIntakeDemo() {
       indicatorRevision: entry.indicatorRevision,
       indicator: entry.indicator,
       indicatorGuidance: entry.indicatorGuidance,
+      measurementMethod: entry.measurementMethod,
+      score0Anchor: entry.score0Anchor,
+      score50Anchor: entry.score50Anchor,
+      score100Anchor: entry.score100Anchor,
       score: entry.score,
       measurementStatus: entry.measurementStatus,
       measurementNote: entry.measurementNote,
@@ -224,6 +240,10 @@ export function FigmaIntakeDemo() {
       indicatorRevision: returned.indicatorRevision,
       indicator: returned.indicator,
       indicatorGuidance: returned.indicatorGuidance,
+      measurementMethod: returned.measurementMethod,
+      score0Anchor: returned.score0Anchor,
+      score50Anchor: returned.score50Anchor,
+      score100Anchor: returned.score100Anchor,
       score,
       measurementStatus: "SCORED",
       measurementNote: "",
@@ -299,6 +319,11 @@ export function FigmaIntakeDemo() {
               {activeIndicators.map((item) => (
                 <fieldset className="fh-intake__question" key={item.id}>
                   <legend><strong>{item.category}</strong><small>{item.guidance}</small></legend>
+                  <div className="fh-intake__rubric" role="note">
+                    <strong>قاعدهٔ نمره‌گذاری · پیش‌نویس نسخهٔ {item.revision}</strong>
+                    <span>{item.measurementMethod || "روش سنجش هنوز تعریف نشده است."}</span>
+                    <small>لنگرهای ۰ / ۵۰ / ۱۰۰: {item.score0Anchor || "تعریف نشده"} · {item.score50Anchor || "تعریف نشده"} · {item.score100Anchor || "تعریف نشده"}</small>
+                  </div>
                   <label className="fh-intake__measurement-status">وضعیت سنجش
                     <select
                       value={measurementStatuses[item.id] ?? "SCORED"}
