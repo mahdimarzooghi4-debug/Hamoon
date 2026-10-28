@@ -13,7 +13,7 @@ export type ReviewRecord = {
   score: number | null;
   measurementStatus: MeasurementStatus;
   measurementNote: string;
-  source: string;
+  source: string | null;
   effectiveAt: string;
   submittedAt: string;
   status: ReviewStatus;
