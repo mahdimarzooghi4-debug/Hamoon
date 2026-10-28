@@ -5,6 +5,10 @@ export type DemoIndicator = {
   groupName: string;
   category: string;
   guidance: string;
+  measurementMethod: string;
+  score0Anchor: string;
+  score50Anchor: string;
+  score100Anchor: string;
   active: boolean;
   draft: boolean;
   revision: number;
@@ -58,6 +62,10 @@ const seeds: Omit<DemoIndicator, "active" | "draft" | "revision">[] = [
 const initialIndicators: DemoIndicator[] = seeds.map((item) => ({
   ...item,
   active: true,
+  measurementMethod: "",
+  score0Anchor: "",
+  score50Anchor: "",
+  score100Anchor: "",
   draft: true,
   revision: 1,
 }));
@@ -69,7 +77,14 @@ export function loadDemoIndicators(): DemoIndicator[] {
       const parsed: unknown = JSON.parse(raw);
       if (Array.isArray(parsed)) return parsed.map((value, index) => {
         const item = value as Partial<DemoIndicator>;
-        return { ...item, revision: Number.isInteger(item.revision) && item.revision! > 0 ? item.revision! : 1 } as DemoIndicator;
+        return {
+          ...item,
+          measurementMethod: typeof item.measurementMethod === "string" ? item.measurementMethod : "",
+          score0Anchor: typeof item.score0Anchor === "string" ? item.score0Anchor : "",
+          score50Anchor: typeof item.score50Anchor === "string" ? item.score50Anchor : "",
+          score100Anchor: typeof item.score100Anchor === "string" ? item.score100Anchor : "",
+          revision: Number.isInteger(item.revision) && item.revision! > 0 ? item.revision! : 1,
+        } as DemoIndicator;
       });
     }
   } catch {
