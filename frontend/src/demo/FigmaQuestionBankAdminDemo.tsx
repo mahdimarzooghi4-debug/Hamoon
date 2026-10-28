@@ -26,14 +26,24 @@ export function FigmaQuestionBankAdminDemo() {
     setIndicators((current) => {
       const exists = current.some((item) => item.id === editing.id);
       return exists
-        ? current.map((item) => item.id === editing.id ? {
-          ...editing,
-          category: editing.category.trim(),
-          guidance: editing.guidance.trim(),
-        } : item)
-        : [{ ...editing, category: editing.category.trim(), guidance: editing.guidance.trim() }, ...current];
+        ? current.map((item) => {
+          if (item.id !== editing.id) return item;
+          const category = editing.category.trim();
+          const guidance = editing.guidance.trim();
+          const changed = item.group !== editing.group
+            || item.groupName !== editing.groupName
+            || item.category !== category
+            || item.guidance !== guidance;
+          return {
+            ...editing,
+            category,
+            guidance,
+            revision: changed ? item.revision + 1 : item.revision,
+          };
+        })
+        : [{ ...editing, category: editing.category.trim(), guidance: editing.guidance.trim(), revision: 1 }, ...current];
     });
-    setNotice("شاخص و راهنمای ثبت در نسخهٔ نمایشی ذخیره شد.");
+    setNotice("شاخص ذخیره شد؛ تغییر محتوا نسخهٔ تازه می‌سازد.");
     setEditing(null);
   }
 
@@ -44,6 +54,7 @@ export function FigmaQuestionBankAdminDemo() {
       id: `custom-${Date.now()}`,
       group,
       groupName,
+      revision: 1,
       category: "",
       guidance: "",
       active: true,
@@ -136,7 +147,7 @@ export function FigmaQuestionBankAdminDemo() {
                 <b>{indicator.category}</b>
               </div>
               <p>{indicator.guidance}</p>
-              <small>{indicator.draft ? "پیش‌نویس برای بازبینی" : "تنظیم‌شده"}</small>
+              <small>نسخهٔ {indicator.revision} · {indicator.draft ? "پیش‌نویس برای بازبینی" : "تنظیم‌شده"}</small>
             </div>
             <div className="fh-question-admin__actions">
               <button onClick={() => setEditing(indicator)} type="button">ویرایش</button>
