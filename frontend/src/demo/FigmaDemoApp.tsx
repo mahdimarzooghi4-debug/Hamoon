@@ -3,6 +3,7 @@ import { FigmaHomeDemo } from "./FigmaHomeDemo";
 import { FigmaQueueDemo } from "./FigmaQueueDemo";
 import { FigmaHouseholdDemo } from "./FigmaHouseholdDemo";
 import { FigmaHouseholdsDemo } from "./FigmaHouseholdsDemo";
+import { FigmaReassessmentDemo } from "./FigmaReassessmentDemo";
 import { FigmaIntakeDemo } from "./FigmaIntakeDemo";
 import { FigmaQuestionBankAdminDemo } from "./FigmaQuestionBankAdminDemo";
 import { FigmaIndicatorApprovalDemo } from "./FigmaIndicatorApprovalDemo";
@@ -31,7 +32,7 @@ export function FigmaDemoApp() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
-    if (screen === "home" || screen === "households" || screen === "household" || screen === "queue" || screen === "registration" || screen === "questions" || screen === "review" || screen === "indicator-review") {
+    if (screen === "home" || screen === "reassessment" || screen === "households" || screen === "household" || screen === "queue" || screen === "registration" || screen === "questions" || screen === "review" || screen === "indicator-review") {
       setImage("");
       setError(false);
       return;
@@ -62,7 +63,8 @@ export function FigmaDemoApp() {
   return (
     <div className="fh-demo-shell" lang="fa">
       {screen === "home" ? <FigmaHomeDemo /> :
-        screen === "households" ? <FigmaHouseholdsDemo /> :
+        screen === "reassessment" ? <FigmaReassessmentDemo /> :
+          screen === "households" ? <FigmaHouseholdsDemo /> :
           screen === "household" ? <FigmaHouseholdDemo /> :
           screen === "queue" ? <FigmaQueueDemo /> :
           screen === "registration" ? <FigmaIntakeDemo /> :
