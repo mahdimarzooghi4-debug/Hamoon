@@ -179,6 +179,9 @@ export function HouseholdPage({ householdId }: { householdId: string }) {
             <AppLink className="text-link" to={`/households/${item.id}/register`}>
               ثبت اطلاعات اولیه ←
             </AppLink>
+            <AppLink className="text-link" to={`/households/${item.id}/baseline`}>
+              ثبت خط مبنای PGOR ←
+            </AppLink>
             <AppLink className="text-link" to={`/households/${item.id}/facts`}>
               اصلاح و اعتبارسنجی اطلاعات ←
             </AppLink>
