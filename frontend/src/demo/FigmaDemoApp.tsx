@@ -4,6 +4,7 @@ import { FigmaIntakeDemo } from "./FigmaIntakeDemo";
 import { FigmaQuestionBankAdminDemo } from "./FigmaQuestionBankAdminDemo";
 import { FigmaIndicatorApprovalDemo } from "./FigmaIndicatorApprovalDemo";
 import { FigmaObservationReviewDemo } from "./FigmaObservationReviewDemo";
+import { observePersianDigits } from "./persianDigits";
 import "./figma-demo-pages.css";
 
 type DemoScreen = "home" | "household" | "queue" | "households" | "reassessment" | "registration" | "questions" | "review" | "indicator-review";
@@ -49,8 +50,14 @@ export function FigmaDemoApp() {
     return () => { cancelled = true; };
   }, [screen]);
 
+  useEffect(() => {
+    const root = document.querySelector<HTMLElement>(".fh-demo-shell");
+    if (!root) return;
+    return observePersianDigits(root);
+  }, []);
+
   return (
-    <div className="fh-demo-shell">
+    <div className="fh-demo-shell" lang="fa">
       {screen === "home" ? <FigmaHomeDemo /> :
         screen === "registration" ? <FigmaIntakeDemo /> :
           screen === "questions" ? <FigmaQuestionBankAdminDemo /> :
