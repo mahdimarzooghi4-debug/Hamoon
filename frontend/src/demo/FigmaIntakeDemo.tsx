@@ -49,7 +49,7 @@ export function FigmaIntakeDemo() {
   const [values, setValues] = useState<Record<string, string>>({});
   const [measurementStatuses, setMeasurementStatuses] = useState<Record<string, MeasurementStatus>>({});
   const [measurementNotes, setMeasurementNotes] = useState<Record<string, string>>({});
-  const [source, setSource] = useState("");
+  const [sources, setSources] = useState<Record<string, string>>({});
   const [effectiveAt, setEffectiveAt] = useState("");
   const [entries, setEntries] = useState<DemoEntry[]>(() => loadDemoReviewRecords()
     .filter((record) => record.id.startsWith("field-"))
@@ -100,8 +100,8 @@ export function FigmaIntakeDemo() {
       setNotice("برای شاخصی که امتیاز ندارد، دلیل وضعیت سنجش را بنویسید.");
       return;
     }
-    if (scored.length > 0 && !source) {
-      setNotice("برای شاخص‌های امتیازدار، منبع داده را انتخاب کنید.");
+    if (scored.some((item) => !sources[item.id])) {
+      setNotice("منبع شواهد هر شاخص امتیازدار را جداگانه انتخاب کنید.");
       return;
     }
     if (!effectiveAt) {
@@ -121,7 +121,7 @@ export function FigmaIntakeDemo() {
         score: measurementStatus === "SCORED" ? Number(values[item.id]) : null,
         measurementStatus,
         measurementNote: measurementStatus === "SCORED" ? "" : measurementNotes[item.id].trim(),
-        source: measurementStatus === "SCORED" ? source : null,
+        source: measurementStatus === "SCORED" ? sources[item.id] : null,
         effectiveAt,
         note: "ثبت تازه از فرم مددکار؛ در انتظار بازبینی.",
         status: "PENDING" as const,
@@ -149,7 +149,7 @@ export function FigmaIntakeDemo() {
     setValues({});
     setMeasurementStatuses({});
     setMeasurementNotes({});
-    setSource("");
+    setSources({});
     setEffectiveAt("");
     setNotice("مقادیر و وضعیت‌های سنجش به صف بازبینی دمو افزوده شدند؛ به سرور ارسال نمی‌شوند.");
   }
@@ -265,6 +265,20 @@ export function FigmaIntakeDemo() {
                       />
                     </label>
                   ) : null}
+                  {(measurementStatuses[item.id] ?? "SCORED") === "SCORED" ? (
+                    <label className="fh-intake__measurement-source">منبع شواهد این شاخص
+                      <select
+                        required
+                        value={sources[item.id] ?? ""}
+                        onChange={(event) => setSources((current) => ({ ...current, [item.id]: event.target.value }))}
+                      >
+                        <option value="">منبع را انتخاب کنید</option>
+                        <option value="پرسشنامه استاندارد">نتیجهٔ ابزار استاندارد موجود</option>
+                        <option value="ارزیابی کارشناسی">ارزیابی کارشناسیِ مستند</option>
+                        <option value="داده‌های محیطی">دادهٔ محیطی</option>
+                      </select>
+                    </label>
+                  ) : null}
                   <label className="fh-intake__score-row">
                     <span>مقدار ثبت‌شده</span>
                     <span className="fh-intake__number-wrap">
@@ -296,15 +310,6 @@ export function FigmaIntakeDemo() {
                 پروندهٔ نمونه
                 <select value={householdRef} onChange={(event) => setHouseholdRef(event.target.value)}>
                   {demoHouseholds.map((code) => <option key={code} value={code}>{code}</option>)}
-                </select>
-              </label>
-              <label>
-                منبع دادهٔ عددهای امتیازدار
-                <select value={source} onChange={(event) => setSource(event.target.value)}>
-                  <option value="">منبع را انتخاب کنید</option>
-                  <option value="پرسشنامه استاندارد">پرسشنامه استاندارد</option>
-                  <option value="ارزیابی کارشناسی">ارزیابی کارشناسی</option>
-                  <option value="داده‌های محیطی">داده‌های محیطی</option>
                 </select>
               </label>
               <label>
