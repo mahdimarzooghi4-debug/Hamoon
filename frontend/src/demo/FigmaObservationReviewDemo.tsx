@@ -13,6 +13,7 @@ export function FigmaObservationReviewDemo() {
   const [status, setStatus] = useState<ReviewStatus | "ALL">("PENDING");
   const [group, setGroup] = useState<Group | "ALL">("ALL");
   const [notice, setNotice] = useState("");
+  const [returnNotes, setReturnNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
     saveDemoReviewRecords(records);
@@ -23,10 +24,10 @@ export function FigmaObservationReviewDemo() {
     (group === "ALL" || record.group === group),
   ), [group, records, status]);
 
-  function updateStatus(record: ReviewRecord, next: ReviewStatus) {
+  function updateStatus(record: ReviewRecord, next: ReviewStatus, returnNote = "") {
     setRecords((current) => current.map((item) =>
       item.id === record.id
-        ? { ...item, status: next, note: next === "ACCEPTED" ? "بازبین داده را تأیید کرد." : "برای تکمیل یا اصلاح به مددکار بازگردانده شد." }
+        ? { ...item, status: next, note: next === "ACCEPTED" ? "بازبین داده را تأیید کرد." : returnNote.trim() }
         : item,
     ));
     setNotice(next === "ACCEPTED"
@@ -93,9 +94,21 @@ export function FigmaObservationReviewDemo() {
             <p className="fh-review__guidance">راهنمای ثبت در زمان ثبت: {record.indicatorGuidance}</p>
             <p className="fh-review__note">{record.note}</p>
             {record.status === "PENDING" ? (
+              <label className="fh-review__return-note">یادداشت اصلاح برای مددکار
+                <textarea
+                  rows={2}
+                  value={returnNotes[record.id] ?? ""}
+                  onChange={(event) => setReturnNotes((current) => ({ ...current, [record.id]: event.target.value }))}
+                  placeholder="دقیقاً بنویسید چه چیزی باید تکمیل یا اصلاح شود"
+                />
+              </label>
               <div className="fh-review__actions">
                 <button onClick={() => updateStatus(record, "ACCEPTED")} type="button">تأیید ثبت</button>
-                <button onClick={() => updateStatus(record, "RETURNED")} type="button">بازگشت برای اصلاح</button>
+                <button
+                  disabled={!returnNotes[record.id]?.trim()}
+                  onClick={() => updateStatus(record, "RETURNED", returnNotes[record.id] ?? "")}
+                  type="button"
+                >بازگشت برای اصلاح</button>
               </div>
             ) : null}
           </article>
