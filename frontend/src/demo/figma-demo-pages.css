@@ -188,3 +188,13 @@
 .fh-intake__evidence-ref{display:grid;gap:6px;margin-top:10px;color:#475569;font-size:10px;font-weight:700}
 .fh-intake__evidence-ref input{width:100%;min-height:38px;padding:8px 10px;border:1px solid #dcecf7;border-radius:9px;background:#fff;color:#102a43;font:500 11px Vazirmatn,Tahoma,sans-serif}
 .fh-intake__evidence-ref small{color:#72849a;font-size:9px;font-weight:500;line-height:1.7}
+
+.fh-intake__rubric{display:grid;gap:5px;margin:10px 0;padding:10px 12px;border:1px solid #e6d9b6;border-radius:10px;background:#fffcf3;color:#6b5a35;font-size:10px;line-height:1.7}
+.fh-intake__rubric strong,.fh-review__rubric strong{font-size:10px;font-weight:800}
+.fh-intake__rubric small{color:#82734f;font-size:9px}
+.fh-review__rubric{display:grid;gap:8px;margin:14px 0;padding:12px 14px;border:1px solid #e6d9b6;border-radius:11px;background:#fffcf3;color:#625333;font-size:10px;line-height:1.7}
+.fh-review__rubric p{margin:0}
+.fh-review__rubric>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.fh-review__rubric>div span{padding:6px 8px;border-radius:8px;background:#fff;color:#475569}
+.fh-question-admin__fields textarea{width:100%;min-height:74px;padding:9px 10px;border:1px solid #dcecf7;border-radius:9px;background:#fff;color:#102a43;font:500 11px Vazirmatn,Tahoma,sans-serif;line-height:1.7;resize:vertical}
+@media(max-width:760px){.fh-review__rubric>div{grid-template-columns:1fr}}
