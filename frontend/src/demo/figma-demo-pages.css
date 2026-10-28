@@ -68,3 +68,46 @@
 .fh-intake__source-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .fh-intake__form .fh-intake__source-row label{display:grid}
 @media(max-width:460px){.fh-intake__source-row{grid-template-columns:1fr}.fh-intake__answers{gap:5px}.fh-intake__form .fh-intake__answer{padding:0 7px}}
+
+.fh-question-admin{max-width:1180px;margin:0 auto;padding:40px 28px 112px;color:#102a43;font-family:Vazirmatn,Tahoma,sans-serif}
+.fh-question-admin *{box-sizing:border-box}
+.fh-question-admin__header{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:20px}
+.fh-question-admin__header h1{margin:8px 0;color:#0b2d6b;font-size:29px;font-weight:900}
+.fh-question-admin__header p{max-width:760px;margin:0;color:#64748b;font-size:13px;line-height:1.9}
+.fh-question-admin__add,.fh-question-admin__cancel{min-height:42px;padding:0 16px;border:0;border-radius:11px;font:800 12px Vazirmatn,Tahoma,sans-serif;cursor:pointer}
+.fh-question-admin__add{background:#0b2d6b;color:#fff;white-space:nowrap}
+.fh-question-admin__notice{margin:16px 0;padding:13px 16px;border:1px solid #f2d99b;border-radius:13px;background:#fff9e9;color:#71520d;font-size:12px;line-height:1.8}
+.fh-question-admin__tabs{display:flex;gap:8px;margin:18px 0;overflow-x:auto}
+.fh-question-admin__tabs button{min-height:42px;padding:0 14px;border:1px solid #dcecf7;border-radius:11px;background:#fff;color:#475569;font:700 12px Vazirmatn,Tahoma,sans-serif;cursor:pointer;white-space:nowrap}
+.fh-question-admin__tabs button span{margin-right:6px;color:#0e8e93}
+.fh-question-admin__tabs button.is-active{border-color:#0b2d6b;background:#0b2d6b;color:#fff}
+.fh-question-admin__tabs button.is-active span{color:#a5f3fc}
+.fh-question-admin__toast{padding:9px 13px;border-radius:10px;background:#e9f8f7;color:#087b80;font-size:11px}
+.fh-question-admin__list{display:grid;gap:10px}
+.fh-question-admin__item{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:14px;padding:16px;border:1px solid #dcecf7;border-radius:14px;background:#fff;box-shadow:0 6px 18px #08243a06}
+.fh-question-admin__item.is-inactive{opacity:.62;background:#f7fbfe}
+.fh-question-admin__index{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:#e9f8f7;color:#0e8e93;font-size:11px;font-weight:900}
+.fh-question-admin__copy{min-width:0}
+.fh-question-admin__meta{display:flex;align-items:center;gap:9px;color:#0b2d6b;font-size:11px}
+.fh-question-admin__meta span{color:#0e8e93;font-weight:800}
+.fh-question-admin__meta b{padding:4px 8px;border-radius:99px;background:#eef5fa;font-size:10px}
+.fh-question-admin__copy p{margin:8px 0;color:#263d53;font-size:13px;line-height:1.8}
+.fh-question-admin__copy small{color:#7b8da0;font-size:10px}
+.fh-question-admin__actions{display:flex;gap:6px}
+.fh-question-admin__actions button{min-height:34px;padding:0 10px;border:1px solid #dcecf7;border-radius:9px;background:#fff;color:#0b2d6b;font:700 10px Vazirmatn,Tahoma,sans-serif;cursor:pointer;white-space:nowrap}
+.fh-question-admin__actions button.is-danger{color:#a64141}
+.fh-question-admin__editor{margin:18px 0;padding:20px;border:1px solid #b7dfe6;border-radius:16px;background:#fff;box-shadow:0 12px 30px #08243a0d}
+.fh-question-admin__editor-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.fh-question-admin__editor-head small{color:#0e8e93;font-size:10px;font-weight:800}
+.fh-question-admin__editor-head h2{margin:3px 0;color:#0b2d6b;font-size:16px}
+.fh-question-admin__editor-head>button{width:34px;height:34px;border:0;border-radius:9px;background:#eef5fa;color:#64748b;font-size:22px;cursor:pointer}
+.fh-question-admin__fields{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.fh-question-admin__fields label{display:grid;gap:6px;color:#475569;font-size:11px;font-weight:700}
+.fh-question-admin__fields label.is-wide{grid-column:1/-1}
+.fh-question-admin__fields input,.fh-question-admin__fields select,.fh-question-admin__fields textarea{width:100%;min-height:42px;padding:9px 11px;border:1px solid #dcecf7;border-radius:10px;background:#f9fcfe;color:#102a43;font:500 12px Vazirmatn,Tahoma,sans-serif}
+.fh-question-admin__fields textarea{resize:vertical;line-height:1.8}
+.fh-question-admin__editor-actions{display:flex;gap:8px;margin-top:15px}
+.fh-question-admin__cancel{border:1px solid #dcecf7;background:#fff;color:#475569}
+.fh-question-admin__empty,.fh-question-admin__footer{padding:16px;border-radius:12px;background:#f7fbfe;color:#64748b;font-size:11px;text-align:center}
+.fh-question-admin__footer{margin-top:18px;background:transparent}
+@media(max-width:760px){.fh-question-admin{padding:26px 16px 100px}.fh-question-admin__header{align-items:flex-start;flex-direction:column}.fh-question-admin__item{grid-template-columns:34px minmax(0,1fr)}.fh-question-admin__actions{grid-column:2;flex-wrap:wrap}.fh-question-admin__fields{grid-template-columns:1fr}.fh-question-admin__fields label.is-wide{grid-column:auto}}
