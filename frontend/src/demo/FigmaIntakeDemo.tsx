@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { groups, loadDemoIndicators, type Group } from "./questionBank";
-import { addDemoReviewRecords } from "./observationReviewData";
+import { addDemoReviewRecords, loadDemoReviewRecords } from "./observationReviewData";
 
 type DemoEntry = {
-  id: number;
+  id: string;
   group: Group;
   indicatorId: string;
   indicatorRevision: number;
@@ -26,7 +26,20 @@ export function FigmaIntakeDemo() {
   const [values, setValues] = useState<Record<string, string>>({});
   const [source, setSource] = useState("");
   const [effectiveAt, setEffectiveAt] = useState("");
-  const [entries, setEntries] = useState<DemoEntry[]>([]);
+  const [entries, setEntries] = useState<DemoEntry[]>(() => loadDemoReviewRecords()
+    .filter((record) => record.id.startsWith("field-") && record.status === "PENDING")
+    .map((record) => ({
+      id: record.id,
+      group: record.group,
+      indicatorId: record.indicatorId,
+      indicatorRevision: record.indicatorRevision,
+      indicator: record.indicator,
+      indicatorGuidance: record.indicatorGuidance,
+      score: record.score,
+      source: record.source,
+      effectiveAt: record.effectiveAt,
+    })),
+  );
   const [notice, setNotice] = useState("");
   const [indicators] = useState(loadDemoIndicators);
   const activeDimension = groups.find((item) => item.id === dimension)!;
@@ -52,7 +65,7 @@ export function FigmaIntakeDemo() {
       return;
     }
     const completed = entered.map((item, index) => ({
-      id: Date.now() + index,
+      id: `field-${Date.now() + index}`,
       group: dimension,
       indicatorId: item.id,
       indicatorRevision: item.revision,
@@ -64,7 +77,7 @@ export function FigmaIntakeDemo() {
     }));
     const submittedAt = new Date().toISOString().slice(0, 10);
     addDemoReviewRecords(completed.map((entry) => ({
-      id: `field-${entry.id}`,
+      id: entry.id,
       householdRef: "HM-نمونه-۲۱",
       group: entry.group,
       indicatorId: entry.indicatorId,
