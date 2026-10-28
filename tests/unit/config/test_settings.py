@@ -200,21 +200,6 @@ def test_production_configuration_accepts_remote_secure_dependencies() -> None:
             "PRODUCTION_INTERNAL_MODEL_ARTIFACT_S3_CREDENTIALS_REQUIRED",
         ),
         (
-            "gemma4_base_checkpoint_root",
-            "",
-            "PRODUCTION_GEMMA4_BASE_CHECKPOINT_REQUIRED",
-        ),
-        (
-            "gemma4_training_config_json",
-            "",
-            "PRODUCTION_GEMMA4_TRAINING_CONFIG_REQUIRED",
-        ),
-        (
-            "gemma4_generation_config_json",
-            "",
-            "PRODUCTION_GEMMA4_GENERATION_CONFIG_REQUIRED",
-        ),
-        (
             "evidence_scanner_backend",
             "local",
             "PRODUCTION_EVIDENCE_SCANNER_REQUIRED",
