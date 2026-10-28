@@ -16,6 +16,7 @@ type DemoEntry = {
   score100Anchor: string;
   analysisUnitRule: "UNRESOLVED" | AnalysisUnit;
   sourceOptionsSnapshot: string[];
+  evidencePeriodGuidance: string;
   score: number | null;
   source: string | null;
   effectiveAt: string;
@@ -90,6 +91,7 @@ export function FigmaIntakeDemo() {
       score100Anchor: record.score100Anchor,
       analysisUnitRule: record.analysisUnitRule,
       sourceOptionsSnapshot: record.sourceOptionsSnapshot,
+      evidencePeriodGuidance: record.evidencePeriodGuidance,
       score: record.score,
       source: record.source,
       effectiveAt: record.effectiveAt,
@@ -170,6 +172,7 @@ export function FigmaIntakeDemo() {
         score100Anchor: item.score100Anchor,
         analysisUnitRule: item.analysisUnitRule,
         sourceOptionsSnapshot: item.evidenceSources,
+        evidencePeriodGuidance: item.evidencePeriodGuidance,
         score: measurementStatus === "SCORED" ? Number(values[item.id]) : null,
         measurementStatus,
         measurementNote: measurementStatus === "SCORED" ? "" : measurementNotes[item.id].trim(),
@@ -199,6 +202,7 @@ export function FigmaIntakeDemo() {
       score100Anchor: entry.score100Anchor,
       analysisUnitRule: entry.analysisUnitRule,
       sourceOptionsSnapshot: entry.sourceOptionsSnapshot,
+      evidencePeriodGuidance: entry.evidencePeriodGuidance,
       score: entry.score,
       measurementStatus: entry.measurementStatus,
       measurementNote: entry.measurementNote,
@@ -256,6 +260,7 @@ export function FigmaIntakeDemo() {
       score100Anchor: returned.score100Anchor,
       analysisUnitRule: returned.analysisUnitRule,
       sourceOptionsSnapshot: returned.sourceOptionsSnapshot,
+      evidencePeriodGuidance: returned.evidencePeriodGuidance,
       score,
       measurementStatus: "SCORED",
       measurementNote: "",
@@ -405,6 +410,7 @@ export function FigmaIntakeDemo() {
                       </select>
                     </label>
                   ) : null}
+                  <div className="fh-intake__rubric" role="note"><strong>بازه یا تازگی شواهد مورد انتظار · پیش‌نویس</strong><span>{item.evidencePeriodGuidance || "برای این شاخص هنوز تعریف نشده است."}</span><small>تاریخ‌ها را فقط در صورت دسترسی به شواهد ثبت کنید؛ این راهنمای پیش‌نویس الزام‌آور نیست.</small></div>
                   <div className="fh-intake__period">
                     <span>بازهٔ مورد سنجش (در صورت نیاز)</span>
                     <label>از
