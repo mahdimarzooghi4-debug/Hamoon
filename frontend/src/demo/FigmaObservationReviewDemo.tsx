@@ -6,6 +6,7 @@ const statusLabels: Record<ReviewStatus, string> = {
   PENDING: "در انتظار بازبینی",
   ACCEPTED: "تأییدشده",
   RETURNED: "نیازمند اصلاح",
+  SUPERSEDED: "جایگزین‌شده",
 };
 
 export function FigmaObservationReviewDemo() {
@@ -56,6 +57,7 @@ export function FigmaObservationReviewDemo() {
         <article><small>در انتظار بازبینی</small><strong>{pendingCount.toLocaleString("fa-IR")}</strong></article>
         <article><small>تأییدشده</small><strong>{records.filter((item) => item.status === "ACCEPTED").length.toLocaleString("fa-IR")}</strong></article>
         <article><small>نیازمند اصلاح</small><strong>{records.filter((item) => item.status === "RETURNED").length.toLocaleString("fa-IR")}</strong></article>
+        <article><small>جایگزین‌شده</small><strong>{records.filter((item) => item.status === "SUPERSEDED").length.toLocaleString("fa-IR")}</strong></article>
       </section>
 
       <div className="fh-review__filters">
@@ -64,6 +66,7 @@ export function FigmaObservationReviewDemo() {
             <option value="PENDING">در انتظار بازبینی</option>
             <option value="ACCEPTED">تأییدشده</option>
             <option value="RETURNED">نیازمند اصلاح</option>
+            <option value="SUPERSEDED">جایگزین‌شده</option>
             <option value="ALL">همه</option>
           </select>
         </label>
