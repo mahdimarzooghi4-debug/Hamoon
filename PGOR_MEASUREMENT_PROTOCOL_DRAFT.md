@@ -76,3 +76,7 @@
 - WHO, Indicators, measures and methods for monitoring climate resilient WASH — Indicator metadata: https://www.who.int/publications/m/item/indicators--measures-and-methods-for-monitoring-climate-resilient-wash---indicator-metadata
 - WHO, 100 Core Health Indicators: https://cdn.who.int/media/docs/default-source/documents/ddi/score/tools/100_core_health_indicators_2018.pdf
 - WHO/UNICEF, Primary health care measurement framework and indicators — technical specifications: https://www.who.int/publications/i/item/9789240044234
+
+
+## پشتیبانی منبع شواهد در دموی پنل
+مدیر می‌تواند برای هر شاخص منابع پیشنهادی را به شکل پیش‌نویس ثبت کند. فرم مددکار گزینه‌های عمومی را نگه می‌دارد و منبع‌های افزوده‌شده را با برچسب پیش‌نویس نشان می‌دهد؛ این تنظیمات ثبت را محدود نمی‌کنند. فهرست منابع همان نسخه کنار ثبت برای بازبینی snapshot می‌شود. تا تصویب تخصصی، این گزینه‌ها منبع پذیرفته‌شده یا معیار اعتبارسنجی داده محسوب نمی‌شوند.
