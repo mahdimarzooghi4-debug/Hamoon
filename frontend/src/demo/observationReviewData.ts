@@ -27,6 +27,15 @@ const initialRecords: ReviewRecord[] = [
   { id: "rev-06", indicatorId: "g-work", indicatorRevision: 1, indicatorGuidance: "سابقه کاری ثبت‌شده اعضای خانوار را ارزیابی کنید.", householdRef: "HM-نمونه-۰۶", group: "G", indicator: "سابقه کاری", score: 61, source: "ارزیابی کارشناسی", effectiveAt: "2026-10-18", submittedAt: "2026-10-21", status: "ACCEPTED", note: "برای نمونه پذیرفته شد." },
 ];
 
+const legacySnapshots: Record<string, Pick<ReviewRecord, "indicatorId" | "indicatorRevision" | "indicatorGuidance">> = {
+  "rev-01": { indicatorId: "p-followup", indicatorRevision: 1, indicatorGuidance: "پیگیری امور و اقدام‌های مورد توافق را بر اساس سوابق ثبت کنید." },
+  "rev-02": { indicatorId: "g-skills", indicatorRevision: 1, indicatorGuidance: "مهارت‌های قابل استفاده اعضای خانوار را بر اساس شواهد ثبت کنید." },
+  "rev-03": { indicatorId: "o-jobs", indicatorRevision: 1, indicatorGuidance: "فرصت‌های اشتغال قابل دسترس را بر اساس داده‌های موجود ثبت کنید." },
+  "rev-04": { indicatorId: "r-income", indicatorRevision: 1, indicatorGuidance: "ثبات و قابلیت پیش‌بینی منابع درآمدی را از داده‌های در دسترس ارزیابی کنید." },
+  "rev-05": { indicatorId: "p-training", indicatorRevision: 1, indicatorGuidance: "حضور در دوره‌ها و فعالیت‌های آموزشی ثبت‌شده را ارزیابی کنید." },
+  "rev-06": { indicatorId: "g-work", indicatorRevision: 1, indicatorGuidance: "سابقه کاری ثبت‌شده اعضای خانوار را ارزیابی کنید." },
+};
+
 export function loadDemoReviewRecords(): ReviewRecord[] {
   try {
     const raw = window.localStorage.getItem(storageKey);
@@ -34,16 +43,21 @@ export function loadDemoReviewRecords(): ReviewRecord[] {
       const parsed: unknown = JSON.parse(raw);
       if (Array.isArray(parsed)) return parsed
         .filter((value): value is Record<string, unknown> => typeof value === "object" && value !== null)
-        .map((value, index) => ({
-          ...value,
-          indicatorId: typeof value.indicatorId === "string" ? value.indicatorId : "legacy-" + String(value.id ?? index),
-          indicatorRevision: Number.isInteger(value.indicatorRevision) && Number(value.indicatorRevision) > 0
-            ? Number(value.indicatorRevision)
-            : 1,
-          indicatorGuidance: typeof value.indicatorGuidance === "string"
-            ? value.indicatorGuidance
-            : "راهنمای نسخهٔ قبلی در این ثبت موجود نیست.",
-        })) as ReviewRecord[];
+        .map((value, index) => {
+          const legacy = legacySnapshots[String(value.id ?? "")];
+          return {
+            ...value,
+            indicatorId: typeof value.indicatorId === "string"
+              ? value.indicatorId
+              : legacy?.indicatorId ?? "legacy-" + String(value.id ?? index),
+            indicatorRevision: Number.isInteger(value.indicatorRevision) && Number(value.indicatorRevision) > 0
+              ? Number(value.indicatorRevision)
+              : legacy?.indicatorRevision ?? 1,
+            indicatorGuidance: typeof value.indicatorGuidance === "string"
+              ? value.indicatorGuidance
+              : legacy?.indicatorGuidance ?? "راهنمای نسخهٔ قبلی در این ثبت موجود نیست.",
+          };
+        }) as ReviewRecord[];
     }
   } catch {
     // Use fictional records while browser storage is unavailable.
