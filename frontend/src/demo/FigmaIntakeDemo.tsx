@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { groups, loadDemoIndicators, type Group } from "./questionBank";
-import { addDemoReviewRecords, loadDemoReviewRecords } from "./observationReviewData";
+import { addDemoReviewRecords, loadDemoReviewRecords, type ReviewStatus } from "./observationReviewData";
 
 type DemoEntry = {
   id: string;
@@ -12,6 +12,14 @@ type DemoEntry = {
   score: number;
   source: string;
   effectiveAt: string;
+  note: string;
+  status: ReviewStatus;
+};
+
+const entryStatusLabels: Record<ReviewStatus, string> = {
+  PENDING: "در انتظار بازبینی",
+  ACCEPTED: "تأییدشده",
+  RETURNED: "نیازمند اصلاح",
 };
 
 const summaries: Record<Group, string> = {
@@ -27,7 +35,7 @@ export function FigmaIntakeDemo() {
   const [source, setSource] = useState("");
   const [effectiveAt, setEffectiveAt] = useState("");
   const [entries, setEntries] = useState<DemoEntry[]>(() => loadDemoReviewRecords()
-    .filter((record) => record.id.startsWith("field-") && record.status === "PENDING")
+    .filter((record) => record.id.startsWith("field-"))
     .map((record) => ({
       id: record.id,
       group: record.group,
@@ -38,6 +46,8 @@ export function FigmaIntakeDemo() {
       score: record.score,
       source: record.source,
       effectiveAt: record.effectiveAt,
+      note: record.note,
+      status: record.status,
     })),
   );
   const [notice, setNotice] = useState("");
@@ -74,6 +84,8 @@ export function FigmaIntakeDemo() {
       score: Number(values[item.id]),
       source,
       effectiveAt,
+      note: "ثبت تازه از فرم مددکار؛ در انتظار بازبینی.",
+      status: "PENDING" as const,
     }));
     const submittedAt = new Date().toISOString().slice(0, 10);
     addDemoReviewRecords(completed.map((entry) => ({
@@ -89,7 +101,7 @@ export function FigmaIntakeDemo() {
       effectiveAt: entry.effectiveAt,
       submittedAt,
       status: "PENDING" as const,
-      note: "ثبت تازه از فرم مددکار؛ در انتظار بازبینی.",
+      note: entry.note,
     })));
     setEntries((current) => [...completed.reverse(), ...current]);
     setValues({});
@@ -207,7 +219,7 @@ export function FigmaIntakeDemo() {
 
       <section className="fh-intake__card fh-intake__history">
         <div className="fh-intake__section-head">
-          <div><small>رد ثبت‌های نمایشی</small><h2>مقادیر در انتظار بازبینی</h2></div>
+          <div><small>رد ثبت‌های نمایشی</small><h2>سوابق ثبت‌های دمو</h2></div>
           <span className="fh-intake__count">{entries.length.toLocaleString("fa-IR")} مقدار</span>
         </div>
         {entries.length === 0 ? (
@@ -216,8 +228,10 @@ export function FigmaIntakeDemo() {
           <div className="fh-intake__entries">
             {entries.map((entry) => (
               <article key={entry.id}>
-                <div><strong>{entry.group} · {entry.indicator} (نسخه {entry.indicatorRevision}): {entry.score.toLocaleString("fa-IR")}</strong><small>منبع: {entry.source} · تاریخ اثر: {entry.effectiveAt}</small></div>
-                <span>در انتظار اعتبارسنجی</span>
+                <div><strong>{entry.group} · {entry.indicator} (نسخه {entry.indicatorRevision}): {entry.score.toLocaleString("fa-IR")}</strong><small>منبع: {entry.source} · تاریخ اثر: {entry.effectiveAt}</small>
+                  {entry.status === "RETURNED" ? <small>یادداشت بازبین: {entry.note}</small> : null}
+                </div>
+                <span>{entryStatusLabels[entry.status]}</span>
               </article>
             ))}
           </div>
