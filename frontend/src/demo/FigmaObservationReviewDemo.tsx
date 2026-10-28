@@ -94,6 +94,7 @@ export function FigmaObservationReviewDemo() {
             <p className="fh-review__guidance">راهنمای ثبت در زمان ثبت: {record.indicatorGuidance}</p>
             <p className="fh-review__note">{record.note}</p>
             {record.status === "PENDING" ? (
+              <>
               <label className="fh-review__return-note">یادداشت اصلاح برای مددکار
                 <textarea
                   rows={2}
@@ -110,6 +111,7 @@ export function FigmaObservationReviewDemo() {
                   type="button"
                 >بازگشت برای اصلاح</button>
               </div>
+              </>
             ) : null}
           </article>
         ))}
