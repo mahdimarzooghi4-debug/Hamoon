@@ -111,7 +111,14 @@ export function FigmaIntakeDemo() {
   const [notice, setNotice] = useState("");
   const [indicators] = useState(loadDemoIndicators);
   const activeDimension = groups.find((item) => item.id === dimension)!;
-  const activeIndicators = indicators.filter((item) => item.group === dimension && item.active);
+  const activeIndicators = indicators
+    .filter((item) => item.group === dimension && item.active)
+    .map((item) => ({
+      ...item,
+      currentRevision: item.revision,
+      ...(item.approvedSnapshot ? { ...item.approvedSnapshot, revision: item.approvedSnapshot.revision } : {}),
+    }));
+
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -340,9 +347,9 @@ export function FigmaIntakeDemo() {
             <div className="fh-intake__questions">
               {activeIndicators.map((item) => (
                 <fieldset className="fh-intake__question" key={item.id}>
-                  <legend><strong>{item.category}</strong><small>{item.guidance}</small></legend>
+                  <legend><strong>{item.category}</strong><small>{item.guidance}</small><small>{item.approvedSnapshot ? `نسخهٔ مصوب ${item.approvedSnapshot.revision}${item.currentRevision !== item.approvedSnapshot.revision ? ` · نسخهٔ جاری ${item.currentRevision} هنوز ${item.approvalStatus === "IN_REVIEW" ? "در بازبینی" : "مصوب نشده"} است؛ فرم از نسخهٔ مصوب استفاده می‌کند` : ""}` : "هنوز نسخهٔ مصوب ندارد؛ فقط در دمو و با دادهٔ ساختگی نمایش داده می‌شود."}</small></legend>
                   <div className="fh-intake__rubric" role="note">
-                    <strong>قاعدهٔ نمره‌گذاری · پیش‌نویس نسخهٔ {item.revision}</strong>
+                    <strong>{item.approvedSnapshot ? `قاعدهٔ نمره‌گذاری · نسخهٔ مصوب ${item.revision}` : `قاعدهٔ نمره‌گذاری · پیش‌نویس نسخهٔ ${item.revision}`}</strong>
                     <span>{item.measurementMethod || "روش سنجش هنوز تعریف نشده است."}</span>
                     <small>لنگرهای ۰ / ۵۰ / ۱۰۰: {item.score0Anchor || "تعریف نشده"} · {item.score50Anchor || "تعریف نشده"} · {item.score100Anchor || "تعریف نشده"}</small>
                   </div>
@@ -394,7 +401,7 @@ export function FigmaIntakeDemo() {
                     />
                     <small>فقط شناسهٔ ساختگی وارد کنید؛ فایل یا اطلاعات شناسایی واقعی ثبت نکنید.</small>
                   </label>
-                  <div className="fh-intake__unit-rule" role="note"><strong>سطح تحلیل مورد انتظار · پیش‌نویس</strong><span>{item.analysisUnitRule === "UNRESOLVED" ? "برای این شاخص هنوز تعیین نشده است." : item.analysisUnitRule === "MEMBER" ? "عضو خانوار" : item.analysisUnitRule === "HOUSEHOLD" ? "کل خانوار" : "محیط منطقه"}</span>{item.analysisUnitRule !== "UNRESOLVED" && analysisUnits[item.id] && analysisUnits[item.id] !== item.analysisUnitRule ? <small>واحد انتخاب‌شده با پیش‌نویس مدیر متفاوت است؛ تا زمان تصویب، انتخاب مددکار همچنان ثبت می‌شود.</small> : null}</div>
+                  <div className="fh-intake__unit-rule" role="note"><strong>سطح تحلیل مورد انتظار · {item.approvedSnapshot ? "نسخهٔ مصوب" : "پیش‌نویس"}</strong><span>{item.analysisUnitRule === "UNRESOLVED" ? "برای این شاخص هنوز تعیین نشده است." : item.analysisUnitRule === "MEMBER" ? "عضو خانوار" : item.analysisUnitRule === "HOUSEHOLD" ? "کل خانوار" : "محیط منطقه"}</span>{item.analysisUnitRule !== "UNRESOLVED" && analysisUnits[item.id] && analysisUnits[item.id] !== item.analysisUnitRule ? <small>واحد انتخاب‌شده با پیش‌نویس مدیر متفاوت است؛ تا زمان تصویب، انتخاب مددکار همچنان ثبت می‌شود.</small> : null}</div>
                   <label className="fh-intake__measurement-unit">واحد ثبت‌شده
                     <select
                       required
@@ -415,8 +422,8 @@ export function FigmaIntakeDemo() {
                       </select>
                     </label>
                   ) : null}
-                  {item.householdAggregationGuidance || item.analysisUnitRule === "MEMBER" ? <div className="fh-intake__rubric" role="note"><strong>تجمیع سنجش عضو در سطح خانوار · پیش‌نویس</strong><span>{item.householdAggregationGuidance || "قاعده هنوز تعریف نشده است."}</span><small>دمو مقدارها را خودکار به سطح خانوار تبدیل نمی‌کند.</small></div> : null}
-                  <div className="fh-intake__rubric" role="note"><strong>بازه یا تازگی شواهد مورد انتظار · پیش‌نویس</strong><span>{item.evidencePeriodGuidance || "برای این شاخص هنوز تعریف نشده است."}</span><small>تاریخ‌ها را فقط در صورت دسترسی به شواهد ثبت کنید؛ این راهنمای پیش‌نویس الزام‌آور نیست.</small></div>
+                  {item.householdAggregationGuidance || item.analysisUnitRule === "MEMBER" ? <div className="fh-intake__rubric" role="note"><strong>تجمیع سنجش عضو در سطح خانوار · {item.approvedSnapshot ? "نسخهٔ مصوب" : "پیش‌نویس"}</strong><span>{item.householdAggregationGuidance || "قاعده هنوز تعریف نشده است."}</span><small>دمو مقدارها را خودکار به سطح خانوار تبدیل نمی‌کند.</small></div> : null}
+                  <div className="fh-intake__rubric" role="note"><strong>بازه یا تازگی شواهد مورد انتظار · {item.approvedSnapshot ? "نسخهٔ مصوب" : "پیش‌نویس"}</strong><span>{item.evidencePeriodGuidance || "برای این شاخص هنوز تعریف نشده است."}</span><small>تاریخ‌ها را فقط در صورت دسترسی به شواهد ثبت کنید؛ این راهنمای پیش‌نویس الزام‌آور نیست.</small></div>
                   <div className="fh-intake__period">
                     <span>بازهٔ مورد سنجش (در صورت نیاز)</span>
                     <label>از
