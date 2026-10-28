@@ -5,7 +5,6 @@ import {
   saveDemoIndicators,
   type ApprovalStatus,
   type DemoIndicator,
-  type DemoIndicatorSnapshot,
   type Group,
 } from "./questionBank";
 
@@ -16,28 +15,11 @@ const approvalLabels: Record<ApprovalStatus, string> = {
   CHANGES_REQUESTED: "نیازمند اصلاح",
 };
 
-function snapshotIndicator(item: DemoIndicator): DemoIndicatorSnapshot {
-  return {
-    revision: item.revision,
-    category: item.category,
-    guidance: item.guidance,
-    measurementMethod: item.measurementMethod,
-    score0Anchor: item.score0Anchor,
-    score50Anchor: item.score50Anchor,
-    score100Anchor: item.score100Anchor,
-    analysisUnitRule: item.analysisUnitRule,
-    evidenceSources: [...item.evidenceSources],
-    evidencePeriodGuidance: item.evidencePeriodGuidance,
-    householdAggregationGuidance: item.householdAggregationGuidance,
-  };
-}
-
 export function FigmaQuestionBankAdminDemo() {
   const [indicators, setIndicators] = useState<DemoIndicator[]>(loadDemoIndicators);
   const [filter, setFilter] = useState<Group | "ALL">("ALL");
   const [editing, setEditing] = useState<DemoIndicator | null>(null);
   const [notice, setNotice] = useState("");
-  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
 
   useEffect(() => saveDemoIndicators(indicators), [indicators]);
 
@@ -131,23 +113,16 @@ export function FigmaQuestionBankAdminDemo() {
     });
   }
 
-  function setApproval(indicator: DemoIndicator, status: ApprovalStatus, note = "") {
-    const event = { status, revision: indicator.revision, note, at: new Date().toISOString() };
+  function submitForReview(indicator: DemoIndicator) {
+    const event = { status: "IN_REVIEW" as const, revision: indicator.revision, note: "", at: new Date().toISOString() };
     setIndicators((current) => current.map((item) => item.id !== indicator.id ? item : ({
       ...item,
-      approvalStatus: status,
-      draft: status !== "APPROVED",
-      approvedRevision: status === "APPROVED" ? item.revision : item.approvedRevision,
-      approvedSnapshot: status === "APPROVED" ? snapshotIndicator(item) : item.approvedSnapshot,
-      reviewNote: status === "CHANGES_REQUESTED" ? note : "",
+      approvalStatus: "IN_REVIEW",
+      draft: true,
+      reviewNote: "",
       approvalHistory: [...item.approvalHistory, event],
     })));
-    setReviewNotes((current) => ({ ...current, [indicator.id]: "" }));
-    setNotice(status === "IN_REVIEW"
-      ? `نسخهٔ ${indicator.revision} برای بازبینی فرستاده شد.`
-      : status === "APPROVED"
-        ? `نسخهٔ ${indicator.revision} تأیید شد؛ تصمیم و snapshot نسخه در همین مرورگر ثبت شد.`
-        : "نسخه برای اصلاح برگشت خورد؛ پس از اصلاح باید دوباره برای بازبینی فرستاده شود.");
+    setNotice(`نسخهٔ ${indicator.revision} برای بازبینی تخصصی فرستاده شد.`);
   }
 
   function toggleActive(indicator: DemoIndicator) {
@@ -278,18 +253,9 @@ export function FigmaQuestionBankAdminDemo() {
               </details>
             </div>
             <div className="fh-question-admin__actions">
-              <button onClick={() => setEditing(indicator)} type="button">ویرایش</button>
+              <button disabled={indicator.approvalStatus === "IN_REVIEW"} title={indicator.approvalStatus === "IN_REVIEW" ? "تا پایان بازبینی، این نسخه قفل است." : undefined} onClick={() => setEditing(indicator)} type="button">ویرایش</button>
               {indicator.approvalStatus === "DRAFT" || indicator.approvalStatus === "CHANGES_REQUESTED" ? (
-                <button onClick={() => setApproval(indicator, "IN_REVIEW")} type="button">ارسال برای بازبینی</button>
-              ) : null}
-              {indicator.approvalStatus === "IN_REVIEW" ? (
-                <>
-                  <button onClick={() => setApproval(indicator, "APPROVED")} type="button">تأیید تخصصی نسخه</button>
-                  <label className="fh-question-admin__review-note">دلیل برگشت برای اصلاح
-                    <textarea rows={2} value={reviewNotes[indicator.id] ?? ""} onChange={(event) => setReviewNotes((current) => ({ ...current, [indicator.id]: event.target.value }))} placeholder="برای بازگشت، دلیل روشن بنویسید" />
-                  </label>
-                  <button disabled={!(reviewNotes[indicator.id] ?? "").trim()} onClick={() => setApproval(indicator, "CHANGES_REQUESTED", (reviewNotes[indicator.id] ?? "").trim())} type="button">برگشت برای اصلاح</button>
-                </>
+                <button onClick={() => submitForReview(indicator)} type="button">ارسال برای بازبینی</button>
               ) : null}
               <button className={indicator.active ? "is-danger" : ""} onClick={() => toggleActive(indicator)} type="button">
                 {indicator.active ? "حذف از فرم" : "فعال‌سازی"}
