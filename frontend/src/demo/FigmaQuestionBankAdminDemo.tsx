@@ -30,18 +30,31 @@ export function FigmaQuestionBankAdminDemo() {
           if (item.id !== editing.id) return item;
           const category = editing.category.trim();
           const guidance = editing.guidance.trim();
+          const measurementMethod = editing.measurementMethod.trim();
+          const score0Anchor = editing.score0Anchor.trim();
+          const score50Anchor = editing.score50Anchor.trim();
+          const score100Anchor = editing.score100Anchor.trim();
           const changed = item.group !== editing.group
             || item.groupName !== editing.groupName
             || item.category !== category
-            || item.guidance !== guidance;
+            || item.guidance !== guidance
+            || item.measurementMethod !== measurementMethod
+            || item.score0Anchor !== score0Anchor
+            || item.score50Anchor !== score50Anchor
+            || item.score100Anchor !== score100Anchor;
           return {
             ...editing,
             category,
             guidance,
+            measurementMethod,
+            score0Anchor,
+            score50Anchor,
+            score100Anchor,
+            draft: changed ? true : item.draft,
             revision: changed ? item.revision + 1 : item.revision,
           };
         })
-        : [{ ...editing, category: editing.category.trim(), guidance: editing.guidance.trim(), revision: 1 }, ...current];
+        : [{ ...editing, category: editing.category.trim(), guidance: editing.guidance.trim(), measurementMethod: editing.measurementMethod.trim(), score0Anchor: editing.score0Anchor.trim(), score50Anchor: editing.score50Anchor.trim(), score100Anchor: editing.score100Anchor.trim(), revision: 1 }, ...current];
     });
     setNotice("شاخص ذخیره شد؛ تغییر محتوا نسخهٔ تازه می‌سازد.");
     setEditing(null);
@@ -57,6 +70,10 @@ export function FigmaQuestionBankAdminDemo() {
       revision: 1,
       category: "",
       guidance: "",
+      measurementMethod: "",
+      score0Anchor: "",
+      score50Anchor: "",
+      score100Anchor: "",
       active: true,
       draft: true,
     });
@@ -83,7 +100,7 @@ export function FigmaQuestionBankAdminDemo() {
       </header>
 
       <div className="fh-question-admin__notice" role="note">
-        بازهٔ عددی دمو ۰ تا ۱۰۰ است. روش علمی تعیین عدد و نگاشت آن به امتیاز PGOR هنوز باید تأیید شود؛ این دمو امتیاز رسمی مدل تولید نمی‌کند.
+        بازهٔ عددی دمو ۰ تا ۱۰۰ است. مدیر می‌تواند روش و لنگرهای ۰/۵۰/۱۰۰ هر شاخص را پیش‌نویس کند. تغییر آن نسخه را بالا می‌برد؛ تا تصویب تخصصی، هیچ‌کدام قاعدهٔ رسمی نیست و دمو امتیاز رسمی مدل تولید نمی‌کند.
       </div>
 
       <div className="fh-question-admin__tabs" role="tablist" aria-label="دسته‌های PGOR">
@@ -127,7 +144,19 @@ export function FigmaQuestionBankAdminDemo() {
               <input required value={editing.category} onChange={(event) => setEditing({ ...editing, category: event.target.value })} placeholder="مثلاً ثبات درآمد" />
             </label>
             <label className="is-wide">راهنمای ثبت برای مددکار
-              <textarea required rows={3} value={editing.guidance} onChange={(event) => setEditing({ ...editing, guidance: event.target.value })} placeholder="منبع یا شیوهٔ سنجش مورد انتظار را برای بازبینی توضیح دهید" />
+              <textarea required rows={3} value={editing.guidance} onChange={(event) => setEditing({ ...editing, guidance: event.target.value })} placeholder="چه مدرکی را برای این شاخص ثبت کند" />
+            </label>
+            <label className="is-wide">روش پیشنهادی سنجش (پیش‌نویس)
+              <textarea rows={3} value={editing.measurementMethod} onChange={(event) => setEditing({ ...editing, measurementMethod: event.target.value })} placeholder="متغیر و روش محاسبه را برای بازبینی تخصصی بنویسید" />
+            </label>
+            <label>لنگر نمرهٔ ۰ (پیش‌نویس)
+              <textarea rows={2} value={editing.score0Anchor} onChange={(event) => setEditing({ ...editing, score0Anchor: event.target.value })} placeholder="تعریف نمرهٔ صفر" />
+            </label>
+            <label>لنگر نمرهٔ ۵۰ (پیش‌نویس)
+              <textarea rows={2} value={editing.score50Anchor} onChange={(event) => setEditing({ ...editing, score50Anchor: event.target.value })} placeholder="تعریف نقطهٔ میانی" />
+            </label>
+            <label>لنگر نمرهٔ ۱۰۰ (پیش‌نویس)
+              <textarea rows={2} value={editing.score100Anchor} onChange={(event) => setEditing({ ...editing, score100Anchor: event.target.value })} placeholder="تعریف نمرهٔ کامل" />
             </label>
           </div>
           <div className="fh-question-admin__editor-actions">
@@ -147,6 +176,7 @@ export function FigmaQuestionBankAdminDemo() {
                 <b>{indicator.category}</b>
               </div>
               <p>{indicator.guidance}</p>
+              <small>روش سنجش: {indicator.measurementMethod || "تعریف نشده"} · لنگرهای ۰/۵۰/۱۰۰: {[indicator.score0Anchor, indicator.score50Anchor, indicator.score100Anchor].some(Boolean) ? "پیش‌نویس دارد" : "تعریف نشده"}</small>
               <small>نسخهٔ {indicator.revision} · {indicator.draft ? "پیش‌نویس برای بازبینی" : "تنظیم‌شده"}</small>
             </div>
             <div className="fh-question-admin__actions">
