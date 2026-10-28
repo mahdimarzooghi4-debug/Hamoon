@@ -13,6 +13,8 @@ export type ReviewRecord = {
   score: number | null;
   measurementStatus: MeasurementStatus;
   measurementNote: string;
+  periodStart: string | null;
+  periodEnd: string | null;
   source: string | null;
   effectiveAt: string;
   submittedAt: string;
@@ -23,12 +25,12 @@ export type ReviewRecord = {
 
 const storageKey = "hamoon-demo-observation-review-v1";
 const initialRecords: ReviewRecord[] = [
-  { id: "rev-01", indicatorId: "p-followup", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", indicatorGuidance: "پیگیری امور و اقدام‌های مورد توافق را بر اساس سوابق ثبت کنید.", householdRef: "HM-نمونه-۰۱", group: "P", indicator: "پیگیری امور", score: 68, source: "ارزیابی کارشناسی", effectiveAt: "2026-10-22", submittedAt: "2026-10-25", status: "PENDING", note: "مستند سنجش به ثبت پیوست نشده است." },
-  { id: "rev-02", indicatorId: "g-skills", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", indicatorGuidance: "مهارت‌های قابل استفاده اعضای خانوار را بر اساس شواهد ثبت کنید.", householdRef: "HM-نمونه-۰۲", group: "G", indicator: "مهارت", score: 54, source: "پرسشنامه استاندارد", effectiveAt: "2026-10-21", submittedAt: "2026-10-24", status: "PENDING", note: "برای بازبینی منبع ابزار سنجش مشخص شود." },
-  { id: "rev-03", indicatorId: "o-jobs", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", indicatorGuidance: "فرصت‌های اشتغال قابل دسترس را بر اساس داده‌های موجود ثبت کنید.", householdRef: "HM-نمونه-۰۳", group: "O", indicator: "فرصت اشتغال", score: 72, source: "داده‌های محیطی", effectiveAt: "2026-10-20", submittedAt: "2026-10-23", status: "ACCEPTED", note: "منبع داده بررسی شد." },
-  { id: "rev-04", indicatorId: "r-income", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", indicatorGuidance: "ثبات و قابلیت پیش‌بینی منابع درآمدی را از داده‌های در دسترس ارزیابی کنید.", householdRef: "HM-نمونه-۰۴", group: "R", indicator: "ثبات درآمد", score: 41, source: "ارزیابی کارشناسی", effectiveAt: "2026-10-19", submittedAt: "2026-10-22", status: "RETURNED", note: "تاریخ اثر و دورهٔ سنجش تکمیل شود." },
-  { id: "rev-05", indicatorId: "p-training", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", indicatorGuidance: "حضور در دوره‌ها و فعالیت‌های آموزشی ثبت‌شده را ارزیابی کنید.", householdRef: "HM-نمونه-۰۵", group: "P", indicator: "حضور در آموزش", score: 83, source: "پرسشنامه استاندارد", effectiveAt: "2026-10-22", submittedAt: "2026-10-24", status: "PENDING", note: "نیازمند تطبیق با شواهد حضور است." },
-  { id: "rev-06", indicatorId: "g-work", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", indicatorGuidance: "سابقه کاری ثبت‌شده اعضای خانوار را ارزیابی کنید.", householdRef: "HM-نمونه-۰۶", group: "G", indicator: "سابقه کاری", score: 61, source: "ارزیابی کارشناسی", effectiveAt: "2026-10-18", submittedAt: "2026-10-21", status: "ACCEPTED", note: "برای نمونه پذیرفته شد." },
+  { id: "rev-01", indicatorId: "p-followup", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", periodStart: null, periodEnd: null, indicatorGuidance: "پیگیری امور و اقدام‌های مورد توافق را بر اساس سوابق ثبت کنید.", householdRef: "HM-نمونه-۰۱", group: "P", indicator: "پیگیری امور", score: 68, source: "ارزیابی کارشناسی", effectiveAt: "2026-10-22", submittedAt: "2026-10-25", status: "PENDING", note: "مستند سنجش به ثبت پیوست نشده است." },
+  { id: "rev-02", indicatorId: "g-skills", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", periodStart: null, periodEnd: null, indicatorGuidance: "مهارت‌های قابل استفاده اعضای خانوار را بر اساس شواهد ثبت کنید.", householdRef: "HM-نمونه-۰۲", group: "G", indicator: "مهارت", score: 54, source: "پرسشنامه استاندارد", effectiveAt: "2026-10-21", submittedAt: "2026-10-24", status: "PENDING", note: "برای بازبینی منبع ابزار سنجش مشخص شود." },
+  { id: "rev-03", indicatorId: "o-jobs", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", periodStart: null, periodEnd: null, indicatorGuidance: "فرصت‌های اشتغال قابل دسترس را بر اساس داده‌های موجود ثبت کنید.", householdRef: "HM-نمونه-۰۳", group: "O", indicator: "فرصت اشتغال", score: 72, source: "داده‌های محیطی", effectiveAt: "2026-10-20", submittedAt: "2026-10-23", status: "ACCEPTED", note: "منبع داده بررسی شد." },
+  { id: "rev-04", indicatorId: "r-income", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", periodStart: null, periodEnd: null, indicatorGuidance: "ثبات و قابلیت پیش‌بینی منابع درآمدی را از داده‌های در دسترس ارزیابی کنید.", householdRef: "HM-نمونه-۰۴", group: "R", indicator: "ثبات درآمد", score: 41, source: "ارزیابی کارشناسی", effectiveAt: "2026-10-19", submittedAt: "2026-10-22", status: "RETURNED", note: "تاریخ اثر و دورهٔ سنجش تکمیل شود." },
+  { id: "rev-05", indicatorId: "p-training", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", periodStart: null, periodEnd: null, indicatorGuidance: "حضور در دوره‌ها و فعالیت‌های آموزشی ثبت‌شده را ارزیابی کنید.", householdRef: "HM-نمونه-۰۵", group: "P", indicator: "حضور در آموزش", score: 83, source: "پرسشنامه استاندارد", effectiveAt: "2026-10-22", submittedAt: "2026-10-24", status: "PENDING", note: "نیازمند تطبیق با شواهد حضور است." },
+  { id: "rev-06", indicatorId: "g-work", indicatorRevision: 1, measurementStatus: "SCORED", measurementNote: "", periodStart: null, periodEnd: null, indicatorGuidance: "سابقه کاری ثبت‌شده اعضای خانوار را ارزیابی کنید.", householdRef: "HM-نمونه-۰۶", group: "G", indicator: "سابقه کاری", score: 61, source: "ارزیابی کارشناسی", effectiveAt: "2026-10-18", submittedAt: "2026-10-21", status: "ACCEPTED", note: "برای نمونه پذیرفته شد." },
 ];
 
 const measurementStatuses: MeasurementStatus[] = ["SCORED", "NOT_ASSESSED", "INSUFFICIENT_EVIDENCE", "CONFLICTING", "NOT_APPLICABLE"];
@@ -59,6 +61,8 @@ export function loadDemoReviewRecords(): ReviewRecord[] {
             ...value,
             score: typeof value.score === "number" && Number.isFinite(value.score) ? value.score : null,
             source: typeof value.source === "string" ? value.source : null,
+            periodStart: typeof value.periodStart === "string" ? value.periodStart : null,
+            periodEnd: typeof value.periodEnd === "string" ? value.periodEnd : null,
             measurementStatus: isMeasurementStatus(value.measurementStatus)
               ? value.measurementStatus
               : typeof value.score === "number" ? "SCORED" : "NOT_ASSESSED",
