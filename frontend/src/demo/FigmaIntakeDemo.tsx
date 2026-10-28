@@ -112,7 +112,7 @@ export function FigmaIntakeDemo() {
   const [indicators] = useState(loadDemoIndicators);
   const activeDimension = groups.find((item) => item.id === dimension)!;
   const activeIndicators = indicators
-    .filter((item) => item.group === dimension && item.active)
+    .filter((item) => (item.approvedSnapshot?.group ?? item.group) === dimension && item.active)
     .map((item) => ({
       ...item,
       currentRevision: item.revision,
