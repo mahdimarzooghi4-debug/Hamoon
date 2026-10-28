@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { groups, loadDemoIndicators, type Group } from "./questionBank";
-import { addDemoReviewRecords, loadDemoReviewRecords, saveDemoReviewRecords, type MeasurementStatus, type ReviewRecord, type ReviewStatus } from "./observationReviewData";
+import { addDemoReviewRecords, loadDemoReviewRecords, saveDemoReviewRecords, type AnalysisUnit, type MeasurementStatus, type ReviewRecord, type ReviewStatus } from "./observationReviewData";
 
 type DemoEntry = {
   id: string;
@@ -15,6 +15,8 @@ type DemoEntry = {
   effectiveAt: string;
   periodStart: string | null;
   periodEnd: string | null;
+  analysisUnit: AnalysisUnit;
+  analysisTarget: string;
   measurementStatus: MeasurementStatus;
   measurementNote: string;
   note: string;
@@ -37,6 +39,11 @@ const measurementStatusLabels: Record<MeasurementStatus, string> = {
 };
 
 const demoHouseholds = ["HM-1405-021", "HM-1405-018", "HM-1405-014", "HM-1405-009"];
+const demoMembers = [
+  { id: "member-01", label: "عضو نمونه ۱" },
+  { id: "member-02", label: "عضو نمونه ۲" },
+  { id: "member-03", label: "عضو نمونه ۳" },
+];
 
 const summaries: Record<Group, string> = {
   P: "شاخص‌های مشارکت خانوار در فرایند تغییر",
@@ -54,6 +61,8 @@ export function FigmaIntakeDemo() {
   const [sources, setSources] = useState<Record<string, string>>({});
   const [periodStarts, setPeriodStarts] = useState<Record<string, string>>({});
   const [periodEnds, setPeriodEnds] = useState<Record<string, string>>({});
+  const [analysisUnits, setAnalysisUnits] = useState<Record<string, AnalysisUnit | "">>({});
+  const [analysisTargets, setAnalysisTargets] = useState<Record<string, string>>({});
   const [effectiveAt, setEffectiveAt] = useState("");
   const [entries, setEntries] = useState<DemoEntry[]>(() => loadDemoReviewRecords()
     .filter((record) => record.id.startsWith("field-"))
@@ -70,6 +79,8 @@ export function FigmaIntakeDemo() {
       effectiveAt: record.effectiveAt,
       periodStart: record.periodStart,
       periodEnd: record.periodEnd,
+      analysisUnit: record.analysisUnit,
+      analysisTarget: record.analysisTarget,
       measurementStatus: record.measurementStatus,
       measurementNote: record.measurementNote,
       note: record.note,
@@ -114,6 +125,10 @@ export function FigmaIntakeDemo() {
       setNotice("تاریخ سنجش یا اثر را تکمیل کنید.");
       return;
     }
+    if (entered.some((item) => !analysisUnits[item.id] || (analysisUnits[item.id] === "MEMBER" && !analysisTargets[item.id]))) {
+      setNotice("واحد سنجش هر شاخص را مشخص کنید؛ برای سنجش فردی، عضو نمونه را هم انتخاب کنید.");
+      return;
+    }
     if (entered.some((item) => {
       const start = periodStarts[item.id] ?? "";
       const end = periodEnds[item.id] ?? "";
@@ -139,6 +154,8 @@ export function FigmaIntakeDemo() {
         effectiveAt,
         periodStart: periodStarts[item.id] || null,
         periodEnd: periodEnds[item.id] || null,
+        analysisUnit: analysisUnits[item.id] as AnalysisUnit,
+        analysisTarget: analysisUnits[item.id] === "MEMBER" ? analysisTargets[item.id] : analysisUnits[item.id] === "AREA" ? "area-demo" : "household",
         note: "ثبت تازه از فرم مددکار؛ در انتظار بازبینی.",
         status: "PENDING" as const,
       };
@@ -159,6 +176,8 @@ export function FigmaIntakeDemo() {
       effectiveAt: entry.effectiveAt,
       periodStart: entry.periodStart,
       periodEnd: entry.periodEnd,
+      analysisUnit: entry.analysisUnit,
+      analysisTarget: entry.analysisTarget,
       submittedAt,
       status: "PENDING" as const,
       note: entry.note,
@@ -170,6 +189,8 @@ export function FigmaIntakeDemo() {
     setSources({});
     setPeriodStarts({});
     setPeriodEnds({});
+    setAnalysisUnits({});
+    setAnalysisTargets({});
     setEffectiveAt("");
     setNotice("مقادیر و وضعیت‌های سنجش به صف بازبینی دمو افزوده شدند؛ به سرور ارسال نمی‌شوند.");
   }
@@ -201,6 +222,8 @@ export function FigmaIntakeDemo() {
       measurementNote: "",
       source,
       effectiveAt,
+      analysisUnit: returned.analysisUnit,
+      analysisTarget: returned.analysisTarget,
       periodStart: periodStart || null,
       periodEnd: periodEnd || null,
       submittedAt: new Date().toISOString().slice(0, 10),
@@ -225,7 +248,7 @@ export function FigmaIntakeDemo() {
         <div>
           <span className="fh-intake__eyebrow">دموی محیط مددکار · پرونده {householdRef}</span>
           <h1>ثبت میدانی داده‌های خانوار</h1>
-          <p>مددکار مقدار عددی هر شاخص را همراه منبع و تاریخ ثبت می‌کند؛ این صفحه پرسش‌نامهٔ مصاحبه‌ای نیست.</p>
+          <p>مددکار مقدار هر شاخص را همراه واحد سنجش، منبع و تاریخ ثبت می‌کند؛ این صفحه پرسش‌نامهٔ مصاحبه‌ای نیست.</p>
         </div>
         <span className="fh-intake__badge">نمونهٔ ساختگی</span>
       </header>
@@ -305,6 +328,26 @@ export function FigmaIntakeDemo() {
                       </select>
                     </label>
                   ) : null}
+                  <label className="fh-intake__measurement-unit">واحد سنجش
+                    <select
+                      required
+                      value={analysisUnits[item.id] ?? ""}
+                      onChange={(event) => setAnalysisUnits((current) => ({ ...current, [item.id]: event.target.value as AnalysisUnit | "" }))}
+                    >
+                      <option value="">واحد را انتخاب کنید</option>
+                      <option value="MEMBER">عضو خانوار</option>
+                      <option value="HOUSEHOLD">کل خانوار</option>
+                      <option value="AREA">محیط منطقه</option>
+                    </select>
+                  </label>
+                  {analysisUnits[item.id] === "MEMBER" ? (
+                    <label className="fh-intake__measurement-unit">عضو مورد سنجش
+                      <select required value={analysisTargets[item.id] ?? ""} onChange={(event) => setAnalysisTargets((current) => ({ ...current, [item.id]: event.target.value }))}>
+                        <option value="">عضو نمونه را انتخاب کنید</option>
+                        {demoMembers.map((member) => <option key={member.id} value={member.id}>{member.label}</option>)}
+                      </select>
+                    </label>
+                  ) : null}
                   <div className="fh-intake__period">
                     <span>بازهٔ مورد سنجش (در صورت نیاز)</span>
                     <label>از
@@ -364,7 +407,7 @@ export function FigmaIntakeDemo() {
           </div>
           <ol>
             <li><span>۱</span><div><strong>انتخاب دستهٔ PGOR</strong><small>مشاهدهٔ شاخص‌های فعال آن دسته</small></div></li>
-            <li><span>۲</span><div><strong>ثبت مقدار، منبع و تاریخ</strong><small>هر مقدار با منشأ مستقل</small></div></li>
+            <li><span>۲</span><div><strong>ثبت مقدار، منبع و تاریخ</strong><small>مقدار، منبع و واحد سنجش مستقل</small></div></li>
             <li><span>۳</span><div><strong>مرور و تصمیم انسانی</strong><small>تعارض‌ها حفظ و بررسی می‌شوند</small></div></li>
           </ol>
           <p>قرارداد فعلی سرور برای مشاهدهٔ PGOR عدد ۰ تا ۱۰۰ می‌گیرد. این دمو مقادیر را به سرور نمی‌فرستد و امتیاز رسمی تولید نمی‌کند.</p>
@@ -382,7 +425,7 @@ export function FigmaIntakeDemo() {
           <div className="fh-intake__entries">
             {entries.map((entry) => (
               <article className={entry.status === "RETURNED" ? "has-correction" : ""} key={entry.id}>
-                <div><strong>{entry.group} · {entry.indicator} (نسخه {entry.indicatorRevision}): {entry.score === null ? "امتیاز ثبت نشده" : entry.score.toLocaleString("fa-IR")}</strong><small>وضعیت سنجش: {measurementStatusLabels[entry.measurementStatus]} · منبع: {entry.source ?? "ثبت نشده"} · تاریخ اثر: {entry.effectiveAt}</small>
+                <div><strong>{entry.group} · {entry.indicator} (نسخه {entry.indicatorRevision}): {entry.score === null ? "امتیاز ثبت نشده" : entry.score.toLocaleString("fa-IR")}</strong><small>واحد سنجش: {entry.analysisUnit === "MEMBER" ? `عضو (${demoMembers.find((member) => member.id === entry.analysisTarget)?.label ?? "نمونه"})` : entry.analysisUnit === "AREA" ? "محیط منطقه" : "کل خانوار"} · وضعیت سنجش: {measurementStatusLabels[entry.measurementStatus]} · منبع: {entry.source ?? "ثبت نشده"} · تاریخ اثر: {entry.effectiveAt}</small>
                   {entry.measurementNote ? <small>توضیح وضعیت سنجش: {entry.measurementNote}</small> : null}
                   {entry.status === "RETURNED" ? <small>یادداشت بازبین: {entry.note}</small> : null}
                 </div>
