@@ -13,6 +13,8 @@ type DemoEntry = {
   score: number | null;
   source: string | null;
   effectiveAt: string;
+  periodStart: string | null;
+  periodEnd: string | null;
   measurementStatus: MeasurementStatus;
   measurementNote: string;
   note: string;
@@ -50,6 +52,8 @@ export function FigmaIntakeDemo() {
   const [measurementStatuses, setMeasurementStatuses] = useState<Record<string, MeasurementStatus>>({});
   const [measurementNotes, setMeasurementNotes] = useState<Record<string, string>>({});
   const [sources, setSources] = useState<Record<string, string>>({});
+  const [periodStarts, setPeriodStarts] = useState<Record<string, string>>({});
+  const [periodEnds, setPeriodEnds] = useState<Record<string, string>>({});
   const [effectiveAt, setEffectiveAt] = useState("");
   const [entries, setEntries] = useState<DemoEntry[]>(() => loadDemoReviewRecords()
     .filter((record) => record.id.startsWith("field-"))
@@ -64,6 +68,8 @@ export function FigmaIntakeDemo() {
       score: record.score,
       source: record.source,
       effectiveAt: record.effectiveAt,
+      periodStart: record.periodStart,
+      periodEnd: record.periodEnd,
       measurementStatus: record.measurementStatus,
       measurementNote: record.measurementNote,
       note: record.note,
@@ -108,6 +114,14 @@ export function FigmaIntakeDemo() {
       setNotice("تاریخ سنجش یا اثر را تکمیل کنید.");
       return;
     }
+    if (entered.some((item) => {
+      const start = periodStarts[item.id] ?? "";
+      const end = periodEnds[item.id] ?? "";
+      return Boolean(start) !== Boolean(end) || Boolean(start && end && end < start);
+    })) {
+      setNotice("بازهٔ سنجش هر شاخص باید هر دو تاریخ را داشته باشد و تاریخ پایان پیش از شروع نباشد.");
+      return;
+    }
     const completed = entered.map((item, index) => {
       const measurementStatus = measurementStatuses[item.id] ?? "SCORED";
       return {
@@ -123,6 +137,8 @@ export function FigmaIntakeDemo() {
         measurementNote: measurementStatus === "SCORED" ? "" : measurementNotes[item.id].trim(),
         source: measurementStatus === "SCORED" ? sources[item.id] : null,
         effectiveAt,
+        periodStart: periodStarts[item.id] || null,
+        periodEnd: periodEnds[item.id] || null,
         note: "ثبت تازه از فرم مددکار؛ در انتظار بازبینی.",
         status: "PENDING" as const,
       };
@@ -141,6 +157,8 @@ export function FigmaIntakeDemo() {
       measurementNote: entry.measurementNote,
       source: entry.source,
       effectiveAt: entry.effectiveAt,
+      periodStart: entry.periodStart,
+      periodEnd: entry.periodEnd,
       submittedAt,
       status: "PENDING" as const,
       note: entry.note,
@@ -150,6 +168,8 @@ export function FigmaIntakeDemo() {
     setMeasurementStatuses({});
     setMeasurementNotes({});
     setSources({});
+    setPeriodStarts({});
+    setPeriodEnds({});
     setEffectiveAt("");
     setNotice("مقادیر و وضعیت‌های سنجش به صف بازبینی دمو افزوده شدند؛ به سرور ارسال نمی‌شوند.");
   }
@@ -160,7 +180,11 @@ export function FigmaIntakeDemo() {
     const score = Number(formData.get("score"));
     const source = String(formData.get("source") ?? "");
     const effectiveAt = String(formData.get("effectiveAt") ?? "");
-    if (!Number.isFinite(score) || score < 0 || score > 100 || !source || !effectiveAt) {
+    const periodStart = String(formData.get("periodStart") ?? "");
+    const periodEnd = String(formData.get("periodEnd") ?? "");
+    const hasPeriodStart = Boolean(periodStart);
+    const hasPeriodEnd = Boolean(periodEnd);
+    if (!Number.isFinite(score) || score < 0 || score > 100 || !source || !effectiveAt || hasPeriodStart !== hasPeriodEnd || (hasPeriodStart && hasPeriodEnd && periodEnd < periodStart)) {
       setNotice("مقدار، منبع و تاریخ اثر را بررسی کنید.");
       return;
     }
@@ -177,6 +201,8 @@ export function FigmaIntakeDemo() {
       measurementNote: "",
       source,
       effectiveAt,
+      periodStart: periodStart || null,
+      periodEnd: periodEnd || null,
       submittedAt: new Date().toISOString().slice(0, 10),
       status: "PENDING",
       note: `اصلاح‌شده بر اساس نظر بازبین: ${returned.note}`,
@@ -279,6 +305,15 @@ export function FigmaIntakeDemo() {
                       </select>
                     </label>
                   ) : null}
+                  <div className="fh-intake__period">
+                    <span>بازهٔ مورد سنجش (در صورت نیاز)</span>
+                    <label>از
+                      <input type="date" value={periodStarts[item.id] ?? ""} onChange={(event) => setPeriodStarts((current) => ({ ...current, [item.id]: event.target.value }))} />
+                    </label>
+                    <label>تا
+                      <input type="date" value={periodEnds[item.id] ?? ""} onChange={(event) => setPeriodEnds((current) => ({ ...current, [item.id]: event.target.value }))} />
+                    </label>
+                  </div>
                   <label className="fh-intake__score-row">
                     <span>مقدار ثبت‌شده</span>
                     <span className="fh-intake__number-wrap">
@@ -366,6 +401,12 @@ export function FigmaIntakeDemo() {
                     </label>
                     <label>تاریخ سنجش/اثر
                       <input name="effectiveAt" type="date" defaultValue={entry.effectiveAt} required />
+                    </label>
+                    <label>شروع بازهٔ سنجش (اختیاری)
+                      <input name="periodStart" type="date" defaultValue={entry.periodStart ?? ""} />
+                    </label>
+                    <label>پایان بازهٔ سنجش (اختیاری)
+                      <input name="periodEnd" type="date" defaultValue={entry.periodEnd ?? ""} />
                     </label>
                     <button type="submit">ارسال نسخهٔ اصلاح‌شده برای بازبینی</button>
                   </form>
