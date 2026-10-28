@@ -80,7 +80,7 @@ export function FigmaObservationReviewDemo() {
         {visible.map((record) => (
           <article className="fh-review__card" key={record.id}>
             <div className="fh-review__card-head">
-              <div><span>{record.group} · {groups.find((item) => item.id === record.group)?.name}</span><strong>{record.indicator}</strong></div>
+              <div><span>{record.group} · {groups.find((item) => item.id === record.group)?.name}</span><strong>{record.indicator}</strong><small>نسخهٔ شاخص {record.indicatorRevision} · {record.indicatorId}</small></div>
               <b className={`fh-review__status fh-review__status--${record.status.toLowerCase()}`}>{statusLabels[record.status]}</b>
             </div>
             <div className="fh-review__facts">
@@ -90,6 +90,7 @@ export function FigmaObservationReviewDemo() {
               <div><small>تاریخ اثر</small><strong>{record.effectiveAt}</strong></div>
               <div><small>تاریخ ثبت</small><strong>{record.submittedAt}</strong></div>
             </div>
+            <p className="fh-review__guidance">راهنمای ثبت در زمان ثبت: {record.indicatorGuidance}</p>
             <p className="fh-review__note">{record.note}</p>
             {record.status === "PENDING" ? (
               <div className="fh-review__actions">
