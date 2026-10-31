@@ -18,6 +18,11 @@ const measurementStatusLabels: Record<MeasurementStatus, string> = {
   NOT_APPLICABLE: "نامربوط",
 };
 
+function toPersianDigits(value: string): string {
+  const digits = "۰۱۲۳۴۵۶۷۸۹";
+  return value.replace(/[0-9]/g, (digit) => digits[Number(digit)]);
+}
+
 export function FigmaObservationReviewDemo() {
   const [records, setRecords] = useState<ReviewRecord[]>(loadDemoReviewRecords);
   const [status, setStatus] = useState<ReviewStatus | "ALL">("PENDING");
@@ -103,9 +108,9 @@ export function FigmaObservationReviewDemo() {
               <div><small>وضعیت سنجش</small><strong>{measurementStatusLabels[record.measurementStatus]}</strong></div>
               <div><small>منبع داده</small><strong>{record.source ?? "ثبت نشده"}</strong></div>
               <div><small>ارجاع مدرک</small><strong>{record.evidenceRef ?? "مرجع ثبت نشده"}</strong></div>
-              <div><small>تاریخ اثر</small><strong>{record.effectiveAt}</strong></div>
-              <div><small>بازهٔ سنجش</small><strong>{record.periodStart && record.periodEnd ? `${record.periodStart} تا ${record.periodEnd}` : "بازه ثبت نشده"}</strong></div>
-              <div><small>تاریخ ثبت</small><strong>{record.submittedAt}</strong></div>
+              <div><small>تاریخ اثر</small><strong>{toPersianDigits(record.effectiveAt)}</strong></div>
+              <div><small>بازهٔ سنجش</small><strong>{record.periodStart && record.periodEnd ? `${toPersianDigits(record.periodStart)} تا ${toPersianDigits(record.periodEnd)}` : "بازه ثبت نشده"}</strong></div>
+              <div><small>تاریخ ثبت</small><strong>{toPersianDigits(record.submittedAt)}</strong></div>
             </div>
             <div className="fh-review__rubric">
               <strong>قاعدهٔ سنجش · پیش‌نویس نسخهٔ {record.indicatorRevision}</strong>
