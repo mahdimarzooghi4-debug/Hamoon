@@ -198,7 +198,7 @@ export function FigmaIntakeDemo() {
         sourceOptionsSnapshot: item.evidenceSources,
         evidencePeriodGuidance: item.evidencePeriodGuidance,
         householdAggregationGuidance: item.householdAggregationGuidance,
-        score: measurementStatus === "SCORED" ? Number(values[item.id]) : null,
+        score: measurementStatus === "SCORED" ? Number(toAsciiDigits(values[item.id] ?? "")) : null,
         measurementStatus,
         measurementNote: measurementStatus === "SCORED" ? "" : measurementNotes[item.id].trim(),
         source: measurementStatus === "SCORED" ? sources[item.id] : null,
@@ -442,10 +442,16 @@ export function FigmaIntakeDemo() {
                   <div className="fh-intake__period">
                     <span>بازهٔ مورد سنجش (در صورت نیاز)</span>
                     <label>از
-                      <input lang="fa-IR" type="date" value={periodStarts[item.id] ?? ""} onChange={(event) => setPeriodStarts((current) => ({ ...current, [item.id]: event.target.value }))} />
+                      <span className="fh-intake__date-control">
+                        <input className="fh-intake__date-native" lang="fa-IR" type="date" value={periodStarts[item.id] ?? ""} aria-valuetext={toPersianDigits(periodStarts[item.id] ?? "")} onChange={(event) => setPeriodStarts((current) => ({ ...current, [item.id]: event.target.value }))} />
+                        <span className="fh-intake__date-display" aria-hidden="true">{periodStarts[item.id] ? toPersianDigits(periodStarts[item.id]) : "سال-ماه-روز"}</span>
+                      </span>
                     </label>
                     <label>تا
-                      <input lang="fa-IR" type="date" value={periodEnds[item.id] ?? ""} onChange={(event) => setPeriodEnds((current) => ({ ...current, [item.id]: event.target.value }))} />
+                      <span className="fh-intake__date-control">
+                        <input className="fh-intake__date-native" lang="fa-IR" type="date" value={periodEnds[item.id] ?? ""} aria-valuetext={toPersianDigits(periodEnds[item.id] ?? "")} onChange={(event) => setPeriodEnds((current) => ({ ...current, [item.id]: event.target.value }))} />
+                        <span className="fh-intake__date-display" aria-hidden="true">{periodEnds[item.id] ? toPersianDigits(periodEnds[item.id]) : "سال-ماه-روز"}</span>
+                      </span>
                     </label>
                   </div>
                   <label className="fh-intake__score-row">
@@ -454,6 +460,7 @@ export function FigmaIntakeDemo() {
                       <input
                         aria-label={`مقدار ${item.category}`}
                         type="text"
+                        pattern="[0-9۰-۹٠-٩]*"
                         min="0"
                         max="100"
                         step="1"
@@ -483,7 +490,10 @@ export function FigmaIntakeDemo() {
               </label>
               <label>
                 تاریخ سنجش/اثر
-                <input lang="fa-IR" required type="date" value={effectiveAt} onChange={(event) => setEffectiveAt(event.target.value)} />
+                <span className="fh-intake__date-control">
+                  <input className="fh-intake__date-native" lang="fa-IR" required type="date" value={effectiveAt} aria-valuetext={toPersianDigits(effectiveAt)} onChange={(event) => setEffectiveAt(event.target.value)} />
+                  <span className="fh-intake__date-display" aria-hidden="true">{effectiveAt ? toPersianDigits(effectiveAt) : "سال-ماه-روز"}</span>
+                </span>
               </label>
             </div>
             <button className="fh-intake__submit" type="submit">ثبت مقادیر نمونه برای بازبینی <span aria-hidden="true">←</span></button>
@@ -537,13 +547,22 @@ export function FigmaIntakeDemo() {
                       <input name="evidenceRef" type="text" maxLength={80} defaultValue={entry.evidenceRef ?? ""} placeholder="مثلاً DOC-1405-01" />
                     </label>
                     <label>تاریخ سنجش/اثر
-                      <input lang="fa-IR" name="effectiveAt" type="date" defaultValue={entry.effectiveAt} required />
+                      <span className="fh-intake__date-control">
+                        <input className="fh-intake__date-native" lang="fa-IR" name="effectiveAt" type="date" defaultValue={entry.effectiveAt} aria-valuetext={toPersianDigits(entry.effectiveAt)} required />
+                        <span className="fh-intake__date-display" aria-hidden="true">{toPersianDigits(entry.effectiveAt)}</span>
+                      </span>
                     </label>
                     <label>شروع بازهٔ سنجش (اختیاری)
-                      <input lang="fa-IR" name="periodStart" type="date" defaultValue={entry.periodStart ?? ""} />
+                      <span className="fh-intake__date-control">
+                        <input className="fh-intake__date-native" lang="fa-IR" name="periodStart" type="date" defaultValue={entry.periodStart ?? ""} aria-valuetext={toPersianDigits(entry.periodStart ?? "")} />
+                        <span className="fh-intake__date-display" aria-hidden="true">{entry.periodStart ? toPersianDigits(entry.periodStart) : "سال-ماه-روز"}</span>
+                      </span>
                     </label>
                     <label>پایان بازهٔ سنجش (اختیاری)
-                      <input lang="fa-IR" name="periodEnd" type="date" defaultValue={entry.periodEnd ?? ""} />
+                      <span className="fh-intake__date-control">
+                        <input className="fh-intake__date-native" lang="fa-IR" name="periodEnd" type="date" defaultValue={entry.periodEnd ?? ""} aria-valuetext={toPersianDigits(entry.periodEnd ?? "")} />
+                        <span className="fh-intake__date-display" aria-hidden="true">{entry.periodEnd ? toPersianDigits(entry.periodEnd) : "سال-ماه-روز"}</span>
+                      </span>
                     </label>
                     <button type="submit">ارسال نسخهٔ اصلاح‌شده برای بازبینی</button>
                   </form>
