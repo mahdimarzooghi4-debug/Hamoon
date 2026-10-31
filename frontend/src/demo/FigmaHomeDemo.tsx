@@ -96,8 +96,8 @@ export function FigmaHomeDemo() {
             <button className="fh-profile" type="button" aria-label="پروفایل نمایشی">
               <span className="fh-avatar">م</span><span className="fh-user__copy"><b>نام مددکار</b><small>مددکار پرونده</small></span><span className="fh-chevron">⌄</span>
             </button>
-            <button className="fh-icon-button" aria-label="تنظیمات" type="button"><UiIcon name="settings"/></button>
-            <button className="fh-icon-button fh-bell" aria-label="اعلان‌ها" type="button"><UiIcon name="bell"/><i/></button>
+            <button className="fh-icon-button" aria-label="تنظیمات نمایشی" onClick={() => setMessage("تنظیمات نمایشی · زبان فارسی · منطقه زمانی تهران · تغییرات ذخیره نمی‌شوند.")} type="button"><UiIcon name="settings"/></button>
+            <button className="fh-icon-button fh-bell" aria-label="اعلان‌های نمایشی" onClick={() => setMessage("اعلان‌های نمایشی · ۳ پرونده برای بازبینی · ۲ افت در تاب‌آوری · ۶ پیگیری با اولویت بالا")} type="button"><UiIcon name="bell"/><i/></button>
           </div>
           <div className="fh-brand">
             <span><b>هامون</b><small>ماشین توانمندسازی هوشمند</small></span><HamoonMark />
