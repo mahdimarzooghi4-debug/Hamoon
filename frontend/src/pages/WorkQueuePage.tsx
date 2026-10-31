@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "../api/client";
+import { AppLink, type AppPath } from "../app/navigation";
 import {
   claimWorkItem,
   getWorkQueue,
@@ -23,7 +24,8 @@ type QueueLoadState =
   | { kind: "error"; message: string }
   | { kind: "ready"; items: WorkItem[] };
 
-type Filter = "ALL" | WorkItemType;
+type TypeFilter = "ALL" | WorkItemType;
+type DateFilter = "TODAY" | "WEEK" | "ALL";
 
 const typeLabels: Record<WorkItemType, string> = {
   DIAGNOSIS_REVIEW: "بازبینی تشخیص",
@@ -37,29 +39,182 @@ const typeLabels: Record<WorkItemType, string> = {
   REASSESSMENT: "بازسنجی",
 };
 
-const persianDateTime = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+const dateTime = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
   dateStyle: "medium",
   timeStyle: "short",
 });
+const dateOnly = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+  dateStyle: "medium",
+});
 
 function dueLabel(value: string | null): string {
-  return value === null ? "بدون موعد" : persianDateTime.format(new Date(value));
+  if (value === null) return "بدون موعد";
+  const date = new Date(value);
+  return dateTime.format(date);
+}
+
+function isToday(value: string | null, now = new Date()): boolean {
+  if (value === null) return false;
+  const due = new Date(value);
+  return due.getFullYear() === now.getFullYear()
+    && due.getMonth() === now.getMonth()
+    && due.getDate() === now.getDate();
+}
+
+function isWithinWeek(value: string | null, now = new Date()): boolean {
+  if (value === null) return false;
+  const due = new Date(value);
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const end = start + 7 * 24 * 60 * 60 * 1000;
+  return due.getTime() >= start && due.getTime() < end;
 }
 
 function isOverdue(item: WorkItem): boolean {
   return item.is_overdue;
 }
 
-function priorityTone(priority: number): "danger" | "warning" | "neutral" {
-  if (priority >= 80) return "danger";
-  if (priority >= 50) return "warning";
-  return "neutral";
+function compareUrgency(a: WorkItem, b: WorkItem): number {
+  if (a.is_overdue !== b.is_overdue) return a.is_overdue ? -1 : 1;
+  if (a.priority !== b.priority) return b.priority - a.priority;
+  if (a.due_at === null) return 1;
+  if (b.due_at === null) return -1;
+  return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
+}
+
+function WorkItemRow({
+  item,
+  claiming,
+  onClaim,
+  onOpen,
+}: {
+  item: WorkItem;
+  claiming: boolean;
+  onClaim: (item: WorkItem) => void;
+  onOpen: (item: WorkItem) => void;
+}) {
+  return (
+    <article className={item.is_overdue ? "queue-row is-overdue" : "queue-row"}>
+      <div className="queue-row__identity">
+        <button className="queue-row__open" onClick={() => onOpen(item)} type="button">{item.title}</button>
+        <span className="ltr-value">{item.household_id}</span>
+      </div>
+      <div className="queue-row__description">
+        <Badge tone="accent">{typeLabels[item.work_type]}</Badge>
+        <p>{item.reason}</p>
+      </div>
+      <div className="queue-row__due">
+        <span>{item.is_overdue ? "عقب‌افتاده" : "موعد"}</span>
+        <strong>{item.due_at === null ? "بدون موعد" : dueLabel(item.due_at)}</strong>
+      </div>
+      <div className="queue-row__actions">
+        {item.status === "OPEN" ? (
+          <Button disabled={claiming} onClick={() => onClaim(item)}>
+            {claiming ? "در حال ثبت…" : "در اختیار گرفتن"}
+          </Button>
+        ) : (
+          <Badge tone="neutral">در حال رسیدگی</Badge>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function WorkItemDetail({
+  item,
+  claiming,
+  onClose,
+  onClaim,
+}: {
+  item: WorkItem;
+  claiming: boolean;
+  onClose: () => void;
+  onClaim: (item: WorkItem) => void;
+}) {
+  const householdPath = `/households/${encodeURIComponent(item.household_id)}` as AppPath;
+
+  return (
+    <div className="work-detail-backdrop">
+      <button className="work-detail-scrim" type="button" aria-label="بستن جزئیات" onClick={onClose} />
+      <section
+        className="work-detail-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="work-detail-title"
+      >
+        <header className="work-detail-header">
+          <div>
+            <Badge tone="accent">{typeLabels[item.work_type]}</Badge>
+            <h2 id="work-detail-title">{item.title}</h2>
+            <AppLink className="work-detail-household" to={householdPath}>
+              پرونده خانوار <span className="ltr-value">{item.household_id}</span>
+            </AppLink>
+          </div>
+          <button className="work-detail-close" type="button" aria-label="بستن جزئیات" onClick={onClose}>×</button>
+        </header>
+
+        <Panel>
+          <div className="section-heading">
+            <h3>چرا این اقدام ایجاد شده؟</h3>
+            <span aria-hidden="true">ⓘ</span>
+          </div>
+          <p className="work-detail-reason">{item.reason}</p>
+        </Panel>
+
+        <Panel>
+          <div className="section-heading">
+            <h3>اطلاعات اقدام</h3>
+            <Badge tone={item.status === "CLAIMED" ? "accent" : "neutral"}>
+              {item.status === "CLAIMED" ? "در حال رسیدگی" : "باز"}
+            </Badge>
+          </div>
+          <dl className="work-detail-facts">
+            <div>
+              <dt>اولویت ثبت‌شده</dt>
+              <dd>{item.priority.toLocaleString("fa-IR")}</dd>
+            </div>
+            <div>
+              <dt>موعد</dt>
+              <dd>{dueLabel(item.due_at)}</dd>
+            </div>
+            <div>
+              <dt>زمان ایجاد</dt>
+              <dd>{dateTime.format(new Date(item.created_at))}</dd>
+            </div>
+            <div>
+              <dt>زمان در اختیارگیری</dt>
+              <dd>{item.claimed_at ? dateTime.format(new Date(item.claimed_at)) : "هنوز در اختیار گرفته نشده"}</dd>
+            </div>
+            <div>
+              <dt>نسخه‌ی اقدام</dt>
+              <dd>{item.version.toLocaleString("fa-IR")}</dd>
+            </div>
+            <div>
+              <dt>وضعیت موعد</dt>
+              <dd>{item.is_overdue ? "عقب‌افتاده" : "عقب‌افتاده نیست"}</dd>
+            </div>
+          </dl>
+        </Panel>
+
+        <div className="work-detail-actions">
+          <AppLink className="hm-button hm-button--secondary" to={householdPath}>باز کردن پرونده</AppLink>
+          {item.status === "OPEN" ? (
+            <Button disabled={claiming} onClick={() => onClaim(item)}>
+              {claiming ? "در حال ثبت…" : "در اختیار گرفتن اقدام"}
+            </Button>
+          ) : null}
+        </div>
+      </section>
+    </div>
+  );
 }
 
 export function WorkQueuePage() {
   const [state, setState] = useState<QueueLoadState>({ kind: "loading" });
-  const [filter, setFilter] = useState<Filter>("ALL");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("ALL");
+  const [query, setQuery] = useState("");
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -80,19 +235,55 @@ export function WorkQueuePage() {
     void load();
   }, [load]);
 
-  const items = state.kind === "ready" ? state.items : [];
-  const filtered =
-    filter === "ALL" ? items : items.filter((item) => item.work_type === filter);
+  useEffect(() => {
+    if (selectedId === null) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setSelectedId(null);
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selectedId]);
 
+  const items = state.kind === "ready" ? state.items : [];
   const summary = useMemo(
     () => ({
       open: items.filter((item) => item.status === "OPEN").length,
       claimed: items.filter((item) => item.status === "CLAIMED").length,
       overdue: items.filter(isOverdue).length,
-      total: items.length,
+      today: items.filter((item) => isToday(item.due_at)).length,
     }),
     [items],
   );
+
+  const filtered = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase("fa-IR");
+    return items
+      .filter((item) => typeFilter === "ALL" || item.work_type === typeFilter)
+      .filter((item) => {
+        if (dateFilter === "TODAY") return isToday(item.due_at) || item.is_overdue;
+        if (dateFilter === "WEEK") return isWithinWeek(item.due_at) || item.is_overdue;
+        return true;
+      })
+      .filter((item) => !normalized || [
+        item.title,
+        item.reason,
+        item.household_id,
+        typeLabels[item.work_type],
+      ].some((value) => value.toLocaleLowerCase("fa-IR").includes(normalized)))
+      .sort(compareUrgency);
+  }, [dateFilter, items, query, typeFilter]);
+
+  const selectedItem = items.find((item) => item.id === selectedId) ?? null;
+  const openItems = filtered.filter((item) => item.status === "OPEN");
+  const claimedItems = filtered.filter((item) => item.status === "CLAIMED");
+  const overdueItems = items.filter(isOverdue).sort(compareUrgency);
+  const upcomingItems = items
+    .filter((item) => !item.is_overdue && item.due_at !== null && isWithinWeek(item.due_at))
+    .sort(compareUrgency);
+
+  function openItem(item: WorkItem) {
+    setSelectedId(item.id);
+  }
 
   async function claim(item: WorkItem) {
     setActionError(null);
@@ -111,9 +302,7 @@ export function WorkQueuePage() {
       );
     } catch (error: unknown) {
       if (error instanceof ApiError && error.status === 409) {
-        setActionError(
-          "این اقدام هم‌زمان تغییر کرده است. اطلاعات تازه بارگذاری شد؛ دوباره بررسی کنید.",
-        );
+        setActionError("این اقدام هم‌زمان تغییر کرده است. اطلاعات تازه بارگذاری شد؛ دوباره بررسی کنید.");
         await load();
       } else {
         setActionError("در اختیار گرفتن این اقدام انجام نشد.");
@@ -124,139 +313,177 @@ export function WorkQueuePage() {
   }
 
   return (
-    <div className="page-stack">
+    <div className="page-stack work-queue-page">
       <header className="page-heading">
         <div>
-          <span className="eyebrow">صف اقدام‌های مددکار</span>
-          <h1>کارتابل من</h1>
-          <p>فقط اقدام‌های باز و در حال رسیدگی که سامانه برای شما برگردانده است.</p>
+          <span className="eyebrow">اقدام‌ها، پیگیری‌ها و تصمیم‌های ارجاع‌شده</span>
+          <h1>کارتابل</h1>
+          <p>اقدام‌های مجاز برای شما، بر اساس داده‌ای که سامانه برمی‌گرداند.</p>
         </div>
         {state.kind === "ready" ? (
-          <Button variant="secondary" onClick={() => void load()}>
-            تازه‌سازی
-          </Button>
+          <Button variant="secondary" onClick={() => void load()}>تازه‌سازی</Button>
         ) : null}
       </header>
 
-      <section className="metric-grid">
-        <MetricCard label="همه اقدام‌ها" value={state.kind === "ready" ? summary.total : "—"} />
-        <MetricCard label="باز" value={state.kind === "ready" ? summary.open : "—"} />
-        <MetricCard
-          label="در حال رسیدگی"
-          value={state.kind === "ready" ? summary.claimed : "—"}
-        />
+      <section className="metric-grid work-queue-metrics" aria-label="خلاصه کارتابل">
+        <MetricCard label="اقدام امروز" value={state.kind === "ready" ? summary.today : "—"} />
         <MetricCard label="عقب‌افتاده" value={state.kind === "ready" ? summary.overdue : "—"} />
+        <MetricCard label="نیازمند اقدام" value={state.kind === "ready" ? summary.open : "—"} />
+        <MetricCard label="در حال رسیدگی" value={state.kind === "ready" ? summary.claimed : "—"} />
       </section>
 
-      <Panel>
-        <div className="filter-row" role="group" aria-label="فیلتر نوع اقدام">
-          {(
-            [
-              ["ALL", "همه"],
-              ["DIAGNOSIS_REVIEW", "تشخیص"],
-              ["PRESCRIPTION_REVIEW", "نسخه"],
-              ["REFERRAL_FOLLOWUP", "پیگیری ارجاع"],
-              ["REASSESSMENT_DUE", "بازسنجی"],
-              ["OUTCOME_REVIEW", "نتیجه"],
-              ["DATA_COMPLETION", "تکمیل داده"],
-              ["CONFLICT_RESOLUTION", "حل تعارض"],
-              ["AI_FALLBACK", "بررسی جایگزین"],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              className={filter === value ? "filter-chip is-active" : "filter-chip"}
-              key={value}
-              onClick={() => setFilter(value)}
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      {state.kind === "loading" ? <LoadingState label="در حال دریافت کارتابل…" /> : null}
+      {state.kind === "auth-required" ? (
+        <EmptyState
+          title="ورود سازمانی لازم است"
+          description="توکن دسترسی موجود نیست؛ کارتابل بدون احراز هویت داده‌ای نمایش نمی‌دهد."
+        />
+      ) : null}
+      {state.kind === "error" ? (
+        <ErrorState
+          description={state.message}
+          action={<Button variant="secondary" onClick={() => void load()}>تلاش دوباره</Button>}
+        />
+      ) : null}
 
-        {actionError ? (
-          <div className="inline-alert" role="alert">{actionError}</div>
-        ) : null}
-
-        {state.kind === "loading" ? <LoadingState /> : null}
-        {state.kind === "auth-required" ? (
-          <EmptyState
-            title="ورود سازمانی لازم است"
-            description="توکن دسترسی موجود نیست؛ کارتابل بدون احراز هویت داده‌ای نمایش نمی‌دهد."
-          />
-        ) : null}
-        {state.kind === "error" ? (
-          <ErrorState
-            description={state.message}
-            action={
-              <Button variant="secondary" onClick={() => void load()}>
-                تلاش دوباره
-              </Button>
-            }
-          />
-        ) : null}
-        {state.kind === "ready" && filtered.length === 0 ? (
-          <EmptyState
-            title="موردی در این فیلتر نیست"
-            description="فیلتر دیگری انتخاب کنید یا بعداً دوباره کارتابل را بررسی کنید."
-          />
-        ) : null}
-
-        {state.kind === "ready" && filtered.length > 0 ? (
-          <div className="work-list">
-            {filtered.map((item) => (
-              <article className="work-card" key={item.id}>
-                <div className="work-card__header">
-                  <div className="work-card__badges">
-                    <Badge tone={item.status === "CLAIMED" ? "accent" : "neutral"}>
-                      {item.status === "CLAIMED" ? "در حال رسیدگی" : "باز"}
-                    </Badge>
-                    <Badge tone={priorityTone(item.priority)}>
-                      اولویت {item.priority.toLocaleString("fa-IR")}
-                    </Badge>
-                    {isOverdue(item) ? <Badge tone="danger">عقب‌افتاده</Badge> : null}
-                  </div>
-                  <Badge tone="accent">{typeLabels[item.work_type]}</Badge>
-                </div>
-
-                <div className="work-card__body">
-                  <div>
-                    <h2>{item.title}</h2>
-                    <p>{item.reason}</p>
-                  </div>
-                  <dl className="work-card__meta">
-                    <div>
-                      <dt>موعد</dt>
-                      <dd>{dueLabel(item.due_at)}</dd>
-                    </div>
-                    <div>
-                      <dt>نسخه</dt>
-                      <dd>{item.version.toLocaleString("fa-IR")}</dd>
-                    </div>
-                    <div>
-                      <dt>شناسه خانوار</dt>
-                      <dd className="ltr-value">{item.household_id}</dd>
-                    </div>
-                  </dl>
-                </div>
-
-                <div className="work-card__actions">
-                  {item.status === "OPEN" ? (
-                    <Button
-                      disabled={claimingId === item.id}
-                      onClick={() => void claim(item)}
-                    >
-                      {claimingId === item.id ? "در حال ثبت…" : "در اختیار گرفتن"}
-                    </Button>
-                  ) : (
-                    <Button disabled>در اختیار شماست</Button>
-                  )}
-                </div>
-              </article>
-            ))}
+      {state.kind === "ready" ? (
+        <>
+          <div className="queue-toolbar">
+            <div className="filter-row" role="group" aria-label="بازه موعد">
+              {([
+                ["TODAY", "امروز"],
+                ["WEEK", "این هفته"],
+                ["ALL", "همه"],
+              ] as const).map(([value, label]) => (
+                <button
+                  className={dateFilter === value ? "filter-chip is-active" : "filter-chip"}
+                  key={value}
+                  onClick={() => setDateFilter(value)}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <label className="queue-search">
+              <span className="sr-only">جست‌وجو در کارتابل</span>
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="جست‌وجو در عنوان، پرونده یا توضیح"
+              />
+            </label>
+            <label className="queue-type-filter">
+              <span className="sr-only">فیلتر نوع اقدام</span>
+              <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as TypeFilter)}>
+                <option value="ALL">همه نوع‌ها</option>
+                {Object.entries(typeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
           </div>
-        ) : null}
-      </Panel>
+
+          {actionError ? <div className="inline-alert" role="alert">{actionError}</div> : null}
+
+          {filtered.length === 0 ? (
+            <EmptyState
+              title="موردی در این فیلتر نیست"
+              description="بازه، نوع اقدام یا عبارت جست‌وجو را تغییر دهید."
+            />
+          ) : (
+            <div className="queue-layout">
+              <div className="queue-main">
+                <Panel>
+                  <div className="section-heading">
+                    <div>
+                      <h2>نیازمند اقدام</h2>
+                      <p>اقدام‌های باز با ترتیب موعد و اولویت ثبت‌شده</p>
+                    </div>
+                    <Badge tone="accent">{openItems.length.toLocaleString("fa-IR")} مورد</Badge>
+                  </div>
+                  {openItems.length ? (
+                    <div className="queue-list">
+                      {openItems.map((item) => (
+                        <WorkItemRow key={item.id} item={item} claiming={claimingId === item.id} onClaim={claim} onOpen={openItem} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="queue-empty-note">اقدام بازی در این فیلتر وجود ندارد.</p>
+                  )}
+                </Panel>
+
+                <Panel>
+                  <div className="section-heading">
+                    <div>
+                      <h2>در حال رسیدگی</h2>
+                      <p>مواردی که وضعیت آن‌ها در سامانه «در حال رسیدگی» است</p>
+                    </div>
+                    <Badge tone="neutral">{claimedItems.length.toLocaleString("fa-IR")} مورد</Badge>
+                  </div>
+                  {claimedItems.length ? (
+                    <div className="queue-list">
+                      {claimedItems.map((item) => (
+                        <WorkItemRow key={item.id} item={item} claiming={false} onClaim={claim} onOpen={openItem} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="queue-empty-note">موردی با وضعیت در حال رسیدگی وجود ندارد.</p>
+                  )}
+                </Panel>
+              </div>
+
+              <aside className="queue-aside" aria-label="خلاصه موعدها">
+                <Panel>
+                  <div className="section-heading">
+                    <h2>عقب‌افتاده</h2>
+                    <Badge tone={overdueItems.length ? "warning" : "neutral"}>
+                      {overdueItems.length.toLocaleString("fa-IR")}
+                    </Badge>
+                  </div>
+                  {overdueItems.length ? (
+                    <ul className="queue-compact-list">
+                      {overdueItems.slice(0, 4).map((item) => (
+                        <li key={item.id}>
+                          <strong>{item.title}</strong>
+                          <span>{typeLabels[item.work_type]} · {dueLabel(item.due_at)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : <p className="queue-empty-note">اقدام عقب‌افتاده‌ای ثبت نشده است.</p>}
+                </Panel>
+
+                <Panel>
+                  <div className="section-heading">
+                    <h2>پیش رو</h2>
+                    <Badge tone="accent">{upcomingItems.length.toLocaleString("fa-IR")}</Badge>
+                  </div>
+                  {upcomingItems.length ? (
+                    <ul className="queue-compact-list">
+                      {upcomingItems.slice(0, 5).map((item) => (
+                        <li key={item.id}>
+                          <strong>{item.title}</strong>
+                          <span>{dateOnly.format(new Date(item.due_at!))}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : <p className="queue-empty-note">موعدی در هفت روز آینده ثبت نشده است.</p>}
+                </Panel>
+              </aside>
+            </div>
+          )}
+        </>
+      ) : null}
+
+      {selectedItem ? (
+        <WorkItemDetail
+          item={selectedItem}
+          claiming={claimingId === selectedItem.id}
+          onClose={() => setSelectedId(null)}
+          onClaim={claim}
+        />
+      ) : null}
     </div>
   );
 }

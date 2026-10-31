@@ -18,7 +18,7 @@ LABEL org.opencontainers.image.version="${HAMOON_APPLICATION_VERSION}" \
 
 RUN apk upgrade --no-cache
 
-COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf.template
 COPY frontend/docker-entrypoint.d/40-hamoon-runtime-config.sh /docker-entrypoint.d/40-hamoon-runtime-config.sh
 RUN chmod +x /docker-entrypoint.d/40-hamoon-runtime-config.sh
 COPY --from=build /app/dist /usr/share/nginx/html
