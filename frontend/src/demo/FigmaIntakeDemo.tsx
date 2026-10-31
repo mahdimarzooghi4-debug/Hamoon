@@ -56,6 +56,21 @@ const demoMembers = [
   { id: "member-03", label: "عضو نمونه ۳" },
 ];
 
+function toPersianDigits(value: string): string {
+  return value.replace(/[0-9٠-٩]/g, (digit) => {
+    const code = digit.charCodeAt(0);
+    const numeric = code >= 0x0660 && code <= 0x0669 ? code - 0x0660 : Number(digit);
+    return "۰۱۲۳۴۵۶۷۸۹"[numeric];
+  });
+}
+
+function toAsciiDigits(value: string): string {
+  return value.replace(/[۰-۹٠-٩]/g, (digit) => {
+    const code = digit.charCodeAt(0);
+    return String(code - (code >= 0x0660 && code <= 0x0669 ? 0x0660 : 0x06f0));
+  });
+}
+
 const summaries: Record<Group, string> = {
   P: "شاخص‌های مشارکت خانوار در فرایند تغییر",
   G: "شاخص‌های ظرفیت رشد خانوار",
@@ -132,7 +147,7 @@ export function FigmaIntakeDemo() {
     }
     const scored = entered.filter((item) => (measurementStatuses[item.id] ?? "SCORED") === "SCORED");
     if (scored.some((item) => {
-      const value = Number(values[item.id]);
+      const value = Number(toAsciiDigits(values[item.id] ?? ""));
       return values[item.id] === "" || !Number.isFinite(value) || value < 0 || value > 100;
     })) {
       setNotice("عدد هر شاخص قابل امتیازدهی باید بین ۰ تا ۱۰۰ باشد.");
@@ -245,7 +260,7 @@ export function FigmaIntakeDemo() {
   function resubmit(event: FormEvent<HTMLFormElement>, returned: DemoEntry) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const score = Number(formData.get("score"));
+    const score = Number(toAsciiDigits(String(formData.get("score") ?? "")));
     const source = String(formData.get("source") ?? "");
     const evidenceRef = String(formData.get("evidenceRef") ?? "").trim();
     const effectiveAt = String(formData.get("effectiveAt") ?? "");
@@ -427,10 +442,10 @@ export function FigmaIntakeDemo() {
                   <div className="fh-intake__period">
                     <span>بازهٔ مورد سنجش (در صورت نیاز)</span>
                     <label>از
-                      <input type="date" value={periodStarts[item.id] ?? ""} onChange={(event) => setPeriodStarts((current) => ({ ...current, [item.id]: event.target.value }))} />
+                      <input lang="fa-IR" type="date" value={periodStarts[item.id] ?? ""} onChange={(event) => setPeriodStarts((current) => ({ ...current, [item.id]: event.target.value }))} />
                     </label>
                     <label>تا
-                      <input type="date" value={periodEnds[item.id] ?? ""} onChange={(event) => setPeriodEnds((current) => ({ ...current, [item.id]: event.target.value }))} />
+                      <input lang="fa-IR" type="date" value={periodEnds[item.id] ?? ""} onChange={(event) => setPeriodEnds((current) => ({ ...current, [item.id]: event.target.value }))} />
                     </label>
                   </div>
                   <label className="fh-intake__score-row">
@@ -438,7 +453,7 @@ export function FigmaIntakeDemo() {
                     <span className="fh-intake__number-wrap">
                       <input
                         aria-label={`مقدار ${item.category}`}
-                        type="number"
+                        type="text"
                         min="0"
                         max="100"
                         step="1"
@@ -446,8 +461,8 @@ export function FigmaIntakeDemo() {
                         placeholder="۰ تا ۱۰۰"
                         disabled={(measurementStatuses[item.id] ?? "SCORED") !== "SCORED"}
                         required={(measurementStatuses[item.id] ?? "SCORED") === "SCORED"}
-                        value={values[item.id] ?? ""}
-                        onChange={(event) => setValues((current) => ({ ...current, [item.id]: event.target.value }))}
+                        value={toPersianDigits(values[item.id] ?? "")}
+                        onChange={(event) => setValues((current) => ({ ...current, [item.id]: toPersianDigits(event.target.value) }))}
                       />
                       <small>از ۱۰۰</small>
                     </span>
@@ -468,7 +483,7 @@ export function FigmaIntakeDemo() {
               </label>
               <label>
                 تاریخ سنجش/اثر
-                <input required type="date" value={effectiveAt} onChange={(event) => setEffectiveAt(event.target.value)} />
+                <input lang="fa-IR" required type="date" value={effectiveAt} onChange={(event) => setEffectiveAt(event.target.value)} />
               </label>
             </div>
             <button className="fh-intake__submit" type="submit">ثبت مقادیر نمونه برای بازبینی <span aria-hidden="true">←</span></button>
@@ -509,7 +524,7 @@ export function FigmaIntakeDemo() {
                 {entry.status === "RETURNED" ? (
                   <form className="fh-intake__correction" onSubmit={(event) => resubmit(event, entry)}>
                     <label>مقدار اصلاح‌شده
-                      <input name="score" type="number" min="0" max="100" step="1" defaultValue={entry.score ?? ""} required />
+                      <input name="score" type="text" inputMode="numeric" pattern="[0-9۰-۹٠-٩]*" min="0" max="100" step="1" defaultValue={toPersianDigits(String(entry.score ?? ""))} onChange={(event) => { event.currentTarget.value = toPersianDigits(event.currentTarget.value); }} required />
                     </label>
                     <label>منبع داده
                       <select name="source" defaultValue={entry.source ?? ""} required>
@@ -522,13 +537,13 @@ export function FigmaIntakeDemo() {
                       <input name="evidenceRef" type="text" maxLength={80} defaultValue={entry.evidenceRef ?? ""} placeholder="مثلاً DOC-1405-01" />
                     </label>
                     <label>تاریخ سنجش/اثر
-                      <input name="effectiveAt" type="date" defaultValue={entry.effectiveAt} required />
+                      <input lang="fa-IR" name="effectiveAt" type="date" defaultValue={entry.effectiveAt} required />
                     </label>
                     <label>شروع بازهٔ سنجش (اختیاری)
-                      <input name="periodStart" type="date" defaultValue={entry.periodStart ?? ""} />
+                      <input lang="fa-IR" name="periodStart" type="date" defaultValue={entry.periodStart ?? ""} />
                     </label>
                     <label>پایان بازهٔ سنجش (اختیاری)
-                      <input name="periodEnd" type="date" defaultValue={entry.periodEnd ?? ""} />
+                      <input lang="fa-IR" name="periodEnd" type="date" defaultValue={entry.periodEnd ?? ""} />
                     </label>
                     <button type="submit">ارسال نسخهٔ اصلاح‌شده برای بازبینی</button>
                   </form>
